@@ -97,13 +97,14 @@ class BriefAssignHistoryService
      *
      * @param int $briefId
      * @param int $perPage
+     * @param \App\Models\User|null $user
      * @return LengthAwarePaginator
      * @throws DomainException
      */
-    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10): LengthAwarePaginator
+    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?\App\Models\User $user = null): LengthAwarePaginator
     {
         try {
-            return $this->repository->getBriefAssignHistoriesByBriefId($briefId, $perPage);
+            return $this->repository->getBriefAssignHistoriesByBriefId($briefId, $perPage, $user);
         } catch (QueryException $e) {
             Log::error('Database error fetching assign histories by brief', ['brief_id' => $briefId, 'exception' => $e]);
             throw new DomainException('Database error while fetching assign histories.');

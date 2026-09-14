@@ -253,14 +253,15 @@ class BriefController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Authorization: Allow if Super Admin role OR created_by OR assigned_to
-            $isSuperAdmin = $user->hasRole('Super Admin');
+            // Authorization: Allow if Super Admin / Admin role OR has brief.view permission OR created_by OR assigned_to
+            $isSuperAdmin = $user->hasRole('Super Admin') || $user->hasRole('admin');
+            $hasViewPermission = $user->hasPermission('brief.view');
             $isCreatedBy = $user->id == $brief->created_by;
             $isAssignedTo = $user->id == $brief->assign_user_id;
 
-            if (!$isSuperAdmin && !$isCreatedBy && !$isAssignedTo) {
+            if (!$isSuperAdmin && !$hasViewPermission && !$isCreatedBy && !$isAssignedTo) {
                 return $this->responseService->forbidden(
-                    'You are not authorized to view this brief. Only Super Admin, the user who created this brief, or the user assigned to this brief can view it.'
+                    'You are not authorized to view this brief.'
                 );
             }
 

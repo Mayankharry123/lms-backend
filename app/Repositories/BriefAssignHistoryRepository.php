@@ -4,6 +4,8 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\BriefAssignHistoryRepositoryInterface;
 use App\Models\BriefAssignHistory;
+use App\Models\User;
+use App\Support\UserAccessScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterface
@@ -75,13 +77,25 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      *
      * @param int $briefId The brief ID.
      * @param int $perPage The number of items per page.
+     * @param User|null $user The authenticated user to scope visibility.
      * @return LengthAwarePaginator
      */
-    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10): LengthAwarePaginator
+    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?User $user = null): LengthAwarePaginator
     {
-        return $this->model->where('brief_id', $briefId)
-            ->with(['assignedBy', 'assignedTo', 'briefStatus'])
-            ->paginate($perPage);
+        $query = $this->model->where('brief_id', $briefId)
+            ->with(['assignedBy', 'assignedTo', 'briefStatus']);
+
+        $user = $user ?? auth()->user();
+
+        if ($user && !UserAccessScope::isSuperAdmin($user)) {
+            $descendantIds = UserAccessScope::getStrictDescendantIds($user);
+            $query->where(function ($q) use ($descendantIds) {
+                $q->whereIn('assign_to_id', $descendantIds)
+                  ->orWhereIn('assign_by_id', $descendantIds);
+            });
+        }
+
+        return $query->paginate($perPage);
     }
 
     /**

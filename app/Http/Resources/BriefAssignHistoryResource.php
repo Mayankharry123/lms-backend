@@ -22,18 +22,26 @@ class BriefAssignHistoryResource extends JsonResource
             'status' => $this->status,
 
             // Brief Information
-            'brief' => $this->when($this->brief, new BriefResource($this->brief)),
+            'brief' => $this->whenLoaded('brief', function () {
+                return $this->brief ? new BriefResource($this->brief) : null;
+            }),
             'brief_id' => $this->brief_id,
 
             // Assignment Information
-            'assigned_by' => new UserResource($this->whenLoaded('assignedBy')),
+            'assigned_by' => $this->whenLoaded('assignedBy', function () {
+                return $this->assignedBy ? new UserResource($this->assignedBy) : null;
+            }),
             'assign_by_id' => $this->assign_by_id,
 
-            'assigned_to' => new UserResource($this->whenLoaded('assignedTo')),
+            'assigned_to' => $this->whenLoaded('assignedTo', function () {
+                return $this->assignedTo ? new UserResource($this->assignedTo) : null;
+            }),
             'assign_to_id' => $this->assign_to_id,
 
             // Status Information
-            'brief_status' => new BriefStatusResource($this->whenLoaded('briefStatus')),
+            'brief_status' => $this->whenLoaded('briefStatus', function () {
+                return $this->briefStatus ? new BriefStatusResource($this->briefStatus) : null;
+            }),
             'brief_status_id' => $this->brief_status_id,
             'brief_status_time' => $this->brief_status_time ? $this->brief_status_time->format('d-m-Y H:i:s') : null,
 
@@ -43,8 +51,8 @@ class BriefAssignHistoryResource extends JsonResource
             'attachment' => $this->attachment,
 
             // Timestamps
-            'created_at' => $this->created_at->format('Y-m-d H:i:s A'),
-            'updated_at' => $this->updated_at->format('Y-m-d H:i:s A'),   
+            'created_at' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s A') : null,
+            'updated_at' => $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s A') : null,   
             //'deleted_at' => $this->deleted_at->toIso8601String(),
         ];
     }
