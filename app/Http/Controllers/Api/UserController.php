@@ -73,6 +73,24 @@ class UserController extends Controller
     /**
      * Get list of users with only id and name (e.g., /api/v1/users/list)
      */
+    /**
+     * Added users list API with support for department-based filtering
+     * using department IDs and slugs.
+     */
+
+    /**
+     * Added child planning users API to return the authenticated user's
+     * hierarchy filtered by the planning department.
+     */
+
+    /**
+     * Added helper methods to normalize department IDs and department slugs
+     * from multiple supported request parameter formats.
+     */
+
+    /**
+     * Added recursive child hierarchy builder with department filtering.
+     */
     public function list(Request $request): JsonResponse
     {
         try {

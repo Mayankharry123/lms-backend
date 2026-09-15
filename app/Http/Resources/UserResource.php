@@ -39,7 +39,11 @@ class UserResource extends BaseResource
                     ];
                 })->values();
             }),
-
+          
+            /**
+             * Added department details to the user response in a simplified
+             * departments_id and departments_name array format.
+             */
             'departments' => $this->whenLoaded('departments', function () {
                 return $this->departments->map(function ($department) {
                     return [

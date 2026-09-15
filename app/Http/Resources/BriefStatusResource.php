@@ -23,6 +23,9 @@ class BriefStatusResource extends JsonResource
             //'slug' => $this->slug,
             'status' => $this->status,
             // Timestamps
+            /**
+             * Updated brief status response and standardized timestamp formatting.
+             */
             'created_at' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s A') : null,
             'updated_at' => $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s A') : null,
         ];

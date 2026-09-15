@@ -107,7 +107,11 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
                   ->orWhere('phone', 'like', "%{$search}%");
             });
         }
-
+        
+        /**
+         * Added department-based filtering support using department IDs
+         * and department slugs, including multiple request parameter formats.
+         */
         $departmentIds = [];
         $departmentSlugs = [];
 

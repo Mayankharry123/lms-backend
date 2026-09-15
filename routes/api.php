@@ -75,6 +75,9 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     $router->group(['prefix' => 'profile', 'middleware' => 'permission:profile.read'], function () use ($router) {
         $router->get('/', 'Api\UserController@me');
         $router->get('login-history', 'Api\UserController@getLoginHistory');
+        /**
+         * Added API routes for user hierarchy and planning department users.
+         */
         $router->get('child-users', 'Api\UserController@getChildUsers');
         $router->get('child-planing-users', 'Api\UserController@getChildPlaningUsers');
         $router->get('child-users-by-organisation', 'Api\UserController@getChildUsersByOrganisation');

@@ -44,6 +44,11 @@ interface BriefAssignHistoryRepositoryInterface
      * @param \App\Models\User|null $user The user instance to scope visibility.
      * @return LengthAwarePaginator
      */
+
+    /**
+     * Added brief-wise assignment history retrieval with pagination
+     * and authenticated-user visibility scoping.
+     */
     public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?\App\Models\User $user = null): LengthAwarePaginator;
 
     /**

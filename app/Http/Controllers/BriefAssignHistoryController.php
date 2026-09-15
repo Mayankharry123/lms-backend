@@ -126,6 +126,10 @@ class BriefAssignHistoryController extends Controller
      * @param int $briefId
      * @return JsonResponse
      */
+    /**
+     * Updated brief assignment history API to apply authenticated-user
+     * visibility rules while retrieving assignment history.
+     */
     public function getByBriefId(int $briefId, Request $request): JsonResponse
     {
         try {

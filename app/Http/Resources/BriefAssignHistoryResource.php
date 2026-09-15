@@ -13,6 +13,10 @@ class BriefAssignHistoryResource extends JsonResource
      * @param Request $request
      * @return array<string, mixed>
      */
+    /**
+     * Updated assignment history response to include brief details,
+     * assigned-by/assigned-to users, brief status, IDs, and timestamps.
+     */
     public function toArray($request): array
     {
         return [

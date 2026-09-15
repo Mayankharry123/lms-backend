@@ -303,6 +303,10 @@ class BriefService
      * @param int|null $organisationId
      * @return int|null
      */
+    /**
+     * Added logic to resolve the top-level planner-admin user within the
+     * organisation hierarchy for brief assignment.
+     */
     public function resolveTopPlannerAdminUserId(?int $organisationId = null): ?int
     {
         $query = User::active()->whereHas('roles', function ($q) {
@@ -349,6 +353,10 @@ class BriefService
      * @param array $data
      * @return Brief
      * @throws DomainException
+     */
+    /**
+     * Updated brief creation to automatically assign the brief to the
+     * resolved top-level planner-admin when no assignee is provided.
      */
     public function createBrief(array $data): Brief
     {

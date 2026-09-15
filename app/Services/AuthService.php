@@ -84,6 +84,10 @@ class AuthService
             // Generate refresh token
             $refreshToken = Str::random(64);
             
+            /**
+             * Updated authenticated user loading to include departments along
+             * with roles and organisation relationships in authentication responses.
+             */
             // Save refresh token to database
             $user->refresh_token = $refreshToken;
             $user->save();

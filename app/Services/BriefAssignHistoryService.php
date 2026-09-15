@@ -101,6 +101,10 @@ class BriefAssignHistoryService
      * @return LengthAwarePaginator
      * @throws DomainException
      */
+    /**
+     * Added service-layer support for retrieving brief assignment histories
+     * with user visibility scope and database exception handling.
+     */
     public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?\App\Models\User $user = null): LengthAwarePaginator
     {
         try {

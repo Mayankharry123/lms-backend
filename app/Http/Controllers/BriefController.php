@@ -254,11 +254,21 @@ class BriefController extends Controller
             }
 
             // Authorization: Allow if Super Admin / Admin role OR has brief.view permission OR created_by OR assigned_to
+            /**
+             * Added brief view authorization for Super Admin/Admin, users with
+             * brief.view permission, brief creator, and assigned user.
+             */
+
             $isSuperAdmin = $user->hasRole('Super Admin') || $user->hasRole('admin');
             $hasViewPermission = $user->hasPermission('brief.view');
             $isCreatedBy = $user->id == $brief->created_by;
             $isAssignedTo = $user->id == $brief->assign_user_id;
 
+            /**
+             * Updated brief creation to always assign the brief to the
+             * top-level planner-admin user within the relevant organisation.
+             */
+            
             if (!$isSuperAdmin && !$hasViewPermission && !$isCreatedBy && !$isAssignedTo) {
                 return $this->responseService->forbidden(
                     'You are not authorized to view this brief.'

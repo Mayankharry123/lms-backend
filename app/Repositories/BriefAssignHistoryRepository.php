@@ -80,6 +80,12 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      * @param User|null $user The authenticated user to scope visibility.
      * @return LengthAwarePaginator
      */
+    /**
+     * Added brief-wise assignment history retrieval with pagination.
+     * Applied UserAccessScope to restrict history visibility to the
+     * authenticated user's accessible hierarchy, while allowing
+     * Super Admin users to view all histories.
+     */
     public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?User $user = null): LengthAwarePaginator
     {
         $query = $this->model->where('brief_id', $briefId)
