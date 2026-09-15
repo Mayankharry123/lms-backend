@@ -126,11 +126,16 @@ class BriefAssignHistoryController extends Controller
      * @param int $briefId
      * @return JsonResponse
      */
+    /**
+     * Updated brief assignment history API to apply authenticated-user
+     * visibility rules while retrieving assignment history.
+     */
     public function getByBriefId(int $briefId, Request $request): JsonResponse
     {
         try {
-            $perPage = $request->input('per_page', 10);
-            $briefAssignHistories = $this->briefAssignHistoryService->getBriefAssignHistoriesByBriefId($briefId, $perPage);
+            $perPage = (int) $request->input('per_page', 10);
+            $user = auth()->user();
+            $briefAssignHistories = $this->briefAssignHistoryService->getBriefAssignHistoriesByBriefId($briefId, $perPage, $user);
 
             return $this->responseService->success(
                 BriefAssignHistoryResource::collection($briefAssignHistories),

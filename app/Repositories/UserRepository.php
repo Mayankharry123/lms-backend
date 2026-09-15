@@ -107,19 +107,52 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
                   ->orWhere('phone', 'like', "%{$search}%");
             });
         }
+        
+        /**
+         * Added department-based filtering support using department IDs
+         * and department slugs, including multiple request parameter formats.
+         */
+        $departmentIds = [];
+        $departmentSlugs = [];
 
         foreach ($criteria as $field => $value) {
-            if ($field === 'search') {
-                // Already handled above
+            if ($field === 'search' || $value === null || $value === '') {
                 continue;
             } elseif ($field === 'role') {
                 // Handle role search through relationships
                 $query->whereHas('roles', function ($q) use ($value) {
                     $q->where('name', $value);
                 });
+            } elseif (in_array($field, ['departments_id', 'departments_ids', 'department_id', 'department_ids'], true)) {
+                $raw = is_string($value) ? explode(',', $value) : (array) $value;
+                $ids = array_values(array_filter(array_map('intval', $raw), fn($id) => $id > 0));
+                $departmentIds = array_merge($departmentIds, $ids);
+            } elseif (in_array($field, ['departments_slug', 'departments_slugs', 'department_slug', 'department_slugs'], true)) {
+                $raw = is_string($value) ? explode(',', $value) : (array) $value;
+                $slugs = array_values(array_filter(array_map('trim', $raw), fn($s) => $s !== ''));
+                $departmentSlugs = array_merge($departmentSlugs, $slugs);
+            } elseif (in_array($field, ['page', 'per_page'], true)) {
+                continue;
             } else {
                 $query->where($field, $value);
             }
+        }
+
+        if (!empty($departmentIds) || !empty($departmentSlugs)) {
+            $query->whereHas('departments', function ($q) use ($departmentIds, $departmentSlugs) {
+                $q->where(function ($subQ) use ($departmentIds, $departmentSlugs) {
+                    if (!empty($departmentIds)) {
+                        $subQ->whereIn('departments.id', array_unique($departmentIds));
+                    }
+                    if (!empty($departmentSlugs)) {
+                        if (!empty($departmentIds)) {
+                            $subQ->orWhereIn('departments.slug', array_unique($departmentSlugs));
+                        } else {
+                            $subQ->whereIn('departments.slug', array_unique($departmentSlugs));
+                        }
+                    }
+                });
+            });
         }
 
         $this->applyOrganisationValidation($query, auth()->user());

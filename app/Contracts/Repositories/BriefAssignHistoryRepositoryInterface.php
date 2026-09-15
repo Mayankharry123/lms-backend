@@ -41,9 +41,15 @@ interface BriefAssignHistoryRepositoryInterface
      *
      * @param int $briefId The brief ID.
      * @param int $perPage The number of items per page.
+     * @param \App\Models\User|null $user The user instance to scope visibility.
      * @return LengthAwarePaginator
      */
-    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10): LengthAwarePaginator;
+
+    /**
+     * Added brief-wise assignment history retrieval with pagination
+     * and authenticated-user visibility scoping.
+     */
+    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?\App\Models\User $user = null): LengthAwarePaginator;
 
     /**
      * Fetch all assign histories assigned by a specific user.

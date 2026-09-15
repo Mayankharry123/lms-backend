@@ -50,12 +50,9 @@ class UserController extends Controller
     {
         try {
             $perPage = (int) $request->get('per_page', 15);
-            $search = $request->input('search', null);
+            $criteria = $request->except(['per_page', 'page']);
             
-            if ($search) {
-                $criteria = [
-                    'search' => $search,
-                ];
+            if (!empty($criteria)) {
                 $users = $this->userService->searchUsers($criteria, $perPage);
             } else {
                 $users = $this->userService->getAllUsers($perPage);
@@ -76,10 +73,34 @@ class UserController extends Controller
     /**
      * Get list of users with only id and name (e.g., /api/v1/users/list)
      */
-    public function list(): JsonResponse
+    /**
+     * Added users list API with support for department-based filtering
+     * using department IDs and slugs.
+     */
+
+    /**
+     * Added child planning users API to return the authenticated user's
+     * hierarchy filtered by the planning department.
+     */
+
+    /**
+     * Added helper methods to normalize department IDs and department slugs
+     * from multiple supported request parameter formats.
+     */
+
+    /**
+     * Added recursive child hierarchy builder with department filtering.
+     */
+    public function list(Request $request): JsonResponse
     {
         try {
-            $users = $this->userService->getAllUsers(perPage: 10000);
+            $criteria = $request->except(['per_page', 'page']);
+            if (!empty($criteria)) {
+                $users = $this->userService->searchUsers($criteria, perPage: 10000);
+            } else {
+                $users = $this->userService->getAllUsers(perPage: 10000);
+            }
+
             $data = $users->items() ? collect($users->items())->map(function ($user) {
                 return [
                     'id' => $user->id,
@@ -385,6 +406,10 @@ class UserController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
+    /**
+     * Updated child-user hierarchy API to support optional filtering by
+     * department IDs and department slugs while preserving the nested hierarchy.
+     */
     public function getChildUsers(Request $request): JsonResponse
     {
         try {
@@ -394,8 +419,11 @@ class UserController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Get all descendants in nested tree format
-            $childTree = $this->buildChildTree($user);
+            $departmentIds = $this->extractDepartmentIds($request);
+            $departmentSlugs = $this->extractDepartmentSlugs($request);
+
+            // Get all descendants in nested tree format (optionally filtered by departments_id / departments_slug)
+            $childTree = $this->buildChildTree($user, $departmentIds, $departmentSlugs);
             
             return $this->responseService->success(
                 $childTree,
@@ -407,18 +435,149 @@ class UserController extends Controller
     }
 
     /**
-     * Build nested tree structure for children recursively
+     * Get child users list for the currently authenticated user filtered specifically by planning department
+     *
+     * @param Request $request
+     * @return JsonResponse
      */
-    private function buildChildTree($user): array
+    /**
+     * Added department ID filter normalization to support multiple request
+     * parameter formats and convert them into a validated integer array.
+     */
+    public function getChildPlaningUsers(Request $request): JsonResponse
     {
-        $children = $user->children()->select('users.id', 'users.name')->orderBy('users.name', 'asc')->get();
+        try {
+            $user = $request->user ?? auth()->user();
+            
+            if (!$user) {
+                return $this->responseService->unauthorized('User not authenticated');
+            }
+
+            $departmentIds = $this->extractDepartmentIds($request);
+            $departmentSlugs = $this->extractDepartmentSlugs($request);
+
+            if (empty($departmentSlugs) && empty($departmentIds)) {
+                $departmentSlugs = ['planing'];
+            }
+
+            // Get all descendants in nested tree format filtered by planning department
+            $childTree = $this->buildChildTree($user, $departmentIds, $departmentSlugs);
+            
+            return $this->responseService->success(
+                $childTree,
+                'Child planing users hierarchy retrieved successfully'
+            );
+        } catch (\Exception $e) {
+            return $this->responseService->serverError('Failed to retrieve child planing users: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Extract department IDs from request
+     *
+     * @param Request $request
+     * @return array
+     */
+    /**
+     * Added department ID filter normalization to support multiple request
+     * parameter formats and convert them into a validated integer array.
+     */
+
+    protected function extractDepartmentIds(Request $request): array
+    {
+        $raw = $request->input('departments_id')
+            ?? $request->input('departments_ids')
+            ?? $request->input('department_id')
+            ?? $request->input('department_ids');
+
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+
+        if (!is_array($raw)) {
+            $raw = [$raw];
+        }
+
+        return array_values(array_filter(array_map('intval', $raw), fn($id) => $id > 0));
+    }
+
+    /**
+     * Extract department slugs from request
+     *
+     * @param Request $request
+     * @return array
+     */
+    /**
+     * Added department slug filter normalization to support multiple request
+     * parameter formats and convert them into a cleaned slug array.
+     */
+    protected function extractDepartmentSlugs(Request $request): array
+    {
+        $raw = $request->input('departments_slug')
+            ?? $request->input('departments_slugs')
+            ?? $request->input('department_slug')
+            ?? $request->input('department_slugs');
+
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+
+        if (!is_array($raw)) {
+            $raw = [$raw];
+        }
+
+        return array_values(array_filter(array_map('trim', $raw), fn($slug) => $slug !== ''));
+    }
+
+    /**
+     * Build nested tree structure for children recursively
+     *
+     * @param \App\Models\User $user
+     * @param array $departmentIds
+     * @param array $departmentSlugs
+     * @return array
+     */
+    /**
+     * Added recursive child-user hierarchy builder with optional department
+     * ID/slug filtering at each hierarchy level.
+     */
+    private function buildChildTree($user, array $departmentIds = [], array $departmentSlugs = []): array
+    {
+        $query = $user->children()->select('users.id', 'users.name');
+
+        if (!empty($departmentIds) || !empty($departmentSlugs)) {
+            $query->whereHas('departments', function ($q) use ($departmentIds, $departmentSlugs) {
+                $q->where(function ($subQ) use ($departmentIds, $departmentSlugs) {
+                    if (!empty($departmentIds)) {
+                        $subQ->whereIn('departments.id', $departmentIds);
+                    }
+                    if (!empty($departmentSlugs)) {
+                        if (!empty($departmentIds)) {
+                            $subQ->orWhereIn('departments.slug', $departmentSlugs);
+                        } else {
+                            $subQ->whereIn('departments.slug', $departmentSlugs);
+                        }
+                    }
+                });
+            });
+        }
+
+        $children = $query->orderBy('users.name', 'asc')->get();
         
         $tree = [];
         foreach ($children as $child) {
             $tree[] = [
                 'id' => $child->id,
                 'name' => $child->name,
-                'children' => $this->buildChildTree($child)
+                'children' => $this->buildChildTree($child, $departmentIds, $departmentSlugs)
             ];
         }
         

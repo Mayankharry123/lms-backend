@@ -253,14 +253,25 @@ class BriefController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Authorization: Allow if Super Admin role OR created_by OR assigned_to
-            $isSuperAdmin = $user->hasRole('Super Admin');
+            // Authorization: Allow if Super Admin / Admin role OR has brief.view permission OR created_by OR assigned_to
+            /**
+             * Added brief view authorization for Super Admin/Admin, users with
+             * brief.view permission, brief creator, and assigned user.
+             */
+
+            $isSuperAdmin = $user->hasRole('Super Admin') || $user->hasRole('admin');
+            $hasViewPermission = $user->hasPermission('brief.view');
             $isCreatedBy = $user->id == $brief->created_by;
             $isAssignedTo = $user->id == $brief->assign_user_id;
 
-            if (!$isSuperAdmin && !$isCreatedBy && !$isAssignedTo) {
+            /**
+             * Updated brief creation to always assign the brief to the
+             * top-level planner-admin user within the relevant organisation.
+             */
+            
+            if (!$isSuperAdmin && !$hasViewPermission && !$isCreatedBy && !$isAssignedTo) {
                 return $this->responseService->forbidden(
-                    'You are not authorized to view this brief. Only Super Admin, the user who created this brief, or the user assigned to this brief can view it.'
+                    'You are not authorized to view this brief.'
                 );
             }
 
@@ -353,7 +364,29 @@ class BriefController extends Controller
                 }
             }
 
+            // Always assign to top-level person in the hierarchy whose slug is planner-admin
+            $organisationId = null;
+            if (!empty($data['contact_person_id'])) {
+                $lead = \App\Models\Lead::find($data['contact_person_id']);
+                if ($lead) {
+                    $organisationId = $lead->organisation_id;
+                }
+            }
+            $topPlannerAdminId = $this->briefService->resolveTopPlannerAdminUserId($organisationId);
+            if ($topPlannerAdminId) {
+                $data['assign_user_id'] = $topPlannerAdminId;
+            }
+
             $brief = $this->briefService->createBrief($data);
+            $brief->load([
+                'contactPerson.organisation',
+                'brand',
+                'agency',
+                'assignedUser',
+                'createdByUser',
+                'briefStatus',
+                'priority',
+            ]);
 
             return $this->responseService->success(
                 new BriefResource($brief),
