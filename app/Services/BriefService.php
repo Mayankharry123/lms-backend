@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Contracts\Repositories\BriefRepositoryInterface;
 use App\Models\Brief;
+use App\Models\User;
+use App\Support\UserAccessScope;
 use DomainException;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -296,6 +298,52 @@ class BriefService
     // ============================================================================
 
     /**
+     * Resolve the top-level user ID in the hierarchy with role slug 'planner-admin'.
+     *
+     * @param int|null $organisationId
+     * @return int|null
+     */
+    public function resolveTopPlannerAdminUserId(?int $organisationId = null): ?int
+    {
+        $query = User::active()->whereHas('roles', function ($q) {
+            $q->where('slug', 'planner-admin');
+        });
+
+        if ($organisationId) {
+            $orgQuery = (clone $query)->where(function ($q) use ($organisationId) {
+                $q->where('organisation_id', $organisationId)
+                  ->orWhereHas('organisations', function ($oq) use ($organisationId) {
+                      $oq->where('organisations.id', $organisationId);
+                  });
+            });
+            $orgAdmins = $orgQuery->get();
+            $plannerAdmins = $orgAdmins->isNotEmpty() ? $orgAdmins : $query->get();
+        } else {
+            $plannerAdmins = $query->get();
+        }
+
+        if ($plannerAdmins->isEmpty()) {
+            return null;
+        }
+
+        if ($plannerAdmins->count() === 1) {
+            return (int) $plannerAdmins->first()->id;
+        }
+
+        $adminIds = $plannerAdmins->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+
+        foreach ($plannerAdmins as $admin) {
+            $ancestorIds = UserAccessScope::getAncestorIds($admin);
+            $plannerAdminAncestors = array_intersect($ancestorIds, $adminIds);
+            if (empty($plannerAdminAncestors)) {
+                return (int) $admin->id;
+            }
+        }
+
+        return (int) $plannerAdmins->first()->id;
+    }
+
+    /**
      * Create a new brief.
      *
      * @param array $data
@@ -305,6 +353,11 @@ class BriefService
     public function createBrief(array $data): Brief
     {
         try {
+            // Always ensure assign_user_id is resolved to top planner-admin in the hierarchy
+            if (empty($data['assign_user_id'])) {
+                $data['assign_user_id'] = $this->resolveTopPlannerAdminUserId();
+            }
+
             $brief = $this->briefRepository->createBrief($data);
 
             // If assign_user_id is set, fire the assignment event to create notification

@@ -354,7 +354,29 @@ class BriefController extends Controller
                 }
             }
 
+            // Always assign to top-level person in the hierarchy whose slug is planner-admin
+            $organisationId = null;
+            if (!empty($data['contact_person_id'])) {
+                $lead = \App\Models\Lead::find($data['contact_person_id']);
+                if ($lead) {
+                    $organisationId = $lead->organisation_id;
+                }
+            }
+            $topPlannerAdminId = $this->briefService->resolveTopPlannerAdminUserId($organisationId);
+            if ($topPlannerAdminId) {
+                $data['assign_user_id'] = $topPlannerAdminId;
+            }
+
             $brief = $this->briefService->createBrief($data);
+            $brief->load([
+                'contactPerson.organisation',
+                'brand',
+                'agency',
+                'assignedUser',
+                'createdByUser',
+                'briefStatus',
+                'priority',
+            ]);
 
             return $this->responseService->success(
                 new BriefResource($brief),

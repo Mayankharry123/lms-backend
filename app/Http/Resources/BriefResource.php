@@ -24,6 +24,7 @@ class BriefResource extends JsonResource
             'mode_of_campaign' => $this->mode_of_campaign,
             'media_type' => $this->media_type,
             'budget' => $this->budget,
+            'assign_user_id' => $this->assign_user_id,
             'comment' => $this->comment,
             'attachment' => $this->attachment,
             'submission_date' => $this->formatSubmissionDate(),
