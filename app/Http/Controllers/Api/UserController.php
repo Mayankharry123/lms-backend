@@ -406,6 +406,10 @@ class UserController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
+    /**
+     * Updated child-user hierarchy API to support optional filtering by
+     * department IDs and department slugs while preserving the nested hierarchy.
+     */
     public function getChildUsers(Request $request): JsonResponse
     {
         try {
@@ -435,6 +439,10 @@ class UserController extends Controller
      *
      * @param Request $request
      * @return JsonResponse
+     */
+    /**
+     * Added department ID filter normalization to support multiple request
+     * parameter formats and convert them into a validated integer array.
      */
     public function getChildPlaningUsers(Request $request): JsonResponse
     {
@@ -470,6 +478,11 @@ class UserController extends Controller
      * @param Request $request
      * @return array
      */
+    /**
+     * Added department ID filter normalization to support multiple request
+     * parameter formats and convert them into a validated integer array.
+     */
+
     protected function extractDepartmentIds(Request $request): array
     {
         $raw = $request->input('departments_id')
@@ -497,6 +510,10 @@ class UserController extends Controller
      *
      * @param Request $request
      * @return array
+     */
+    /**
+     * Added department slug filter normalization to support multiple request
+     * parameter formats and convert them into a cleaned slug array.
      */
     protected function extractDepartmentSlugs(Request $request): array
     {
@@ -527,6 +544,10 @@ class UserController extends Controller
      * @param array $departmentIds
      * @param array $departmentSlugs
      * @return array
+     */
+    /**
+     * Added recursive child-user hierarchy builder with optional department
+     * ID/slug filtering at each hierarchy level.
      */
     private function buildChildTree($user, array $departmentIds = [], array $departmentSlugs = []): array
     {
