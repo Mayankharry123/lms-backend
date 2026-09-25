@@ -7,6 +7,7 @@ use App\Models\BriefAssignHistory;
 use App\Models\User;
 use App\Support\UserAccessScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterface
 {
@@ -130,5 +131,74 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
         return $this->model->where('assign_to_id', $userId)
             ->with(['brief', 'assignedBy', 'briefStatus'])
             ->paginate($perPage);
+    }
+
+    /**
+     * Assignment rows for one brief, oldest first.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBrief(int $briefId): Collection
+    {
+        return $this->model->newQuery()
+            ->with(['assignedTo:id,name'])
+            ->where('brief_id', $briefId)
+            ->where('status', '!=', '15')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Assignment rows for many briefs, oldest first within each brief.
+     *
+     * @param array<int, int> $briefIds
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBriefs(array $briefIds): Collection
+    {
+        if ($briefIds === []) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model->newQuery()
+            ->whereIn('brief_id', $briefIds)
+            ->where('status', '!=', '15')
+            ->orderBy('brief_id')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Assignment rows for every brief that was assigned to the user.
+     *
+     * @param int $userId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForUserCycles(int $userId): Collection
+    {
+        $briefIds = $this->model->newQuery()
+            ->where('assign_to_id', $userId)
+            ->where('status', '!=', '15')
+            ->whereHas('brief', function ($query) {
+                $query->where('status', '!=', '15');
+            })
+            ->distinct()
+            ->pluck('brief_id');
+
+        if ($briefIds->isEmpty()) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model->newQuery()
+            ->with(['assignedTo:id,name', 'brief:id,name'])
+            ->whereIn('brief_id', $briefIds)
+            ->where('status', '!=', '15')
+            ->orderBy('brief_id')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
     }
 }

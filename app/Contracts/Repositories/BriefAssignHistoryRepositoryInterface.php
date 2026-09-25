@@ -4,6 +4,7 @@ namespace App\Contracts\Repositories;
 
 use App\Models\BriefAssignHistory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 interface BriefAssignHistoryRepositoryInterface
 {
@@ -68,4 +69,34 @@ interface BriefAssignHistoryRepositoryInterface
      * @return LengthAwarePaginator
      */
     public function getBriefAssignHistoriesByAssignTo(int $userId, int $perPage = 10): LengthAwarePaginator;
+
+    /**
+     * Assignment rows for one brief, oldest first.
+     * Excludes soft-deleted and status 15 rows. Status 2 is included because
+     * brief updates store assignment history as inactive snapshots.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBrief(int $briefId): Collection;
+
+    /**
+     * Assignment rows for many briefs, oldest first within each brief.
+     * Excludes soft-deleted and status 15 rows. Status 2 is included because
+     * brief updates store assignment history as inactive snapshots.
+     *
+     * @param array<int, int> $briefIds
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBriefs(array $briefIds): Collection;
+
+    /**
+     * Assignment rows for every brief that was assigned to the user.
+     * Includes later assignees so each cycle window can end at the next assignment.
+     * Excludes soft-deleted rows, status 15 rows, and deleted briefs.
+     *
+     * @param int $userId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForUserCycles(int $userId): Collection;
 }

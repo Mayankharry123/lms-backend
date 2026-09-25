@@ -73,4 +73,33 @@ class EloquentCityRepository implements CityRepositoryInterface
         // Model doesn't use SoftDeletes, so this will be a HARD delete
         return $city->delete(); 
     }
+
+    /**
+     * Find cities by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        $normalized = [];
+        foreach ($names as $name) {
+            $value = mb_strtolower(trim((string) $name));
+            if ($value !== '') {
+                $normalized[$value] = $value;
+            }
+        }
+        $normalized = array_values($normalized);
+
+        if ($normalized === []) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model
+            ->whereRaw(
+                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
+                $normalized
+            )
+            ->get(['id', 'name', 'state_id', 'country_id']);
+    }
 }

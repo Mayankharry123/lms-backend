@@ -524,6 +524,10 @@ class LeadRepository implements LeadRepositoryInterface
                     $isFirst = false;
                 }
             }
+
+            if ($this->shouldRecordCreatedLeadHistory($lead)) {
+                $this->saveLeadHistory($lead, !empty($lead->call_status));
+            }
             
             return $lead;
         } catch (DomainException $e) {
@@ -627,10 +631,16 @@ class LeadRepository implements LeadRepositoryInterface
                 unset($data['call_status_id']);
             }
             
-            // Save history before update (captures old data)
-            $this->saveLeadHistory($lead);
-            
+            $shouldRecordHistory = $this->hasStatusOrCommentChange($lead, $data);
+            $callStatusChanged = array_key_exists('call_status', $data)
+                && $this->historyValuesDiffer($data['call_status'] ?? null, $lead->call_status);
+
             $result = $lead->update($data);
+
+            if ($shouldRecordHistory && $result) {
+                $lead->refresh();
+                $this->saveLeadHistory($lead, $callStatusChanged);
+            }
             
             // Update mobile numbers if provided
             if ($mobileNumbers !== null && !empty($mobileNumbers)) {
@@ -655,6 +665,77 @@ class LeadRepository implements LeadRepositoryInterface
             Log::error('Unexpected error updating lead', ['id' => $id, 'data' => $data, 'exception' => $e]);
             throw new DomainException('Unexpected error while updating lead.');
         }
+    }
+
+    /**
+     * Update only lead activity fields (comment and call_status) and record history.
+     *
+     * @param int $id
+     * @param array<string, mixed> $data
+     * @return array{lead: Lead, history: LeadAssignHistory}
+     */
+    public function updateLeadActivity(int $id, array $data): array
+    {
+        try {
+            $lead = $this->model->findOrFail($id);
+
+            $payload = [
+                'comment' => $data['comment'],
+                'call_status' => $data['call_status_id'],
+            ];
+
+            $callStatusChanged = $this->historyValuesDiffer($payload['call_status'], $lead->call_status);
+
+            $lead->update($payload);
+            $lead->refresh();
+
+            $history = $this->saveLeadHistory($lead, $callStatusChanged, $this->reminderPayload($data), false);
+            if (!$history) {
+                throw new DomainException('Unable to save lead activity.');
+            }
+
+            $lead->load(['callStatusRelation', 'leadStatusRelation']);
+
+            return [
+                'lead' => $lead,
+                'history' => $history,
+            ];
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error updating lead activity', ['id' => $id, 'data' => $data, 'exception' => $e]);
+            throw new DomainException('Database error while updating lead activity.');
+        } catch (DomainException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            Log::error('Unexpected error updating lead activity', ['id' => $id, 'data' => $data, 'exception' => $e]);
+            throw new DomainException('Unexpected error while updating lead activity.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array{reminder: bool, reminder_at: mixed, reminder_before: mixed, reminder_before_unit: mixed}
+     */
+    private function reminderPayload(array $data): array
+    {
+        $enabled = filter_var($data['reminder'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (!$enabled) {
+            return [
+                'reminder' => false,
+                'reminder_at' => null,
+                'reminder_before' => null,
+                'reminder_before_unit' => null,
+            ];
+        }
+
+        return [
+            'reminder' => true,
+            'reminder_at' => $data['reminder_at'] ?? null,
+            'reminder_before' => $data['reminder_before'] ?? null,
+            'reminder_before_unit' => $data['reminder_before_unit'] ?? null,
+        ];
     }
 
     /**
@@ -922,13 +1003,120 @@ class LeadRepository implements LeadRepositoryInterface
     }
 
     /**
+     * Fetch all leads assigned to a specific user with performance relations.
+     *
+     * @param int $userId
+     * @return Collection
+     */
+    public function getUserLeadPerformance(int $userId, array $filters = []): Collection
+    {
+        $notTrashed = static fn (string $table) => static fn ($query) => $query->whereNull($table . '.deleted_at');
+
+        $query = $this->model
+            ->with([
+                'callStatusRelation' => $notTrashed('call_statuses'),
+                'leadStatusRelation' => $notTrashed('statuses'),
+                'priority' => $notTrashed('priorities'),
+            ])
+            ->where('current_assign_user', $userId);
+
+        $this->applyIdFilter($query, 'call_status', $filters['call_status'] ?? null);
+        $this->applyIdFilter($query, 'lead_status', $filters['lead_status'] ?? null);
+        $this->applyIdFilter($query, 'priority_id', $filters['priority_id'] ?? null);
+
+        return $query->orderBy('id', 'asc')->get();
+    }
+
+    /**
+     * Fetch assign-history comments for a lead in pages of 9.
+     *
+     * @param int $leadId
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getAssignHistoryByLeadId(int $leadId, int $perPage = 9): LengthAwarePaginator
+    {
+        return LeadAssignHistory::query()
+            ->with(['currentUser:id,name'])
+            ->where('lead_id', $leadId)
+            ->orderByDesc('id')
+            ->paginate($perPage, ['id', 'current_user_id', 'lead_comment']);
+    }
+
+    /**
+     * Whether create should write a lead_assign_histories row.
+     */
+    private function shouldRecordCreatedLeadHistory(Lead $lead): bool
+    {
+        return $this->normalizeHistoryValue($lead->comment) !== ''
+            || !empty($lead->call_status)
+            || !empty($lead->lead_status)
+            || $this->normalizeHistoryValue($lead->status) !== '1';
+    }
+
+    /**
+     * Whether the update payload changes status (enum / call / lead) or comment.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function hasStatusOrCommentChange(Lead $lead, array $data): bool
+    {
+        if (array_key_exists('comment', $data)
+            && $this->historyValuesDiffer($data['comment'] ?? null, $lead->comment)
+        ) {
+            return true;
+        }
+
+        if (array_key_exists('status', $data)
+            && $this->historyValuesDiffer($data['status'] ?? null, $lead->status)
+        ) {
+            return true;
+        }
+
+        if (array_key_exists('call_status', $data)
+            && $this->historyValuesDiffer($data['call_status'] ?? null, $lead->call_status)
+        ) {
+            return true;
+        }
+
+        if (array_key_exists('lead_status', $data)
+            && $this->historyValuesDiffer($data['lead_status'] ?? null, $lead->lead_status)
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function historyValuesDiffer(mixed $left, mixed $right): bool
+    {
+        return $this->normalizeHistoryValue($left) !== $this->normalizeHistoryValue($right);
+    }
+
+    private function normalizeHistoryValue(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        return trim((string) $value);
+    }
+
+    /**
      * Save lead update history to lead_assign_histories table.
      *
      * @param Lead $lead
-     * @return void
+     * @param bool $touchCallStatusTime When false (comment-only), do not reset the 1-hour call-status lock.
+     * @param array<string, mixed> $reminder
+     * @param bool $failSilently
+     * @return LeadAssignHistory|null
      */
-    private function saveLeadHistory(Lead $lead): void
-    {
+    private function saveLeadHistory(
+        Lead $lead,
+        bool $touchCallStatusTime = true,
+        array $reminder = [],
+        bool $failSilently = true
+    ): ?LeadAssignHistory {
         try {
             // Get current authenticated user
             $currentUserId = Auth::check() ? Auth::id() : null;
@@ -984,17 +1172,23 @@ class LeadRepository implements LeadRepositoryInterface
                 $meetingDateTime = $meeting->meeting_date;
             }
 
+            $reminderEnabled = filter_var($reminder['reminder'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
             // Create history record
-            LeadAssignHistory::create([
+            $history = LeadAssignHistory::create([
                 'uuid' => Str::uuid(),
                 'lead_id' => $lead->id,
-                'assign_user_id' => $lead->current_assign_user,
+                'assign_user_id' => $lead->current_assign_user ?? $currentUserId ?? $lead->created_by,
                 'current_user_id' => $currentUserId,
                 'priority_id' => $lead->priority_id,
                 'lead_status_id' => $lead->lead_status,
                 'call_status_id' => $lead->call_status,
-                'last_call_status_date_time' => now(),
+                'last_call_status_date_time' => $touchCallStatusTime ? now() : null,
                 'lead_comment' => $lead->comment,
+                'reminder' => $reminderEnabled,
+                'reminder_at' => $reminderEnabled ? ($reminder['reminder_at'] ?? null) : null,
+                'reminder_before' => $reminderEnabled ? ($reminder['reminder_before'] ?? null) : null,
+                'reminder_before_unit' => $reminderEnabled ? ($reminder['reminder_before_unit'] ?? null) : null,
                 'meeting_date' => $meeting?->meeting_date,
                 'meeting_time' => $meeting?->meeting_time,
                 'status' => $lead->status,
@@ -1004,13 +1198,20 @@ class LeadRepository implements LeadRepositoryInterface
                 'lead_id' => $lead->id,
                 'meeting_date_time' => $meetingDateTime,
             ]);
+
+            return $history;
         } catch (Exception $e) {
-            // Log error but don't throw to prevent breaking the update operation
             Log::warning('Failed to record lead history', [
                 'lead_id' => $lead->id,
                 'exception' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            if (!$failSilently) {
+                throw $e;
+            }
+
+            return null;
         }
     }
 

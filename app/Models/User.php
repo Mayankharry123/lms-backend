@@ -166,16 +166,61 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     /**
      * Build nested tree structure for children recursively filtered by organisation
      * 
-     * @param int $organisationId
+     * @param int|array<int> $organisationId
+     * @param array<int> $zoneIds
+     * @param array<int, string> $excludedRoleSlugs Role slugs omitted at every level. Their children are omitted too.
      * @return array
      */
-    public function getChildTreeByOrganisation($organisationId): array
+    public function getChildTreeByOrganisation($organisationId, array $leadFilters = [], array $zoneIds = [], array $excludedRoleSlugs = []): array
     {
+        $organisationIds = is_array($organisationId) ? $organisationId : [$organisationId];
+        $excludedRoleSlugs = array_values(array_filter($excludedRoleSlugs, fn ($slug) => is_string($slug) && $slug !== ''));
+
         $children = $this->children()
-            ->whereHas('organisations', function($query) use ($organisationId) {
-                $query->where('organisations.id', $organisationId);
+            ->when($excludedRoleSlugs !== [], function ($query) use ($excludedRoleSlugs) {
+                $query->whereDoesntHave('roles', function ($roleQuery) use ($excludedRoleSlugs) {
+                    $roleQuery->whereIn('roles.slug', $excludedRoleSlugs);
+                });
             })
-            ->select('users.id', 'users.name')
+            ->when(!empty($organisationIds) || !empty($zoneIds), function ($query) use ($organisationIds, $zoneIds) {
+                if (!empty($organisationIds)) {
+                    $query->where(function ($organisationQuery) use ($organisationIds) {
+                        $organisationQuery->whereIn('users.organisation_id', $organisationIds)
+                            ->orWhereHas('organisations', function ($pivotQuery) use ($organisationIds) {
+                                $pivotQuery->whereIn('organisations.id', $organisationIds);
+                            });
+                    });
+                }
+
+                if (!empty($zoneIds)) {
+                    $query->where(function ($zoneQuery) use ($zoneIds) {
+                        $zoneQuery->whereIn('users.zone_id', $zoneIds)
+                            ->orWhereHas('zones', function ($pivotQuery) use ($zoneIds) {
+                                $pivotQuery->whereIn('zones.id', $zoneIds);
+                            });
+                    });
+                }
+            })
+            ->when(!empty($leadFilters['name']), function ($query) use ($leadFilters) {
+                $query->where('users.name', 'LIKE', '%' . $leadFilters['name'] . '%');
+            })
+            ->select('users.id', 'users.name', 'users.email')
+            ->withCount(['assignedLeads as assigned_leads_count' => function ($query) use ($leadFilters) {
+                foreach (['call_status', 'lead_status', 'priority'] as $column) {
+                    if (!array_key_exists($column, $leadFilters) || $leadFilters[$column] === null || $leadFilters[$column] === '') {
+                        continue;
+                    }
+
+                    $values = is_array($leadFilters[$column])
+                        ? $leadFilters[$column]
+                        : explode(',', (string) $leadFilters[$column]);
+                    $values = array_values(array_filter(array_map('intval', $values), fn ($value) => $value > 0));
+
+                    if ($values !== []) {
+                        $query->whereIn($column === 'priority' ? 'priority_id' : $column, $values);
+                    }
+                }
+            }])
             ->orderBy('users.name', 'asc')
             ->get();
         
@@ -184,7 +229,9 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
             $tree[] = [
                 'id' => $child->id,
                 'name' => $child->name,
-                'children' => $child->getChildTreeByOrganisation($organisationId)
+                'email' => $child->email,
+                'assigned_leads_count' => $child->assigned_leads_count,
+                'children' => $child->getChildTreeByOrganisation($organisationIds, $leadFilters, $zoneIds, $excludedRoleSlugs)
             ];
         }
         
@@ -202,8 +249,11 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function getChildTreeByOrganisationAndDepartmentSlug($organisationId, $departmentSlug = 'planner'): array
     {
         $children = $this->children()
-            ->whereHas('organisations', function($query) use ($organisationId) {
-                $query->where('organisations.id', $organisationId);
+            ->where(function ($query) use ($organisationId) {
+                $query->where('users.organisation_id', $organisationId)
+                    ->orWhereHas('organisations', function ($organisationQuery) use ($organisationId) {
+                        $organisationQuery->where('organisations.id', $organisationId);
+                    });
             })
             ->whereHas('departments', function($query) use ($departmentSlug) {
                 $query->where('departments.slug', $departmentSlug);
@@ -250,6 +300,22 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     }
 
     /**
+     * Leads currently assigned to this user.
+     */
+    public function assignedLeads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'current_assign_user');
+    }
+
+    /**
+     * Briefs currently assigned to this user.
+     */
+    public function assignedBriefs(): HasMany
+    {
+        return $this->hasMany(Brief::class, 'assign_user_id');
+    }
+
+    /**
      * Departments assigned to this user.
      */
     public function departments(): BelongsToMany
@@ -290,6 +356,15 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class);
+    }
+
+    /**
+     * Zones assigned to this user.
+     */
+    public function zones(): BelongsToMany
+    {
+        return $this->belongsToMany(Zone::class, 'zone_user', 'user_id', 'zone_id')
+            ->withTimestamps();
     }
 
     /**

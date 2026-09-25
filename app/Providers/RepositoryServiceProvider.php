@@ -199,6 +199,11 @@ class RepositoryServiceProvider extends ServiceProvider
         );
 
         $this->app->bind(
+            \App\Contracts\Repositories\BrandImportRepositoryInterface::class,
+            \App\Repositories\BrandImportRepository::class
+        );
+
+        $this->app->bind(
             RegionRepositoryInterface::class,
             RegionRepository::class
         );

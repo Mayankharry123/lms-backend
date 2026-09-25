@@ -57,5 +57,34 @@ class EloquentCountryRepository implements CountryRepositoryInterface
         // This will be a HARD delete since model doesn't use SoftDeletes
         return $country->delete(); 
     }
+
+    /**
+     * Find countries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        $normalized = [];
+        foreach ($names as $name) {
+            $value = mb_strtolower(trim((string) $name));
+            if ($value !== '') {
+                $normalized[$value] = $value;
+            }
+        }
+        $normalized = array_values($normalized);
+
+        if ($normalized === []) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model
+            ->whereRaw(
+                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
+                $normalized
+            )
+            ->get(['id', 'name']);
+    }
 }
 

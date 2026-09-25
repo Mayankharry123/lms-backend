@@ -131,4 +131,43 @@ class PlannerHistoryRepository extends BaseRepository implements PlannerHistoryR
     {
         return PlannerHistory::create($data);
     }
+
+    /**
+     * Planner history rows for a brief that store a submitted_plan value.
+     *
+     * @param int $briefId
+     * @return Collection<int, PlannerHistory>
+     */
+    public function getSubmittedPlanHistoriesForBrief(int $briefId): Collection
+    {
+        return PlannerHistory::query()
+            ->where('brief_id', $briefId)
+            ->where('status', '!=', '15')
+            ->whereNotNull('submitted_plan')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Submitted-plan history rows for many briefs, oldest first within each brief.
+     *
+     * @param array<int, int> $briefIds
+     * @return Collection<int, PlannerHistory>
+     */
+    public function getSubmittedPlanHistoriesForBriefs(array $briefIds): Collection
+    {
+        if ($briefIds === []) {
+            return new Collection();
+        }
+
+        return PlannerHistory::query()
+            ->whereIn('brief_id', $briefIds)
+            ->where('status', '!=', '15')
+            ->whereNotNull('submitted_plan')
+            ->orderBy('brief_id')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+    }
 }

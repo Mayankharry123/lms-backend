@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use DomainException;
 use Exception;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class BrandRepository implements BrandRepositoryInterface
@@ -88,6 +89,68 @@ class BrandRepository implements BrandRepositoryInterface
             ->orderBy('created_at', 'desc')
             ->paginate($perPage)
             ->appends(request()->query());
+    }
+
+    /**
+     * Check whether a non-deleted brand already exists with the given name.
+     *
+     * @param string $name
+     * @return bool
+     */
+    public function nameExists(string $name): bool
+    {
+        $normalized = mb_strtolower(trim($name));
+        if ($normalized === '') {
+            return false;
+        }
+
+        return $this->model
+            ->whereRaw('LOWER(name) = ?', [$normalized])
+            ->whereNull('deleted_at')
+            ->exists();
+    }
+
+    /**
+     * Return existing non-deleted brand names (lowercased) for the given list.
+     *
+     * @param array<int, string> $names
+     * @return array<int, string>
+     */
+    public function findExistingNames(array $names): array
+    {
+        $normalized = $this->normalizeNameList($names);
+        if ($normalized === []) {
+            return [];
+        }
+
+        return $this->model
+            ->whereNull('deleted_at')
+            ->whereRaw(
+                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
+                $normalized
+            )
+            ->pluck('name')
+            ->map(fn ($name) => mb_strtolower(trim((string) $name)))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param array<int, string> $names
+     * @return array<int, string>
+     */
+    private function normalizeNameList(array $names): array
+    {
+        $normalized = [];
+        foreach ($names as $name) {
+            $value = mb_strtolower(trim((string) $name));
+            if ($value !== '') {
+                $normalized[$value] = $value;
+            }
+        }
+
+        return array_values($normalized);
     }
 
     /**
@@ -220,5 +283,111 @@ class BrandRepository implements BrandRepositoryInterface
     {
         $brand = $this->model->findOrFail($id);
         return $brand->delete();
+    }
+
+    /**
+     * Return existing non-deleted brands for the given names.
+     *
+     * @param array<int, string> $names
+     * @return Collection
+     */
+    public function findByNames(array $names): Collection
+    {
+        $normalized = $this->normalizeNameList($names);
+        if ($normalized === []) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model
+            ->whereNull('deleted_at')
+            ->whereRaw(
+                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
+                $normalized
+            )
+            ->get(['id', 'name', 'slug']);
+    }
+
+    /**
+     * Return brands matching the given slugs.
+     *
+     * @param array<int, string> $slugs
+     * @return Collection
+     */
+    public function findBySlugs(array $slugs): Collection
+    {
+        $slugs = array_values(array_filter(array_map(static fn ($slug) => trim((string) $slug), $slugs)));
+        if ($slugs === []) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model
+            ->whereIn('slug', $slugs)
+            ->get(['id', 'name', 'slug']);
+    }
+
+    /**
+     * Insert multiple brand rows in a single query.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return void
+     */
+    public function insertBatch(array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $this->model->newQuery()->insert($rows);
+    }
+
+    /**
+     * Update multiple brand rows by primary key.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return void
+     */
+    public function updateBatch(array $rows): void
+    {
+        foreach ($rows as $row) {
+            if (empty($row['id'])) {
+                continue;
+            }
+
+            $id = (int) $row['id'];
+            unset($row['id']);
+            if ($row === []) {
+                continue;
+            }
+
+            $this->model->newQuery()->where('id', $id)->update($row);
+        }
+    }
+
+    /**
+     * Attach an agency to many brands.
+     *
+     * @param array<int, int> $brandIds
+     * @param int $agencyId
+     * @return void
+     */
+    public function attachAgencyToBrands(array $brandIds, int $agencyId): void
+    {
+        $brandIds = array_values(array_unique(array_filter($brandIds)));
+        if ($brandIds === []) {
+            return;
+        }
+
+        $now = now();
+        $rows = [];
+        foreach ($brandIds as $brandId) {
+            $rows[] = [
+                'brand_id' => (int) $brandId,
+                'agency_id' => $agencyId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        DB::table('brand_agency_relationships')->insert($rows);
     }
 }

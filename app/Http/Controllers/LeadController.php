@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\LeadActivityResource;
+use App\Http\Resources\LeadAssignHistoryResource;
 use App\Http\Resources\LeadResource;
+use App\Http\Resources\UserLeadPerformanceResource;
 use App\Models\Lead;
 use App\Services\LeadService;
 use App\Services\ResponseService;
@@ -15,6 +18,7 @@ use DomainException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Validator;
 
 class LeadController extends Controller
 {
@@ -444,7 +448,7 @@ class LeadController extends Controller
     /**
      * Update the specified lead in storage.
      *
-     * PUT /leads/{id}
+     * POST|PUT|PATCH /leads/{id}
      *
      * @param Request $request
      * @param int $id
@@ -832,6 +836,78 @@ class LeadController extends Controller
     }
 
     /**
+     * Update lead activity fields (comment, call_status_id, and optional reminder).
+     *
+     * POST /leads/{id}/activity
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function updateActivity(Request $request, int $id): JsonResponse
+    {
+        try {
+            if ($request->exists('reminder')) {
+                $request->merge([
+                    'reminder' => $this->normalizeBooleanInput($request->input('reminder')),
+                ]);
+            }
+
+            $reminderEnabled = filter_var($request->input('reminder', false), FILTER_VALIDATE_BOOLEAN);
+
+            $validated = $this->validate($request, [
+                'call_status_id' => 'required|integer|exists:call_statuses,id',
+                'comment' => 'required|string|max:1000',
+                'reminder' => 'sometimes|nullable|boolean',
+                'reminder_at' => ($reminderEnabled ? 'required' : 'nullable') . '|date',
+                'reminder_before' => ($reminderEnabled ? 'required' : 'nullable') . '|integer|min:1',
+                'reminder_before_unit' => ($reminderEnabled ? 'required' : 'nullable') . '|in:minutes,hours,days',
+            ]);
+
+            unset($validated['lead_id']);
+
+            $validated['reminder'] = $reminderEnabled;
+            if (!$reminderEnabled) {
+                $validated['reminder_at'] = null;
+                $validated['reminder_before'] = null;
+                $validated['reminder_before_unit'] = null;
+            }
+
+            $result = $this->leadService->updateLeadActivity($id, $validated);
+
+            return $this->responseService->success(
+                new LeadActivityResource($result['lead'], $result['history']),
+                'Lead activity saved successfully.'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->responseService->notFound('Lead not found');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Accept JSON booleans and form-data strings such as "false" / "true".
+     */
+    private function normalizeBooleanInput(mixed $value): mixed
+    {
+        if (is_bool($value) || $value === 0 || $value === 1 || $value === '0' || $value === '1') {
+            return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+            if (in_array($normalized, ['true', 'false', 'yes', 'no', 'on', 'off'], true)) {
+                return filter_var($normalized, FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+
+        return $value;
+    }
+
+    /**
      * Remove call status from lead.
      *
      * DELETE /leads/{id}/call-status/{callStatusId}
@@ -1056,6 +1132,62 @@ class LeadController extends Controller
     }
 
     /**
+     * Get lead assign history comments by lead ID.
+     *
+     * GET /leads/{lead_id}/assign-history
+     *
+     * @param mixed $lead_id
+     * @return JsonResponse
+     */
+    public function assignHistory($lead_id): JsonResponse
+    {
+        try {
+            $validator = Validator::make(
+                ['lead_id' => $lead_id],
+                [
+                    'lead_id' => [
+                        'required',
+                        'integer',
+                        'min:1',
+                        Rule::exists('leads', 'id')->whereNull('deleted_at'),
+                    ],
+                ],
+                [
+                    'lead_id.required' => 'The lead id field is required.',
+                    'lead_id.integer' => 'The lead id must be an integer.',
+                    'lead_id.min' => 'The lead id must be at least 1.',
+                    'lead_id.exists' => 'The selected lead does not exist.',
+                ]
+            );
+
+            if ($validator->fails()) {
+                return $this->responseService->validationError(
+                    $validator->errors()->toArray(),
+                    'Validation failed'
+                );
+            }
+
+            $history = $this->leadService->getAssignHistoryByLeadId((int) $lead_id);
+
+            return $this->responseService->paginated(
+                LeadAssignHistoryResource::collection($history),
+                $history->total() === 0
+                    ? 'No assign history found for this lead.'
+                    : 'Lead assign history retrieved successfully.'
+            );
+        } catch (DomainException $e) {
+            return $this->responseService->error($e->getMessage(), ['status' => 404]);
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError(
+                $e->errors(),
+                'Validation failed'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
      * Get all pending leads.
      *
      * GET /leads/pending
@@ -1113,4 +1245,56 @@ class LeadController extends Controller
         }
     }
 
+    /**
+     * Get lead performance data for a specific assigned user.
+     *
+     * GET /leads/user-performance/{user_id}
+     *
+     * @param mixed $user_id
+     * @return JsonResponse
+     */
+    public function userPerformance(Request $request, $user_id): JsonResponse
+    {
+        try {
+            $validator = Validator::make(
+                ['user_id' => $user_id],
+                [
+                    'user_id' => 'required|integer|min:1|exists:users,id',
+                ],
+                [
+                    'user_id.required' => 'The user id field is required.',
+                    'user_id.integer' => 'The user id must be an integer.',
+                    'user_id.min' => 'The user id must be at least 1.',
+                    'user_id.exists' => 'The selected user does not exist.',
+                ]
+            );
+
+            if ($validator->fails()) {
+                return $this->responseService->validationError(
+                    $validator->errors()->toArray(),
+                    'Validation failed'
+                );
+            }
+
+            $filters = [
+                'call_status' => $this->parseOptionalIdFilter($request, 'call_status'),
+                'lead_status' => $this->parseOptionalIdFilter($request, 'lead_status'),
+                'priority_id' => $this->parseOptionalIdFilter(
+                    $request,
+                    $request->filled('priority') ? 'priority' : 'priority_id'
+                ),
+            ];
+
+            $leads = $this->leadService->getUserLeadPerformance((int) $user_id, $filters);
+
+            return $this->responseService->success(
+                UserLeadPerformanceResource::collection($leads),
+                'User lead performance retrieved successfully.'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
 }

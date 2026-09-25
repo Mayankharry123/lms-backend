@@ -47,3 +47,30 @@ $router->get('/storage/{path:.*}', function ($path) {
         'Cache-Control' => 'public, max-age=31536000',
     ]);
 });
+
+$router->get('/exports/brands/{filename}', function ($filename) {
+    $filename = basename(str_replace(['..', '\\'], ['', '/'], (string) $filename));
+
+    if (!preg_match('/^brand_import_failed_[A-Za-z0-9._-]+\.xlsx$/', $filename)) {
+        return response('File not found', 404);
+    }
+
+    $basePath = base_path('writable/exports/brands');
+    $fullPath = $basePath . DIRECTORY_SEPARATOR . $filename;
+
+    if (!is_file($fullPath)) {
+        return response('File not found', 404);
+    }
+
+    $realBase = realpath($basePath);
+    $realFull = realpath($fullPath);
+
+    if (!$realBase || !$realFull || !str_starts_with($realFull, $realBase)) {
+        return response('File not found', 404);
+    }
+
+    return response()->download($realFull, $filename, [
+        'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Cache-Control' => 'no-store, no-cache, must-revalidate',
+    ]);
+});

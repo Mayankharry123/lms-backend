@@ -32,6 +32,10 @@ class LeadAssignHistory extends Model
         'call_status_id',
         'last_call_status_date_time',
         'lead_comment',
+        'reminder',
+        'reminder_at',
+        'reminder_before',
+        'reminder_before_unit',
         'meeting_date',
         'meeting_time',
         'status',
@@ -48,6 +52,9 @@ class LeadAssignHistory extends Model
         'deleted_at' => 'datetime',
         'meeting_date' => 'date',
         'last_call_status_date_time' => 'datetime',
+        'reminder' => 'boolean',
+        'reminder_at' => 'datetime',
+        'reminder_before' => 'integer',
     ];
 
     /**

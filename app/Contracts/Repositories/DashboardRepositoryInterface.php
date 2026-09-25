@@ -73,11 +73,12 @@ interface DashboardRepositoryInterface
     public function getPlannerOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array;
 
     /**
-     * Calculate the overall average days from planner assignment to submission.
+     * Brief ids for the planner chart, grouped by the contact person's organisation.
+     * Uses the same brief filters as the organisation chart rows.
      *
      * @param array $filters The filters to apply.
      * @param User|null $user The authenticated user.
-     * @return float
+     * @return array<int, array<int, int>>
      */
-    public function getOverallAssignmentDays(array $filters, ?User $user): float;
+    public function getBriefIdsByOrganisation(array $filters, ?User $user): array;
 }

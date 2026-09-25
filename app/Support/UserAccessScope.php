@@ -80,8 +80,9 @@ class UserAccessScope
         }
 
         if (!empty($requested)) {
-            $allowed = array_values(array_intersect($requested, $accessible));
-            $filters['organisation_ids'] = !empty($allowed) ? $allowed : $accessible;
+            $filters['organisation_ids'] = empty($accessible)
+                ? []
+                : array_values(array_intersect($requested, $accessible));
         } else {
             $filters['organisation_ids'] = $accessible;
         }

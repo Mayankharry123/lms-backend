@@ -4,13 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\UserService;
+use App\Services\BriefService;
+use App\Services\LeadService;
+use App\Services\OrganisationService;
 use App\Services\ResponseService;
 use App\Http\Resources\UserResource;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+use App\Models\Lead;
+use App\Models\User;
+use App\Models\Zone;
 
 class UserController extends Controller
 {
@@ -29,15 +37,41 @@ class UserController extends Controller
     protected $responseService;
 
     /**
+     * @var OrganisationService
+     */
+    protected OrganisationService $organisationService;
+
+    /**
+     * @var BriefService
+     */
+    protected BriefService $briefService;
+
+    /**
+     * @var LeadService
+     */
+    protected LeadService $leadService;
+
+    /**
      * Constructor
      *
      * @param UserService $userService
      * @param ResponseService $responseService
+     * @param OrganisationService $organisationService
+     * @param BriefService $briefService
+     * @param LeadService $leadService
      */
-    public function __construct(UserService $userService, ResponseService $responseService)
-    {
+    public function __construct(
+        UserService $userService,
+        ResponseService $responseService,
+        OrganisationService $organisationService,
+        BriefService $briefService,
+        LeadService $leadService
+    ) {
         $this->userService = $userService;
         $this->responseService = $responseService;
+        $this->organisationService = $organisationService;
+        $this->briefService = $briefService;
+        $this->leadService = $leadService;
     }
 
     /**
@@ -160,7 +194,10 @@ class UserController extends Controller
                 'organisation_id' => 'required_without:organisation_ids|nullable|integer|exists:organisations,id',
                 'organisation_ids' => 'required_without:organisation_id|nullable|array|min:1',
                 'organisation_ids.*' => 'integer|exists:organisations,id',
-                'zone_id' => 'required|integer|exists:zones,id',
+                'zone_id' => 'required_without:zone_ids|nullable',
+                'zone_id.*' => 'integer|exists:zones,id',
+                'zone_ids' => 'nullable|array|min:1',
+                'zone_ids.*' => 'integer|exists:zones,id',
                 'department_ids' => 'nullable|array',
                 'department_ids.*' => 'integer|exists:departments,id',
             ];
@@ -402,6 +439,78 @@ class UserController extends Controller
     }
 
     /**
+     * Get zone-wise assigned lead counts for an organisation.
+     */
+    public function getOrganisationZone(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user ?? auth()->user();
+
+            if (!$user) {
+                return $this->responseService->unauthorized('User not authenticated');
+            }
+
+            $organisationId = $request->input('organisation_id') ?? $user->organisation_id;
+            if (!$organisationId) {
+                return $this->responseService->validationError([
+                    'organisation_id' => ['Organisation ID is required'],
+                ]);
+            }
+
+            $organisationIds = is_array($organisationId)
+                ? $organisationId
+                : explode(',', (string) $organisationId);
+            $organisationIds = array_values(array_filter(
+                array_unique(array_map('intval', $organisationIds)),
+                fn ($id) => $id > 0
+            ));
+
+            $organisationUserIds = User::query()
+                ->where(function ($query) use ($organisationIds) {
+                    $query->whereIn('organisation_id', $organisationIds)
+                        ->orWhereHas('organisations', function ($organisationQuery) use ($organisationIds) {
+                            $organisationQuery->whereIn('organisations.id', $organisationIds);
+                        });
+                })
+                ->pluck('id');
+
+            $zones = Zone::query()
+                ->leftJoin('users', function ($join) use ($organisationUserIds) {
+                    $join->on('users.zone_id', '=', 'zones.id')
+                        ->whereNull('users.deleted_at')
+                        ->whereIn('users.id', $organisationUserIds);
+                })
+                ->leftJoin('leads', function ($join) {
+                    $join->on('leads.current_assign_user', '=', 'users.id')
+                        ->whereNull('leads.deleted_at');
+                })
+                ->select(
+                    'zones.id as zone_id',
+                    'zones.name as zone_name',
+                    DB::raw('COUNT(leads.id) as assigned_leads_count')
+                )
+                ->groupBy('zones.id', 'zones.name')
+                ->orderBy('zones.name')
+                ->get()
+                ->map(function ($zone) {
+                    return [
+                        'zone_id' => (int) $zone->zone_id,
+                        'zone_name' => $zone->zone_name,
+                        'assigned_leads_count' => (int) $zone->assigned_leads_count,
+                    ];
+                })
+                ->values();
+
+            return $this->responseService->success(
+                $zones,
+                'Organisation zone data retrieved successfully.'
+            );
+        } catch (\Throwable $e) {
+            return $this->responseService->serverError('Failed to retrieve organisation zone data: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Get child users list for the currently authenticated user with nested hierarchy (id and name only)
      * @param Request $request
      * @return JsonResponse
@@ -435,14 +544,12 @@ class UserController extends Controller
     }
 
     /**
-     * Get child users list for the currently authenticated user filtered specifically by planning department
+     * Child planning users for the authenticated user.
+     * Optional brief_id or contact_person_id limits the hierarchy to that record's organisation.
+     * Optional Organisation_Id is used only when neither id is sent.
      *
      * @param Request $request
      * @return JsonResponse
-     */
-    /**
-     * Added department ID filter normalization to support multiple request
-     * parameter formats and convert them into a validated integer array.
      */
     public function getChildPlaningUsers(Request $request): JsonResponse
     {
@@ -453,6 +560,70 @@ class UserController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
+            $briefFilter = $this->extractPositiveQueryId($request, 'brief_id');
+            $contactPersonFilter = $this->extractPositiveQueryId($request, 'contact_person_id');
+
+            if ($briefFilter['invalid']) {
+                return $this->responseService->validationError(
+                    ['brief_id' => ['The brief id must be a positive integer.']],
+                    'Validation failed'
+                );
+            }
+
+            if ($contactPersonFilter['invalid']) {
+                return $this->responseService->validationError(
+                    ['contact_person_id' => ['The contact person id must be a positive integer.']],
+                    'Validation failed'
+                );
+            }
+
+            $organisationFilter = $this->extractOrganisationId($request);
+            $hasRecordFilter = $briefFilter['id'] !== null || $contactPersonFilter['id'] !== null;
+
+            if (!$hasRecordFilter && $organisationFilter['invalid']) {
+                return $this->responseService->success(
+                    [],
+                    'Invalid Organisation_Id.'
+                );
+            }
+
+            $organisationId = $hasRecordFilter ? null : $organisationFilter['id'];
+
+            if ($organisationId !== null && !$this->organisationService->organisationExists($organisationId)) {
+                return $this->responseService->success(
+                    [],
+                    'Organisation not found.'
+                );
+            }
+
+            if ($briefFilter['id'] !== null) {
+                try {
+                    $organisationId = $this->briefService->getOrganisationIdForBrief($briefFilter['id']);
+                } catch (ModelNotFoundException $e) {
+                    return $this->responseService->notFound('Brief not found');
+                }
+
+                if (!$organisationId) {
+                    return $this->responseService->validationError(
+                        ['brief_id' => ['The associated lead for this brief does not have an organisation assigned']],
+                        'Validation failed'
+                    );
+                }
+            } elseif ($contactPersonFilter['id'] !== null) {
+                try {
+                    $organisationId = $this->leadService->getOrganisationIdForContactPerson($contactPersonFilter['id']);
+                } catch (ModelNotFoundException $e) {
+                    return $this->responseService->notFound('Contact person not found');
+                }
+
+                if (!$organisationId) {
+                    return $this->responseService->validationError(
+                        ['contact_person_id' => ['The contact person does not have an organisation assigned']],
+                        'Validation failed'
+                    );
+                }
+            }
+
             $departmentIds = $this->extractDepartmentIds($request);
             $departmentSlugs = $this->extractDepartmentSlugs($request);
 
@@ -460,8 +631,7 @@ class UserController extends Controller
                 $departmentSlugs = ['planing'];
             }
 
-            // Get all descendants in nested tree format filtered by planning department
-            $childTree = $this->buildChildTree($user, $departmentIds, $departmentSlugs);
+            $childTree = $this->buildChildTree($user, $departmentIds, $departmentSlugs, $organisationId, true);
             
             return $this->responseService->success(
                 $childTree,
@@ -470,6 +640,73 @@ class UserController extends Controller
         } catch (\Exception $e) {
             return $this->responseService->serverError('Failed to retrieve child planing users: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Read a positive integer query parameter.
+     * A missing or blank value means the filter is not applied.
+     *
+     * @param Request $request
+     * @param string $parameter
+     * @return array{invalid: bool, id: int|null}
+     */
+    protected function extractPositiveQueryId(Request $request, string $parameter): array
+    {
+        $raw = null;
+        $provided = false;
+
+        foreach ($request->query() as $key => $value) {
+            if (strcasecmp((string) $key, $parameter) !== 0) {
+                continue;
+            }
+
+            $provided = true;
+            $raw = $value;
+            break;
+        }
+
+        if (!$provided || $raw === null || (is_string($raw) && trim($raw) === '')) {
+            return ['invalid' => false, 'id' => null];
+        }
+
+        if (is_array($raw) || !preg_match('/^[1-9]\d*$/', trim((string) $raw))) {
+            return ['invalid' => true, 'id' => null];
+        }
+
+        return ['invalid' => false, 'id' => (int) trim((string) $raw)];
+    }
+
+    /**
+     * Read Organisation_Id from the query string.
+     * A missing or blank value keeps the unfiltered hierarchy.
+     *
+     * @param Request $request
+     * @return array{invalid: bool, id: int|null}
+     */
+    protected function extractOrganisationId(Request $request): array
+    {
+        $raw = null;
+        $provided = false;
+
+        foreach ($request->query() as $key => $value) {
+            if (strcasecmp((string) $key, 'Organisation_Id') !== 0) {
+                continue;
+            }
+
+            $provided = true;
+            $raw = $value;
+            break;
+        }
+
+        if (!$provided || $raw === null || (is_string($raw) && trim($raw) === '')) {
+            return ['invalid' => false, 'id' => null];
+        }
+
+        if (is_array($raw) || !preg_match('/^[1-9]\d*$/', trim((string) $raw))) {
+            return ['invalid' => true, 'id' => null];
+        }
+
+        return ['invalid' => false, 'id' => (int) trim((string) $raw)];
     }
 
     /**
@@ -543,15 +780,32 @@ class UserController extends Controller
      * @param \App\Models\User $user
      * @param array $departmentIds
      * @param array $departmentSlugs
+     * @param int|null $organisationId When set, each parent and child must belong to this organisation.
+     * @param bool $includeAssignedBriefCount Include assigned_brief_count on each user.
      * @return array
      */
     /**
      * Added recursive child-user hierarchy builder with optional department
      * ID/slug filtering at each hierarchy level.
      */
-    private function buildChildTree($user, array $departmentIds = [], array $departmentSlugs = []): array
-    {
-        $query = $user->children()->select('users.id', 'users.name');
+    private function buildChildTree(
+        $user,
+        array $departmentIds = [],
+        array $departmentSlugs = [],
+        ?int $organisationId = null,
+        bool $includeAssignedBriefCount = false
+    ): array {
+        $query = $user->children()->select('users.id', 'users.name', 'users.organisation_id');
+
+        if ($organisationId !== null) {
+            $query->with(['organisations:id']);
+        }
+
+        if ($includeAssignedBriefCount) {
+            $query->withCount(['assignedBriefs as assigned_brief_count' => function ($briefQuery) {
+                $briefQuery->where('briefs.status', '!=', '15');
+            }]);
+        }
 
         if (!empty($departmentIds) || !empty($departmentSlugs)) {
             $query->whereHas('departments', function ($q) use ($departmentIds, $departmentSlugs) {
@@ -574,14 +828,55 @@ class UserController extends Controller
         
         $tree = [];
         foreach ($children as $child) {
-            $tree[] = [
+            $nestedChildren = $this->buildChildTree(
+                $child,
+                $departmentIds,
+                $departmentSlugs,
+                $organisationId,
+                $includeAssignedBriefCount
+            );
+
+            if ($organisationId !== null && !$this->userBelongsToOrganisation($child, $organisationId)) {
+                foreach ($nestedChildren as $descendant) {
+                    $tree[] = $descendant;
+                }
+                continue;
+            }
+
+            $node = [
                 'id' => $child->id,
                 'name' => $child->name,
-                'children' => $this->buildChildTree($child, $departmentIds, $departmentSlugs)
             ];
+
+            if ($includeAssignedBriefCount) {
+                $node['assigned_brief_count'] = (int) $child->assigned_brief_count;
+            }
+
+            $node['children'] = $nestedChildren;
+            $tree[] = $node;
         }
         
         return $tree;
+    }
+
+    /**
+     * A user belongs to an organisation through users.organisation_id or organisation_user.
+     *
+     * @param \App\Models\User $user
+     * @param int $organisationId
+     * @return bool
+     */
+    private function userBelongsToOrganisation($user, int $organisationId): bool
+    {
+        if ((int) $user->organisation_id === $organisationId) {
+            return true;
+        }
+
+        $organisations = $user->relationLoaded('organisations')
+            ? $user->organisations
+            : $user->organisations()->get(['organisations.id']);
+
+        return $organisations->contains(fn ($organisation) => (int) $organisation->id === $organisationId);
     }
 
     /**
@@ -598,15 +893,85 @@ class UserController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            $organisationId = $request->input('organisation_id');
-            if (!$organisationId) {
-                return $this->responseService->validationError(['organisation_id' => ['Organisation ID is required']]);
+            $organisationIds = $request->input('organisation_id')
+                ?? $request->input('organisation_user');
+            $zoneIds = $request->input('zone_ids') ?? $request->input('zone_id');
+
+            // Preserve duplicate query parameters such as organisation_id=1&organisation_id=2.
+            $rawOrganisationIds = [];
+            foreach (explode('&', (string) $request->getQueryString()) as $parameter) {
+                [$key, $value] = array_pad(explode('=', $parameter, 2), 2, null);
+                $key = urldecode((string) $key);
+                if (in_array(rtrim($key, '[]'), ['organisation_id', 'organisation_user'], true)) {
+                    $rawOrganisationIds[] = urldecode((string) $value);
+                }
             }
 
-            // Get all descendants in nested tree format filtered by organisation
-            $childTree = $user->getChildTreeByOrganisation($organisationId);
+            if (is_string($organisationIds)) {
+                $organisationIds = explode(',', $organisationIds);
+            }
+            if (!is_array($organisationIds)) {
+                $organisationIds = [$organisationIds];
+            }
+            $organisationIds = array_merge($organisationIds, $rawOrganisationIds);
+            $organisationIds = array_values(array_filter(
+                array_unique(array_map('intval', $organisationIds)),
+                fn ($id) => $id > 0
+            ));
+
+            if (is_string($zoneIds)) {
+                $zoneIds = explode(',', $zoneIds);
+            }
+            if (!is_array($zoneIds)) {
+                $zoneIds = [$zoneIds];
+            }
+
+            // Preserve duplicate query parameters such as zone_id=1&zone_id=2.
+            $rawZoneIds = [];
+            foreach (explode('&', (string) $request->getQueryString()) as $parameter) {
+                [$key, $value] = array_pad(explode('=', $parameter, 2), 2, null);
+                $key = urldecode((string) $key);
+                if (in_array(rtrim($key, '[]'), ['zone_id', 'zone_ids'], true)) {
+                    $rawZoneIds[] = urldecode((string) $value);
+                }
+            }
+
+            $zoneIds = array_values(array_filter(
+                array_unique(array_map('intval', array_merge($zoneIds, $rawZoneIds))),
+                fn ($id) => $id > 0
+            ));
+
+            if (empty($organisationIds) && empty($zoneIds)) {
+                return $this->responseService->validationError([
+                    'organisation_id' => ['Organisation ID or zone ID is required'],
+                ]);
+            }
+
+            $leadFilters = [
+                'call_status' => $request->input('call_status'),
+                'lead_status' => $request->input('lead_status'),
+                'priority' => $request->input('priority') ?? $request->input('priority_id'),
+                'name' => trim((string) $request->input('name', '')),
+            ];
+
+            // Get all descendants in nested tree format filtered by organisation.
+            // Planner roles are omitted at every level, including their nested children.
+            $childTree = $user->getChildTreeByOrganisation($organisationIds, $leadFilters, $zoneIds, ['planner-admin', 'planner']);
+
+            $perPage = max(1, (int) $request->input('per_page', 5));
+            $currentPage = max(1, (int) $request->input('page', 1));
+            $childTree = new \Illuminate\Pagination\LengthAwarePaginator(
+                array_slice($childTree, ($currentPage - 1) * $perPage, $perPage),
+                count($childTree),
+                $perPage,
+                $currentPage,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
             
-            return $this->responseService->success(
+            return $this->responseService->paginated(
                 $childTree,
                 'Child users hierarchy filtered by organisation retrieved successfully'
             );
@@ -635,8 +1000,9 @@ class UserController extends Controller
                 return $this->responseService->validationError(['lead_id' => ['Lead does not have an organisation assigned']]);
             }
 
-            // Get all descendants of the current logged-in user in nested tree format filtered by the lead's organisation
-            $childTree = $user->getChildTreeByOrganisation($organisationId);
+            // Get all descendants of the current logged-in user in nested tree format filtered by the lead's organisation.
+            // Planner roles are omitted at every level, including their nested children.
+            $childTree = $user->getChildTreeByOrganisation($organisationId, [], [], ['planner-admin', 'planner']);
             
             return $this->responseService->success(
                 $childTree,

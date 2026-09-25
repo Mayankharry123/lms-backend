@@ -51,6 +51,26 @@ class OrganisationService
     }
 
     /**
+     * Whether a non-deleted organisation exists.
+     *
+     * @param int $id
+     * @return bool
+     * @throws DomainException
+     */
+    public function organisationExists(int $id): bool
+    {
+        try {
+            return $this->organisationRepository->getOrganisationById($id) !== null;
+        } catch (QueryException $e) {
+            Log::error('Database error checking organisation: ' . $e->getMessage());
+            throw new DomainException('Database error while fetching organisation.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error checking organisation: ' . $e->getMessage());
+            throw new DomainException('Unexpected error while fetching organisation.');
+        }
+    }
+
+    /**
      * Get organisation by ID
      */
     public function getOrganisationById(int $id)

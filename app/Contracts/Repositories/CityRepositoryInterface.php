@@ -43,4 +43,12 @@ interface CityRepositoryInterface
      * Delete a city (This will be a HARD delete)
      */
     public function delete(int $id);
+
+    /**
+     * Find cities by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names);
 }

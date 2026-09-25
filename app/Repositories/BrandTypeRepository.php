@@ -83,4 +83,43 @@ class BrandTypeRepository implements BrandTypeRepositoryInterface
         // before checking the relationship.
         return $this->findById($id)->brands()->count();
     }
+
+    /**
+     * Find non-deleted brand types by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names): \Illuminate\Support\Collection
+    {
+        $normalized = $this->normalizeNameList($names);
+        if ($normalized === []) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model
+            ->whereNull('deleted_at')
+            ->whereRaw(
+                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
+                $normalized
+            )
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * @param array<int, string> $names
+     * @return array<int, string>
+     */
+    private function normalizeNameList(array $names): array
+    {
+        $normalized = [];
+        foreach ($names as $name) {
+            $value = mb_strtolower(trim((string) $name));
+            if ($value !== '') {
+                $normalized[$value] = $value;
+            }
+        }
+
+        return array_values($normalized);
+    }
 }

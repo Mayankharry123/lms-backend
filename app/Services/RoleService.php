@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\Repositories\RoleRepositoryInterface;
 use App\Models\Role;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 class RoleService
@@ -61,6 +62,7 @@ class RoleService
 	public function create(array $data, array $permissions = []): Role
 	{
 		$this->validateRoleData($data);
+		$data['slug'] = $this->generateUniqueSlug((string) $data['name']);
 
 		// Create the role
 		$role = $this->roleRepository->create($data);
@@ -87,6 +89,20 @@ class RoleService
 	public function update(int $id, array $data, ?array $permissions = null): bool
 	{
 		$this->validateRoleData($data, $id);
+
+		$existingRole = $this->roleRepository->find($id);
+		unset($data['slug']);
+
+		if ($existingRole) {
+			$nameChanged = array_key_exists('name', $data)
+				&& (string) $data['name'] !== (string) $existingRole->name;
+			$slugMissing = $existingRole->slug === null || $existingRole->slug === '';
+
+			if ($nameChanged || $slugMissing) {
+				$name = array_key_exists('name', $data) ? (string) $data['name'] : (string) $existingRole->name;
+				$data['slug'] = $this->generateUniqueSlug($name, $id);
+			}
+		}
 
 		// Update the role
 		$updated = $this->roleRepository->update($id, $data);
@@ -154,16 +170,61 @@ class RoleService
 	protected function validateRoleData(array $data, ?int $ignoreId = null): void
 	{
 		$rules = [
-			'name' => 'required|string|max:255|unique:roles,name' . ($ignoreId ? ",{$ignoreId}" : ''),
 			'display_name' => 'nullable|string|max:255',
 			'description' => 'nullable|string|max:1000',
 		];
+
+		if ($ignoreId === null || array_key_exists('name', $data)) {
+			$rules['name'] = 'required|string|max:255|unique:roles,name' . ($ignoreId ? ",{$ignoreId}" : '');
+		}
 
 		$validator = Validator::make($data, $rules);
 
 		if ($validator->fails()) {
 			throw new ValidationException($validator);
 		}
+	}
+
+	/**
+	 * Build a unique lowercase slug from a role name.
+	 * "Planner Admin" becomes "planner-admin". A taken slug becomes "planner-admin-1".
+	 *
+	 * @param string $name
+	 * @param int|null $ignoreId Current role id to ignore during an update.
+	 * @return string
+	 */
+	protected function generateUniqueSlug(string $name, ?int $ignoreId = null): string
+	{
+		$baseSlug = Str::slug($name);
+		if ($baseSlug === '') {
+			$baseSlug = 'role';
+		}
+
+		$slug = $baseSlug;
+		$counter = 1;
+
+		while ($this->slugIsTaken($slug, $ignoreId)) {
+			$slug = $baseSlug . '-' . $counter;
+			$counter++;
+		}
+
+		return $slug;
+	}
+
+	/**
+	 * @param string $slug
+	 * @param int|null $ignoreId
+	 * @return bool
+	 */
+	protected function slugIsTaken(string $slug, ?int $ignoreId = null): bool
+	{
+		$existing = $this->roleRepository->findBySlug($slug);
+
+		if (!$existing) {
+			return false;
+		}
+
+		return $ignoreId === null || (int) $existing->id !== $ignoreId;
 	}
 }
 

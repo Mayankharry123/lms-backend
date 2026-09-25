@@ -243,13 +243,66 @@ class BriefRepository implements BriefRepositoryInterface
             ->whereNull('briefs.deleted_at')
             ->whereRaw('briefs.status != 15');
 
-        $this->applyOrganisationValidation($query, Auth::user());
-        \App\Support\DashboardFilters::applyBriefDashboardFilters($query, $filters, 'briefs');
+        $this->applyLatestBriefOrganisationFilter($query, $filters);
+        \App\Support\DashboardFilters::applyDateFilter($query, $filters, 'briefs.created_at');
+        \App\Support\DashboardFilters::applyLeadPriorityFilter($query, $filters, 'briefs');
 
         return $query
             ->orderBy('briefs.created_at', 'desc')
             ->limit(5)
             ->get();
+    }
+
+    /**
+     * A latest brief matches a selected organisation when its contact person
+     * is in that organisation, or when its creator or assignee belongs to it.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array<string, mixed> $filters
+     */
+    protected function applyLatestBriefOrganisationFilter($query, array $filters): void
+    {
+        $organisationIds = array_values(array_filter(array_map(
+            'intval',
+            $filters['organisation_ids'] ?? []
+        )));
+
+        if ($organisationIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $userIds = \App\Support\DashboardFilters::getOrganisationUserIds($organisationIds);
+
+        $query->where(function ($builder) use ($organisationIds, $userIds) {
+            $builder->whereHas('contactPerson', function ($contactQuery) use ($organisationIds) {
+                $contactQuery->whereIn('leads.organisation_id', $organisationIds);
+            });
+
+            if ($userIds === []) {
+                return;
+            }
+
+            $builder->orWhereIn('briefs.created_by', $userIds)
+                ->orWhereIn('briefs.assign_user_id', $userIds);
+        });
+
+        $user = Auth::user();
+        if (!$user) {
+            return;
+        }
+
+        $ancestorIds = \App\Support\UserAccessScope::getAncestorIds($user);
+        if ($ancestorIds === []) {
+            return;
+        }
+
+        $descendantIds = \App\Support\UserAccessScope::getStrictDescendantIds($user);
+        $query->where(function ($builder) use ($ancestorIds, $descendantIds) {
+            $builder->whereNotIn('briefs.created_by', $ancestorIds)
+                ->orWhereIn('briefs.assign_user_id', $descendantIds);
+        });
     }
 
     /**

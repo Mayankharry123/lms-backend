@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Contracts\Repositories\BriefRepositoryInterface;
+use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Models\Brief;
-use App\Models\User;
+use App\Models\Lead;
 use App\Support\UserAccessScope;
 use DomainException;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -22,13 +24,22 @@ class BriefService
     protected BriefRepositoryInterface $briefRepository;
 
     /**
+     * @var UserRepositoryInterface
+     */
+    protected UserRepositoryInterface $userRepository;
+
+    /**
      * Create a new BriefService instance.
      *
      * @param BriefRepositoryInterface $briefRepository
+     * @param UserRepositoryInterface $userRepository
      */
-    public function __construct(BriefRepositoryInterface $briefRepository)
-    {
+    public function __construct(
+        BriefRepositoryInterface $briefRepository,
+        UserRepositoryInterface $userRepository
+    ) {
         $this->briefRepository = $briefRepository;
+        $this->userRepository = $userRepository;
     }
 
     // ============================================================================
@@ -306,25 +317,15 @@ class BriefService
     /**
      * Added logic to resolve the top-level planner-admin user within the
      * organisation hierarchy for brief assignment.
+     * Only users in the given organisation are considered.
      */
     public function resolveTopPlannerAdminUserId(?int $organisationId = null): ?int
     {
-        $query = User::active()->whereHas('roles', function ($q) {
-            $q->where('slug', 'planner-admin');
-        });
-
-        if ($organisationId) {
-            $orgQuery = (clone $query)->where(function ($q) use ($organisationId) {
-                $q->where('organisation_id', $organisationId)
-                  ->orWhereHas('organisations', function ($oq) use ($organisationId) {
-                      $oq->where('organisations.id', $organisationId);
-                  });
-            });
-            $orgAdmins = $orgQuery->get();
-            $plannerAdmins = $orgAdmins->isNotEmpty() ? $orgAdmins : $query->get();
-        } else {
-            $plannerAdmins = $query->get();
+        if (!$organisationId) {
+            return null;
         }
+
+        $plannerAdmins = $this->userRepository->findActivePlannerAdminsByOrganisation($organisationId);
 
         if ($plannerAdmins->isEmpty()) {
             return null;
@@ -361,10 +362,7 @@ class BriefService
     public function createBrief(array $data): Brief
     {
         try {
-            // Always ensure assign_user_id is resolved to top planner-admin in the hierarchy
-            if (empty($data['assign_user_id'])) {
-                $data['assign_user_id'] = $this->resolveTopPlannerAdminUserId();
-            }
+            $data = $this->applyPlannerAdminAssignment($data);
 
             $brief = $this->briefRepository->createBrief($data);
 
@@ -394,10 +392,17 @@ class BriefService
     public function updateBrief(int $id, array $data): ?Brief
     {
         try {
+            $existingBrief = null;
+
+            if ($this->assignUserIdIsEmpty($data)) {
+                $existingBrief = $this->briefRepository->getBriefById($id);
+                $data = $this->applyPlannerAdminAssignment($data, $existingBrief);
+            }
+
             // Check if assign_user_id is being updated
             $fireAssignmentEvent = false;
-            if (isset($data['assign_user_id'])) {
-                $existingBrief = $this->briefRepository->getBriefById($id);
+            if (array_key_exists('assign_user_id', $data) && !empty($data['assign_user_id'])) {
+                $existingBrief = $existingBrief ?? $this->briefRepository->getBriefById($id);
                 if ($existingBrief && $existingBrief->assign_user_id != $data['assign_user_id']) {
                     $fireAssignmentEvent = true;
                 }
@@ -418,6 +423,112 @@ class BriefService
             Log::error('Unexpected error updating brief', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while updating brief.');
         }
+    }
+
+    /**
+     * Set assign_user_id to the organisation planner-admin when it is empty.
+     * A provided assignee is left unchanged. If no planner-admin exists, the
+     * assignee stays empty and the brief is still saved.
+     *
+     * @param array $data
+     * @param Brief|null $existingBrief
+     * @return array
+     */
+    private function applyPlannerAdminAssignment(array $data, ?Brief $existingBrief = null): array
+    {
+        $assigneeProvided = array_key_exists('assign_user_id', $data) && !empty($data['assign_user_id']);
+
+        if ($assigneeProvided) {
+            return $data;
+        }
+
+        // On update, a missing assign_user_id keeps the assignee already stored.
+        if ($existingBrief !== null && !array_key_exists('assign_user_id', $data)) {
+            return $data;
+        }
+
+        $organisationId = $this->resolveBriefOrganisationId($data, $existingBrief);
+        $plannerAdminId = $this->resolveTopPlannerAdminUserId($organisationId);
+
+        if ($plannerAdminId) {
+            $data['assign_user_id'] = $plannerAdminId;
+            return $data;
+        }
+
+        Log::info('No planner-admin found for brief organisation; assign_user_id left empty', [
+            'organisation_id' => $organisationId,
+            'brief_id' => $existingBrief?->id,
+        ]);
+
+        return $data;
+    }
+
+    /**
+     * True when the payload explicitly has an empty assign_user_id.
+     * A missing key on update means the current assignee should stay.
+     *
+     * @param array $data
+     * @return bool
+     */
+    private function assignUserIdIsEmpty(array $data): bool
+    {
+        return array_key_exists('assign_user_id', $data) && empty($data['assign_user_id']);
+    }
+
+    /**
+     * Organisation linked to a saved brief through its contact person.
+     *
+     * @param int $briefId
+     * @return int|null
+     * @throws ModelNotFoundException
+     * @throws DomainException
+     */
+    public function getOrganisationIdForBrief(int $briefId): ?int
+    {
+        try {
+            $brief = $this->briefRepository->getBriefById($briefId);
+
+            if (!$brief || (string) $brief->status === '15') {
+                throw (new ModelNotFoundException())->setModel(Brief::class, [$briefId]);
+            }
+
+            return $this->resolveBriefOrganisationId([], $brief);
+        } catch (ModelNotFoundException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error resolving brief organisation', ['brief_id' => $briefId, 'exception' => $e]);
+            throw new DomainException('Database error while fetching brief.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error resolving brief organisation', ['brief_id' => $briefId, 'exception' => $e]);
+            throw new DomainException('Unexpected error while fetching brief.');
+        }
+    }
+
+    /**
+     * Organisation linked to the brief through its contact person (lead).
+     *
+     * @param array $data
+     * @param Brief|null $existingBrief
+     * @return int|null
+     */
+    private function resolveBriefOrganisationId(array $data, ?Brief $existingBrief = null): ?int
+    {
+        $contactPersonId = $data['contact_person_id'] ?? $existingBrief?->contact_person_id;
+
+        if (empty($contactPersonId)) {
+            return null;
+        }
+
+        if ($existingBrief && (int) $existingBrief->contact_person_id === (int) $contactPersonId) {
+            $existingBrief->loadMissing('contactPerson');
+            $organisationId = $existingBrief->contactPerson?->organisation_id;
+
+            return $organisationId ? (int) $organisationId : null;
+        }
+
+        $lead = Lead::query()->find($contactPersonId);
+
+        return $lead && $lead->organisation_id ? (int) $lead->organisation_id : null;
     }
 
     /**

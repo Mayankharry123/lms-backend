@@ -30,6 +30,20 @@ class UserResource extends BaseResource
                 return $this->organisations->pluck('id')->values();
             }),
 
+            'zone_ids' => $this->whenLoaded('zones', function () {
+                return $this->zones->pluck('id')->values();
+            }),
+
+            'zones' => $this->whenLoaded('zones', function () {
+                return $this->zones->map(function ($zone) {
+                    return [
+                        'id' => $zone->id,
+                        'name' => $zone->name,
+                        'slug' => $zone->slug,
+                    ];
+                })->values();
+            }),
+
             'organisations' => $this->whenLoaded('organisations', function () {
                 return $this->organisations->map(function ($organisation) {
                     return [

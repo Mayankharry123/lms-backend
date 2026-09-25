@@ -69,4 +69,34 @@ class IndustryRepository implements IndustryRepositoryInterface
         $industry = $this->model->findOrFail($id);
         return $industry->delete();
     }
+
+    /**
+     * Find non-deleted industries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        $normalized = [];
+        foreach ($names as $name) {
+            $value = mb_strtolower(trim((string) $name));
+            if ($value !== '') {
+                $normalized[$value] = $value;
+            }
+        }
+        $normalized = array_values($normalized);
+
+        if ($normalized === []) {
+            return $this->model->newCollection();
+        }
+
+        return $this->model
+            ->whereNull('deleted_at')
+            ->whereRaw(
+                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
+                $normalized
+            )
+            ->get(['id', 'name']);
+    }
 }

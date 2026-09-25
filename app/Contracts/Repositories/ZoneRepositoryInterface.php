@@ -50,4 +50,12 @@ interface ZoneRepositoryInterface
      * @return bool
      */
     public function delete(Zone $zone): bool;
+
+    /**
+     * Find non-deleted zones by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return Collection
+     */
+    public function findByNames(array $names): Collection;
 }

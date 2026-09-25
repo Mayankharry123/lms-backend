@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\BriefAssignHistoryResource;
+use App\Models\Brief;
+use App\Models\User;
 use App\Services\BriefAssignHistoryService;
 use App\Services\ResponseService;
 use App\Traits\HandlesFileUploads;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -141,6 +144,86 @@ class BriefAssignHistoryController extends Controller
                 BriefAssignHistoryResource::collection($briefAssignHistories),
                 'Brief assign histories retrieved successfully.'
             );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Duration from each planner assignment to that planner's plan submission.
+     *
+     * GET /briefs/{briefId}/assignment-submission-durations
+     *
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function getAssignmentSubmissionDurations(int $briefId): JsonResponse
+    {
+        try {
+            $brief = Brief::query()->where('status', '!=', '15')->find($briefId);
+
+            if (!$brief) {
+                return $this->responseService->notFound('Brief not found');
+            }
+
+            $durations = $this->briefAssignHistoryService->getAssignmentSubmissionDurations($briefId);
+
+            return $this->responseService->success(
+                $durations,
+                'Planner assignment submission durations retrieved successfully.'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Assignment-to-submission durations for every brief cycle of one planner.
+     *
+     * GET /users/{userId}/assignment-submission-durations?page=1
+     * assignment_cycles are returned 5 per page.
+     *
+     * @param int $userId
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getUserAssignmentSubmissionDurations(int $userId, Request $request): JsonResponse
+    {
+        try {
+            $user = User::query()->find($userId);
+
+            if (!$user) {
+                return $this->responseService->notFound('User not found');
+            }
+
+            $cycles = $this->briefAssignHistoryService->getUserAssignmentSubmissionDurations($userId);
+            $perPage = 5;
+            $page = max(1, (int) $request->input('page', 1));
+            $total = count($cycles);
+
+            $paginator = new LengthAwarePaginator(
+                array_slice($cycles, ($page - 1) * $perPage, $perPage),
+                $total,
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
+
+            $response = $this->responseService->paginated(
+                $paginator,
+                'User assignment submission durations retrieved successfully.'
+            );
+            $payload = $response->getData(true);
+            $payload['data'] = [
+                'user_id' => (int) $user->id,
+                'user_name' => $user->name,
+                'assignment_cycles' => $payload['data'],
+            ];
+
+            return response()->json($payload, $response->status());
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }

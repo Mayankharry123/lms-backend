@@ -31,6 +31,14 @@ interface RoleRepositoryInterface
 	public function findByName(string $name): ?Role;
 
 	/**
+	 * Find a role by slug, including soft-deleted rows so uniqueness matches the database index.
+	 *
+	 * @param string $slug
+	 * @return Role|null
+	 */
+	public function findBySlug(string $slug): ?Role;
+
+	/**
 	 * Create a new role
 	 */
 	public function create(array $data): Role;

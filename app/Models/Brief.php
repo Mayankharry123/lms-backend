@@ -98,6 +98,14 @@ class Brief extends Model
             $brief->calculateCampaignDuration();
         });
 
+        static::created(function ($brief) {
+            if ($brief->assign_user_id !== null) {
+                $brief->createAssignHistory([
+                    'assign_user_id' => ['new' => $brief->assign_user_id],
+                ]);
+            }
+        });
+
         static::updating(function ($brief) {
             $brief->calculateCampaignDuration();
         });

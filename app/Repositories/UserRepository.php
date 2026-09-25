@@ -270,4 +270,28 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
 
         $user->syncValidDepartments($departmentIds);
     }
+
+    /**
+     * Active planner-admin users that belong to the given organisation.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActivePlannerAdminsByOrganisation(int $organisationId): Collection
+    {
+        $modelClass = $this->modelClass;
+
+        return $modelClass::query()
+            ->active()
+            ->whereHas('roles', function ($query) {
+                $query->where('slug', 'planner-admin');
+            })
+            ->where(function ($query) use ($organisationId) {
+                $query->where('users.organisation_id', $organisationId)
+                    ->orWhereHas('organisations', function ($organisationQuery) use ($organisationId) {
+                        $organisationQuery->where('organisations.id', $organisationId);
+                    });
+            })
+            ->get();
+    }
 }

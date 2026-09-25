@@ -31,6 +31,8 @@ auth.json
 /storage/logs
 /storage/framework
 /storage/app
+/writable/
+/public/exports/brands/*.xlsx
 
 # SQL & Dumps
 *.sql
