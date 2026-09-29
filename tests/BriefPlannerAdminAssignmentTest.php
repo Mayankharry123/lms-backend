@@ -122,6 +122,53 @@ class BriefPlannerAdminAssignmentTest extends TestCase
         $this->assertNull($brief->fresh()->assign_user_id);
     }
 
+    public function test_create_logs_a_comment_even_when_the_brief_has_no_assignee(): void
+    {
+        $organisation = $this->createOrganisation();
+        $creator = $this->createUser($organisation->id, 'Comment Creator');
+        $lead = $this->createLead($organisation->id);
+
+        $brief = app(BriefService::class)->createBrief($this->briefData($lead->id, [
+            'created_by' => $creator->id,
+            'assign_user_id' => null,
+            'comment' => 'Initial comment',
+        ]));
+        $this->briefIds[] = $brief->id;
+
+        $this->assertTrue(BriefAssignHistory::where('brief_id', $brief->id)
+            ->where('comment', 'Initial comment')
+            ->where('assign_by_id', $creator->id)
+            ->where('assign_to_id', $creator->id)
+            ->exists());
+    }
+
+    public function test_comment_changes_create_history_without_duplicates_for_unchanged_values(): void
+    {
+        $organisation = $this->createOrganisation();
+        $creator = $this->createUser($organisation->id, 'Comment Editor');
+        $lead = $this->createLead($organisation->id);
+        $service = app(BriefService::class);
+
+        $brief = $service->createBrief($this->briefData($lead->id, [
+            'created_by' => $creator->id,
+            'assign_user_id' => null,
+            'comment' => null,
+        ]));
+        $this->briefIds[] = $brief->id;
+
+        $service->updateBrief($brief->id, ['comment' => 'First comment']);
+        $this->assertSame(1, BriefAssignHistory::where('brief_id', $brief->id)->count());
+
+        $service->updateBrief($brief->id, ['comment' => 'First comment']);
+        $this->assertSame(1, BriefAssignHistory::where('brief_id', $brief->id)->count());
+
+        $service->updateBrief($brief->id, ['comment' => 'Updated comment']);
+        $this->assertSame(2, BriefAssignHistory::where('brief_id', $brief->id)->count());
+        $this->assertTrue(BriefAssignHistory::where('brief_id', $brief->id)
+            ->where('comment', 'Updated comment')
+            ->exists());
+    }
+
     protected function briefData(int $leadId, array $overrides = []): array
     {
         $name = 'Planner Admin Brief ' . uniqid();

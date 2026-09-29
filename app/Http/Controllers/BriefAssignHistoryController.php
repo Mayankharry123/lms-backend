@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use App\Http\Resources\BriefActivityResource;
 use Throwable;
 
 class BriefAssignHistoryController extends Controller
@@ -144,6 +145,111 @@ class BriefAssignHistoryController extends Controller
                 BriefAssignHistoryResource::collection($briefAssignHistories),
                 'Brief assign histories retrieved successfully.'
             );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get compact assignment history entries for the brief chat.
+     *
+     * GET /briefs/{briefId}/assign-histories-chat
+     *
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function getChatByBriefId(int $briefId): JsonResponse
+    {
+        try {
+            $histories = $this->briefAssignHistoryService->getBriefAssignHistoryChat($briefId);
+            $chatHistory = $histories->map(function ($history) {
+                return [
+                    'current_user_id' => $history->assign_by_id,
+                    'current_user_name' => $history->assignedBy?->name,
+                    'brief_comment' => $history->comment,
+                    'created_at' => $history->created_at?->format('Y-m-d H:i:s'),
+                ];
+            })->values();
+
+            return $this->responseService->success(
+                $chatHistory,
+                'Brief assignment chat history retrieved successfully.'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get activity history for a brief.
+     *
+     * GET /briefs/{briefId}/activity
+     *
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function getActivityByBriefId(int $briefId): JsonResponse
+    {
+        try {
+            $activities = $this->briefAssignHistoryService->getBriefAssignHistoryChat($briefId);
+
+            return $this->responseService->success(
+                BriefActivityResource::collection($activities),
+                'Brief activity retrieved successfully.'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Save brief activity and optional reminder details.
+     *
+     * POST /briefs/{briefId}/activity
+     *
+     * @param Request $request
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function createActivity(Request $request, int $briefId): JsonResponse
+    {
+        try {
+            if ($request->exists('reminder')) {
+                $request->merge([
+                    'reminder' => filter_var($request->input('reminder'), FILTER_VALIDATE_BOOLEAN),
+                ]);
+            }
+
+            $reminderEnabled = filter_var($request->input('reminder', false), FILTER_VALIDATE_BOOLEAN);
+            $validated = $this->validate($request, [
+                'comment' => 'required|string|max:1000',
+                'reminder' => 'sometimes|nullable|boolean',
+                'reminder_at' => ($reminderEnabled ? 'required' : 'nullable') . '|date',
+                'reminder_before' => ($reminderEnabled ? 'required' : 'nullable') . '|integer|min:1',
+                'reminder_before_unit' => ($reminderEnabled ? 'required' : 'nullable') . '|in:minutes,hours,days',
+            ]);
+
+            $validated['reminder'] = $reminderEnabled;
+            if (!$reminderEnabled) {
+                $validated['reminder_at'] = null;
+                $validated['reminder_before'] = null;
+                $validated['reminder_before_unit'] = null;
+            }
+
+            $history = $this->briefAssignHistoryService->createBriefActivity(
+                $briefId,
+                (int) auth()->id(),
+                $validated
+            );
+
+            return $this->responseService->success(
+                new BriefActivityResource($history),
+                'Brief activity saved successfully.'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->responseService->notFound('Brief not found');
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }

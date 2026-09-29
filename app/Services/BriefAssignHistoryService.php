@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use DomainException;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -128,6 +129,50 @@ class BriefAssignHistoryService
         } catch (Exception $e) {
             Log::error('Unexpected error fetching assign histories by brief', ['brief_id' => $briefId, 'exception' => $e]);
             throw new DomainException('Unexpected error while fetching assign histories.');
+        }
+    }
+
+    /**
+     * Get all chat histories for a brief, newest first.
+     *
+     * @param int $briefId
+     * @return \Illuminate\Database\Eloquent\Collection<int, BriefAssignHistory>
+     * @throws DomainException
+     */
+    public function getBriefAssignHistoryChat(int $briefId): \Illuminate\Database\Eloquent\Collection
+    {
+        try {
+            return $this->repository->getBriefAssignHistoryChat($briefId);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching brief assignment chat history', ['brief_id' => $briefId, 'exception' => $e]);
+            throw new DomainException('Database error while fetching brief assignment chat history.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching brief assignment chat history', ['brief_id' => $briefId, 'exception' => $e]);
+            throw new DomainException('Unexpected error while fetching brief assignment chat history.');
+        }
+    }
+
+    /**
+     * Store a brief activity entry and its reminder details.
+     *
+     * @param int $briefId
+     * @param int $currentUserId
+     * @param array<string, mixed> $data
+     * @return BriefAssignHistory
+     * @throws DomainException
+     */
+    public function createBriefActivity(int $briefId, int $currentUserId, array $data): BriefAssignHistory
+    {
+        try {
+            return $this->repository->createBriefActivity($briefId, $currentUserId, $data);
+        } catch (ModelNotFoundException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error creating brief activity', ['brief_id' => $briefId, 'exception' => $e]);
+            throw new DomainException('Database error while saving brief activity.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error creating brief activity', ['brief_id' => $briefId, 'exception' => $e]);
+            throw new DomainException('Unexpected error while saving brief activity.');
         }
     }
 

@@ -463,6 +463,9 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         // Additional Brief routes
         $router->put('{id:[0-9]+}/update-status', 'BriefController@updateStatus');
         $router->put('{id:[0-9]+}/update-assign-user', 'BriefController@updateAssignUser');
+        $router->get('{briefId:[0-9]+}/activity', 'BriefAssignHistoryController@getActivityByBriefId');
+        $router->post('{briefId:[0-9]+}/activity', 'BriefAssignHistoryController@createActivity');
+        $router->get('{briefId:[0-9]+}/assign-histories-chat', 'BriefAssignHistoryController@getChatByBriefId');
         $router->get('{briefId:[0-9]+}/assign-histories', 'BriefAssignHistoryController@getByBriefId');
         $router->get('{briefId:[0-9]+}/assignment-submission-durations', 'BriefAssignHistoryController@getAssignmentSubmissionDurations');
         $router->get('brand/{brandId:[0-9]+}', 'BriefController@getByBrand');

@@ -28,7 +28,7 @@ class Brief extends Model
     const TYPE_NON_PROGRAMMATIC_OOH = 'ooh';
 
     // Fields to track for history
-    const TRACKED_FIELDS = ['assign_user_id', 'brief_status_id', 'submission_date'];
+    const TRACKED_FIELDS = ['assign_user_id', 'brief_status_id', 'submission_date', 'comment'];
 
     /**
      * The table associated with the model.
@@ -99,7 +99,7 @@ class Brief extends Model
         });
 
         static::created(function ($brief) {
-            if ($brief->assign_user_id !== null) {
+            if ($brief->assign_user_id !== null || filled($brief->comment)) {
                 $brief->createAssignHistory([
                     'assign_user_id' => ['new' => $brief->assign_user_id],
                 ]);
@@ -338,7 +338,7 @@ class Brief extends Model
             'uuid' => Str::uuid(),
             'brief_id' => $this->id,
             'assign_by_id' => $this->getCurrentUserId(),
-            'assign_to_id' => $changeData['assign_user_id']['new'] ?? $this->assign_user_id,
+            'assign_to_id' => $changeData['assign_user_id']['new'] ?? $this->assign_user_id ?? $this->getCurrentUserId(),
             'brief_status_id' => $changeData['brief_status_id']['new'] ?? $this->brief_status_id,
             'brief_status_time' => now(),
             'submission_date' => $changeData['submission_date']['new'] ?? $this->submission_date,

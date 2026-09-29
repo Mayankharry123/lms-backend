@@ -3,11 +3,14 @@
 namespace App\Repositories;
 
 use App\Contracts\Repositories\BriefAssignHistoryRepositoryInterface;
+use App\Models\Brief;
 use App\Models\BriefAssignHistory;
 use App\Models\User;
 use App\Support\UserAccessScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterface
 {
@@ -103,6 +106,57 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
         }
 
         return $query->paginate($perPage);
+    }
+
+    /**
+     * Fetch all chat histories for a brief, newest first.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getBriefAssignHistoryChat(int $briefId): Collection
+    {
+        return $this->model->newQuery()
+            ->with(['assignedBy:id,name'])
+            ->where('brief_id', $briefId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    /**
+     * Store a brief activity entry and its reminder details.
+     *
+     * @param int $briefId
+     * @param int $currentUserId
+     * @param array<string, mixed> $data
+     * @return BriefAssignHistory
+     */
+    public function createBriefActivity(int $briefId, int $currentUserId, array $data): BriefAssignHistory
+    {
+        return DB::transaction(function () use ($briefId, $currentUserId, $data) {
+            $brief = Brief::query()->findOrFail($briefId);
+
+            Brief::query()->whereKey($brief->id)->update(['comment' => $data['comment']]);
+
+            $reminderEnabled = (bool) ($data['reminder'] ?? false);
+
+            return $this->model->newQuery()->create([
+                'uuid' => (string) Str::uuid(),
+                'brief_id' => $brief->id,
+                'assign_by_id' => $currentUserId,
+                'assign_to_id' => $brief->assign_user_id ?? $currentUserId,
+                'brief_status_id' => $brief->brief_status_id,
+                'brief_status_time' => now(),
+                'submission_date' => $brief->submission_date,
+                'comment' => $data['comment'],
+                'reminder' => $reminderEnabled,
+                'reminder_at' => $reminderEnabled ? ($data['reminder_at'] ?? null) : null,
+                'reminder_before' => $reminderEnabled ? ($data['reminder_before'] ?? null) : null,
+                'reminder_before_unit' => $reminderEnabled ? ($data['reminder_before_unit'] ?? null) : null,
+                'status' => '2',
+            ])->load('assignedBy:id,name');
+        });
     }
 
     /**

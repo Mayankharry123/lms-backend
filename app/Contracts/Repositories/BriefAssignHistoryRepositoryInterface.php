@@ -53,6 +53,24 @@ interface BriefAssignHistoryRepositoryInterface
     public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?\App\Models\User $user = null): LengthAwarePaginator;
 
     /**
+     * Fetch all chat histories for a brief, newest first.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getBriefAssignHistoryChat(int $briefId): Collection;
+
+    /**
+     * Store a brief activity entry and its reminder details.
+     *
+     * @param int $briefId
+     * @param int $currentUserId
+     * @param array<string, mixed> $data
+     * @return BriefAssignHistory
+     */
+    public function createBriefActivity(int $briefId, int $currentUserId, array $data): BriefAssignHistory;
+
+    /**
      * Fetch all assign histories assigned by a specific user.
      *
      * @param int $userId The user ID who assigned.

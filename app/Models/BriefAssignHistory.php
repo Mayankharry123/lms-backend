@@ -31,6 +31,10 @@ class BriefAssignHistory extends Model
         'brief_status_time',
         'submission_date',
         'comment',
+        'reminder',
+        'reminder_at',
+        'reminder_before',
+        'reminder_before_unit',
         'attachment',
         'status',
     ];
@@ -52,6 +56,9 @@ class BriefAssignHistory extends Model
     protected $casts = [
         'brief_status_time' => 'datetime',
         'submission_date' => 'datetime',
+        'reminder' => 'boolean',
+        'reminder_at' => 'datetime',
+        'reminder_before' => 'integer',
         'attachment' => 'string',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
