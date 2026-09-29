@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Lead;
 use App\Models\LeadAssignHistory;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 class LeadAssignHistoryApiTest extends TestCase
@@ -67,16 +68,24 @@ class LeadAssignHistoryApiTest extends TestCase
         return $lead;
     }
 
-    protected function createHistory(int $leadId, int $currentUserId, ?string $comment): LeadAssignHistory
+    protected function createHistory(int $leadId, int $currentUserId, ?string $comment, ?string $createdAt = null): LeadAssignHistory
     {
-        return LeadAssignHistory::create([
-            'uuid' => (string) Str::uuid(),
-            'lead_id' => $leadId,
-            'assign_user_id' => $currentUserId,
-            'current_user_id' => $currentUserId,
-            'lead_comment' => $comment,
-            'status' => '1',
-        ]);
+        $history = new LeadAssignHistory();
+        $history->uuid = (string) Str::uuid();
+        $history->lead_id = $leadId;
+        $history->assign_user_id = $currentUserId;
+        $history->current_user_id = $currentUserId;
+        $history->lead_comment = $comment;
+        $history->status = '1';
+
+        if ($createdAt !== null) {
+            $history->created_at = Carbon::parse($createdAt);
+            $history->updated_at = Carbon::parse($createdAt);
+        }
+
+        $history->save();
+
+        return $history;
     }
 
     protected function createUser(string $name): User
@@ -100,8 +109,8 @@ class LeadAssignHistoryApiTest extends TestCase
         $secondUser = $this->createUser('Meeting User');
         $otherUser = $this->createUser('Other Lead User');
 
-        $this->createHistory($lead->id, $firstUser->id, 'Follow up required');
-        $this->createHistory($lead->id, $secondUser->id, 'Meeting scheduled');
+        $this->createHistory($lead->id, $firstUser->id, 'Follow up required', '2026-09-25 10:00:00');
+        $this->createHistory($lead->id, $secondUser->id, 'Meeting scheduled', '2026-09-25 11:00:00');
         $this->createHistory($otherLead->id, $otherUser->id, 'Should not appear');
 
         $this->authGet("/api/v1/leads/{$lead->id}/assign-history");
@@ -116,16 +125,18 @@ class LeadAssignHistoryApiTest extends TestCase
                 'current_user_id' => $secondUser->id,
                 'current_user_name' => 'Meeting User',
                 'lead_comment' => 'Meeting scheduled',
+                'created_at' => '2026-09-25 11:00:00 AM',
             ],
             [
                 'current_user_id' => $firstUser->id,
                 'current_user_name' => 'Follow Up User',
                 'lead_comment' => 'Follow up required',
+                'created_at' => '2026-09-25 10:00:00 AM',
             ],
         ], $data['data']);
 
         $this->assertSame(
-            ['current_user_id', 'current_user_name', 'lead_comment'],
+            ['current_user_id', 'current_user_name', 'lead_comment', 'created_at'],
             array_keys($data['data'][0])
         );
         $this->assertSame(9, $data['meta']['pagination']['per_page']);

@@ -16,35 +16,22 @@ class EloquentStateRepository implements StateRepositoryInterface
 
     public function getAll()
     {
-        // Sabhi states ko unke country ke saath load karein
-        return $this->model->with('country')->latest()->get();
+        return $this->model->getAllWithCountry();
     }
 
     public function getByCountry(int $countryId)
     {
-        // Sirf us country ke states layein
-        return $this->model->where('country_id', $countryId)
-                           ->with('country')
-                           ->latest()
-                           ->get();
+        return $this->model->getByCountryWithCountry($countryId);
     }
 
     public function getPaginated(int $perPage = 15, ?string $search = null)
     {
-        $query = $this->model->with(['country', 'cities']);
-        
-        // Apply search filter if provided
-        if ($search) {
-            $query->where('name', 'like', '%' . $search . '%');
-        }
-        
-        return $query->latest()->paginate($perPage);
+        return $this->model->getPaginatedWithRelations($perPage, $search);
     }
 
     public function findById(int $id)
     {
-        // Country aur cities ke saath load karein
-        return $this->model->with(['country', 'cities'])->findOrFail($id);
+        return $this->model->getByIdWithRelations($id);
     }
 
     public function create(array $data)
@@ -75,24 +62,6 @@ class EloquentStateRepository implements StateRepositoryInterface
      */
     public function findByNames(array $names)
     {
-        $normalized = [];
-        foreach ($names as $name) {
-            $value = mb_strtolower(trim((string) $name));
-            if ($value !== '') {
-                $normalized[$value] = $value;
-            }
-        }
-        $normalized = array_values($normalized);
-
-        if ($normalized === []) {
-            return $this->model->newCollection();
-        }
-
-        return $this->model
-            ->whereRaw(
-                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
-                $normalized
-            )
-            ->get(['id', 'name', 'country_id']);
+        return $this->model->findByNames($names);
     }
 }

@@ -19,6 +19,9 @@ use App\Models\Organisation;
 use App\Models\Zone;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Carbon\Carbon;
 use App\Traits\NotificationTrait;
 
 class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
@@ -280,6 +283,166 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function scopeVerified($query)
     {
         return $query->whereNotNull('email_verified_at');
+    }
+
+    public function scopeVisibleToAuthenticatedUser($query, $user = null)
+    {
+        $user = $user ?? auth()->user();
+        if (!$user) {
+            return $query;
+        }
+
+        return $query->whereIn(
+            'users.id',
+            \App\Support\UserAccessScope::getStrictDescendantsInOrganisation($user)
+        );
+    }
+
+    public static function getRepositoryUsers(int $perPage = 15): LengthAwarePaginator
+    {
+        return self::with([
+            'roles', 'permissions', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone',
+        ])->visibleToAuthenticatedUser()->latest()->paginate($perPage);
+    }
+
+    public static function findRepositoryUser(int $id): ?self
+    {
+        return self::visibleToAuthenticatedUser()->where('id', $id)->first();
+    }
+
+    public static function findRepositoryUserByEmail(string $email): ?self
+    {
+        return self::visibleToAuthenticatedUser()->where('email', $email)->first();
+    }
+
+    public static function findRepositoryUserWithRelations(int $id, array $relations = []): ?self
+    {
+        return self::with($relations)->visibleToAuthenticatedUser()->where('id', $id)->first();
+    }
+
+    public static function searchRepositoryUsers(array $criteria, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = self::with([
+            'roles', 'permissions', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone',
+        ]);
+
+        if (!empty($criteria['search'])) {
+            $search = $criteria['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $departmentIds = [];
+        $departmentSlugs = [];
+
+        foreach ($criteria as $field => $value) {
+            if ($field === 'search' || $value === null || $value === '') {
+                continue;
+            }
+            if ($field === 'role') {
+                $query->whereHas('roles', function ($q) use ($value) {
+                    $q->where('name', $value);
+                });
+            } elseif (in_array($field, ['departments_id', 'departments_ids', 'department_id', 'department_ids'], true)) {
+                $raw = is_string($value) ? explode(',', $value) : (array) $value;
+                $ids = array_values(array_filter(array_map('intval', $raw), fn ($id) => $id > 0));
+                $departmentIds = array_merge($departmentIds, $ids);
+            } elseif (in_array($field, ['departments_slug', 'departments_slugs', 'department_slug', 'department_slugs'], true)) {
+                $raw = is_string($value) ? explode(',', $value) : (array) $value;
+                $slugs = array_values(array_filter(array_map('trim', $raw), fn ($slug) => $slug !== ''));
+                $departmentSlugs = array_merge($departmentSlugs, $slugs);
+            } elseif (!in_array($field, ['page', 'per_page'], true)) {
+                $query->where($field, $value);
+            }
+        }
+
+        if (!empty($departmentIds) || !empty($departmentSlugs)) {
+            $query->whereHas('departments', function ($q) use ($departmentIds, $departmentSlugs) {
+                $q->where(function ($subQ) use ($departmentIds, $departmentSlugs) {
+                    if (!empty($departmentIds)) {
+                        $subQ->whereIn('departments.id', array_unique($departmentIds));
+                    }
+                    if (!empty($departmentSlugs)) {
+                        if (!empty($departmentIds)) {
+                            $subQ->orWhereIn('departments.slug', array_unique($departmentSlugs));
+                        } else {
+                            $subQ->whereIn('departments.slug', array_unique($departmentSlugs));
+                        }
+                    }
+                });
+            });
+        }
+
+        return $query->visibleToAuthenticatedUser()->latest()->paginate($perPage);
+    }
+
+    public static function findRepositoryUsersBy(array $conditions): Collection
+    {
+        return self::where($conditions)->visibleToAuthenticatedUser()->get();
+    }
+
+    public static function findFirstRepositoryUserBy(array $conditions): ?self
+    {
+        return self::where($conditions)->visibleToAuthenticatedUser()->first();
+    }
+
+    public static function countRepositoryUsersBy(array $conditions): int
+    {
+        return self::where($conditions)->visibleToAuthenticatedUser()->count();
+    }
+
+    public static function updateRepositoryLastLogin(int $userId): ?self
+    {
+        $user = self::findRepositoryUser($userId);
+        if (!$user) {
+            return null;
+        }
+
+        $user->last_login_at = Carbon::now();
+        $user->save();
+
+        return $user;
+    }
+
+    public static function getRepositoryStatistics(): array
+    {
+        $baseQuery = self::query()->visibleToAuthenticatedUser();
+
+        return [
+            'total' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('status', 'active')->count(),
+            'inactive' => (clone $baseQuery)->where('status', 'inactive')->count(),
+            'suspended' => (clone $baseQuery)->where('status', 'suspended')->count(),
+            'verified' => (clone $baseQuery)->whereNotNull('email_verified_at')->count(),
+            'unverified' => (clone $baseQuery)->whereNull('email_verified_at')->count(),
+        ];
+    }
+
+    public static function findActivePlannerAdminsByOrganisation(int $organisationId): Collection
+    {
+        return self::query()
+            ->active()
+            ->whereHas('roles', function ($query) {
+                $query->where('slug', 'planner-admin');
+            })
+            ->where(function ($query) use ($organisationId) {
+                $query->where('users.organisation_id', $organisationId)
+                    ->orWhereHas('organisations', function ($organisationQuery) use ($organisationId) {
+                        $organisationQuery->where('organisations.id', $organisationId);
+                    });
+            })
+            ->get();
+    }
+
+    public static function syncRepositoryDepartments(int $userId, array $departmentIds): void
+    {
+        $user = self::find($userId);
+        if ($user) {
+            $user->syncValidDepartments($departmentIds);
+        }
     }
 
     /**

@@ -26,6 +26,21 @@ class Priority extends BaseModel
         'deleted_at' => 'datetime',
     ];
 
+    public static function findForCallStatus(int $callStatusId): ?self
+    {
+        foreach (self::all() as $priority) {
+            $callStatuses = is_string($priority->call_status)
+                ? json_decode($priority->call_status, true)
+                : $priority->call_status;
+
+            if (is_array($callStatuses) && in_array($callStatusId, $callStatuses)) {
+                return $priority;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Get the call statuses associated with this priority.
      */

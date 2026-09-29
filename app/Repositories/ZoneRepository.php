@@ -27,18 +27,7 @@ class ZoneRepository implements ZoneRepositoryInterface
      */
     public function allPaginated(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator 
     {
-        // 1. Query builder shuru karein
-        $query = $this->model->query(); 
-
-        // 2. Search logic add karein
-        if ($searchTerm) {
-            // Yahaan 'name' column mein search kar rahe hain.
-            // Aap ise apne database column ke naam se badal sakte hain.
-            $query->where('name', 'LIKE', "%{$searchTerm}%");
-        }
-
-        // 3. Puraana logic (latest) aur paginate karein
-        return $query->latest()->paginate($perPage)->appends(request()->query());
+        return $this->model->getPaginated($perPage, $searchTerm);
     }
 
     /**
@@ -46,7 +35,7 @@ class ZoneRepository implements ZoneRepositoryInterface
      */
     public function getActiveList(): Collection
     {
-        return $this->model->where('status', '1')->latest()->get();
+        return $this->model->getActiveList();
     }
 
     /**
@@ -94,25 +83,6 @@ class ZoneRepository implements ZoneRepositoryInterface
      */
     public function findByNames(array $names): Collection
     {
-        $normalized = [];
-        foreach ($names as $name) {
-            $value = mb_strtolower(trim((string) $name));
-            if ($value !== '') {
-                $normalized[$value] = $value;
-            }
-        }
-        $normalized = array_values($normalized);
-
-        if ($normalized === []) {
-            return $this->model->newCollection();
-        }
-
-        return $this->model
-            ->whereNull('deleted_at')
-            ->whereRaw(
-                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
-                $normalized
-            )
-            ->get(['id', 'name']);
+        return $this->model->findByNames($names);
     }
 }

@@ -3,14 +3,10 @@
 namespace App\Repositories;
 
 use App\Contracts\Repositories\BriefAssignHistoryRepositoryInterface;
-use App\Models\Brief;
 use App\Models\BriefAssignHistory;
 use App\Models\User;
-use App\Support\UserAccessScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterface
 {
@@ -42,16 +38,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getAllBriefAssignHistories(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
-        $query = $this->model->query()->with(['brief', 'assignedBy', 'assignedTo', 'briefStatus']);
-
-        if ($searchTerm) {
-            $query->where('comment', 'like', "%{$searchTerm}%")
-                ->orWhereHas('brief', function ($q) use ($searchTerm) {
-                    $q->where('name', 'like', "%{$searchTerm}%");
-                });
-        }
-
-        return $query->paginate($perPage);
+        return $this->model->getAllBriefAssignHistories($perPage, $searchTerm);
     }
 
     /**
@@ -62,7 +49,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoryById(int $id): ?BriefAssignHistory
     {
-        return $this->model->with(['brief', 'assignedBy', 'assignedTo', 'briefStatus'])->find($id);
+        return $this->model->getBriefAssignHistoryById($id);
     }
 
     /**
@@ -73,7 +60,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoryByUuid(string $uuid): ?BriefAssignHistory
     {
-        return $this->model->with(['brief', 'assignedBy', 'assignedTo', 'briefStatus'])->where('uuid', $uuid)->first();
+        return $this->model->getBriefAssignHistoryByUuid($uuid);
     }
 
     /**
@@ -92,20 +79,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?User $user = null): LengthAwarePaginator
     {
-        $query = $this->model->where('brief_id', $briefId)
-            ->with(['assignedBy', 'assignedTo', 'briefStatus']);
-
-        $user = $user ?? auth()->user();
-
-        if ($user && !UserAccessScope::isSuperAdmin($user)) {
-            $descendantIds = UserAccessScope::getStrictDescendantIds($user);
-            $query->where(function ($q) use ($descendantIds) {
-                $q->whereIn('assign_to_id', $descendantIds)
-                  ->orWhereIn('assign_by_id', $descendantIds);
-            });
-        }
-
-        return $query->paginate($perPage);
+        return $this->model->getBriefAssignHistoriesByBriefId($briefId, $perPage, $user);
     }
 
     /**
@@ -116,12 +90,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoryChat(int $briefId): Collection
     {
-        return $this->model->newQuery()
-            ->with(['assignedBy:id,name'])
-            ->where('brief_id', $briefId)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get();
+        return $this->model->getBriefAssignHistoryChat($briefId);
     }
 
     /**
@@ -134,29 +103,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function createBriefActivity(int $briefId, int $currentUserId, array $data): BriefAssignHistory
     {
-        return DB::transaction(function () use ($briefId, $currentUserId, $data) {
-            $brief = Brief::query()->findOrFail($briefId);
-
-            Brief::query()->whereKey($brief->id)->update(['comment' => $data['comment']]);
-
-            $reminderEnabled = (bool) ($data['reminder'] ?? false);
-
-            return $this->model->newQuery()->create([
-                'uuid' => (string) Str::uuid(),
-                'brief_id' => $brief->id,
-                'assign_by_id' => $currentUserId,
-                'assign_to_id' => $brief->assign_user_id ?? $currentUserId,
-                'brief_status_id' => $brief->brief_status_id,
-                'brief_status_time' => now(),
-                'submission_date' => $brief->submission_date,
-                'comment' => $data['comment'],
-                'reminder' => $reminderEnabled,
-                'reminder_at' => $reminderEnabled ? ($data['reminder_at'] ?? null) : null,
-                'reminder_before' => $reminderEnabled ? ($data['reminder_before'] ?? null) : null,
-                'reminder_before_unit' => $reminderEnabled ? ($data['reminder_before_unit'] ?? null) : null,
-                'status' => '2',
-            ])->load('assignedBy:id,name');
-        });
+        return $this->model->createBriefActivity($briefId, $currentUserId, $data);
     }
 
     /**
@@ -168,9 +115,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoriesByAssignBy(int $userId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model->where('assign_by_id', $userId)
-            ->with(['brief', 'assignedTo', 'briefStatus'])
-            ->paginate($perPage);
+        return $this->model->getBriefAssignHistoriesByAssignBy($userId, $perPage);
     }
 
     /**
@@ -182,9 +127,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoriesByAssignTo(int $userId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model->where('assign_to_id', $userId)
-            ->with(['brief', 'assignedBy', 'briefStatus'])
-            ->paginate($perPage);
+        return $this->model->getBriefAssignHistoriesByAssignTo($userId, $perPage);
     }
 
     /**
@@ -195,13 +138,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getAssignmentHistoriesForBrief(int $briefId): Collection
     {
-        return $this->model->newQuery()
-            ->with(['assignedTo:id,name'])
-            ->where('brief_id', $briefId)
-            ->where('status', '!=', '15')
-            ->orderBy('created_at')
-            ->orderBy('id')
-            ->get();
+        return $this->model->getAssignmentHistoriesForBrief($briefId);
     }
 
     /**
@@ -212,17 +149,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getAssignmentHistoriesForBriefs(array $briefIds): Collection
     {
-        if ($briefIds === []) {
-            return $this->model->newCollection();
-        }
-
-        return $this->model->newQuery()
-            ->whereIn('brief_id', $briefIds)
-            ->where('status', '!=', '15')
-            ->orderBy('brief_id')
-            ->orderBy('created_at')
-            ->orderBy('id')
-            ->get();
+        return $this->model->getAssignmentHistoriesForBriefs($briefIds);
     }
 
     /**
@@ -233,26 +160,6 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getAssignmentHistoriesForUserCycles(int $userId): Collection
     {
-        $briefIds = $this->model->newQuery()
-            ->where('assign_to_id', $userId)
-            ->where('status', '!=', '15')
-            ->whereHas('brief', function ($query) {
-                $query->where('status', '!=', '15');
-            })
-            ->distinct()
-            ->pluck('brief_id');
-
-        if ($briefIds->isEmpty()) {
-            return $this->model->newCollection();
-        }
-
-        return $this->model->newQuery()
-            ->with(['assignedTo:id,name', 'brief:id,name'])
-            ->whereIn('brief_id', $briefIds)
-            ->where('status', '!=', '15')
-            ->orderBy('brief_id')
-            ->orderBy('created_at')
-            ->orderBy('id')
-            ->get();
+        return $this->model->getAssignmentHistoriesForUserCycles($userId);
     }
 }

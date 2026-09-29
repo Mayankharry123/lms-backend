@@ -25,19 +25,7 @@ class BrandTypeRepository implements BrandTypeRepositoryInterface
      */
     public function getAllActive(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
-        // Initialize query builder
-        $query = $this->model
-            ->where('status', '1')
-            ->whereNull('deleted_at');
-
-        // NEW: Add search functionality
-        if ($searchTerm) {
-            // Search in the 'name' column
-            $query->where('name', 'LIKE', "%{$searchTerm}%");
-        }
-
-        // UPDATE: Use ->paginate() instead of ->get() for pagination
-        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+        return $this->model->getAllActive($perPage, $searchTerm);
     }
 
     /**
@@ -79,9 +67,7 @@ class BrandTypeRepository implements BrandTypeRepositoryInterface
      */
     public function getBrandsCount(int $id): int
     {
-        // We find the *model* first to ensure it exists
-        // before checking the relationship.
-        return $this->findById($id)->brands()->count();
+        return $this->model->getBrandsCount($id);
     }
 
     /**
@@ -92,34 +78,6 @@ class BrandTypeRepository implements BrandTypeRepositoryInterface
      */
     public function findByNames(array $names): \Illuminate\Support\Collection
     {
-        $normalized = $this->normalizeNameList($names);
-        if ($normalized === []) {
-            return $this->model->newCollection();
-        }
-
-        return $this->model
-            ->whereNull('deleted_at')
-            ->whereRaw(
-                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
-                $normalized
-            )
-            ->get(['id', 'name']);
-    }
-
-    /**
-     * @param array<int, string> $names
-     * @return array<int, string>
-     */
-    private function normalizeNameList(array $names): array
-    {
-        $normalized = [];
-        foreach ($names as $name) {
-            $value = mb_strtolower(trim((string) $name));
-            if ($value !== '') {
-                $normalized[$value] = $value;
-            }
-        }
-
-        return array_values($normalized);
+        return $this->model->findByNames($names);
     }
 }

@@ -9,6 +9,7 @@ use App\Models\Organisation;
 use App\Models\Planner;
 use App\Models\PlannerHistory;
 use App\Models\User;
+use App\Services\BriefAssignHistoryService;
 use App\Services\DashboardService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -133,6 +134,44 @@ class PlannerChartsAssignmentDaysTest extends TestCase
         $this->assertArrayHasKey('brief_status', $charts);
     }
 
+    public function test_user_assignment_durations_match_initial_assignment_and_submission_by_creator_within_each_cycle(): void
+    {
+        $organisation = $this->createOrganisation('Assignment duration');
+        $lead = $this->createLead($organisation->id);
+        $assignedUser = $this->createUser('Assigned planner');
+        $otherUser = $this->createUser('Other planner');
+        $brief = $this->createBrief($lead->id, 'Initial assignment duration', $assignedUser->id);
+        $planner = $this->createPlanner($brief->id, $assignedUser->id);
+
+        while ($planner->id === $assignedUser->id) {
+            $planner = $this->createPlanner($brief->id, $assignedUser->id);
+        }
+
+        $assignedAt = Carbon::parse('2026-09-25 20:00:00');
+        Brief::query()->whereKey($brief->id)->update(['created_at' => $assignedAt]);
+
+        $this->createPlannerHistory($brief->id, $planner->id, $otherUser->id, '2026-09-25 21:00:00');
+        $this->createPlannerHistory($brief->id, $planner->id, $assignedUser->id, '2026-09-25 22:24:41');
+        $this->createAssignment($brief->id, $assignedUser, Carbon::parse('2026-09-25 23:00:00'));
+        $this->createAssignment($brief->id, $otherUser, Carbon::parse('2026-09-26 00:00:00'));
+        $this->createPlannerHistory($brief->id, $planner->id, $assignedUser->id, '2026-09-26 01:00:00');
+        $this->createAssignment($brief->id, $assignedUser, Carbon::parse('2026-09-27 00:00:00'));
+        $this->createPlannerHistory($brief->id, $planner->id, $assignedUser->id, '2026-09-27 00:05:00');
+
+        $cycles = app(BriefAssignHistoryService::class)
+            ->getUserAssignmentSubmissionDurations($assignedUser->id);
+        $briefCycles = collect($cycles)->where('brief_id', $brief->id)->values();
+
+        $this->assertCount(2, $briefCycles);
+        $this->assertSame('2026-09-25 20:00:00', $briefCycles[0]['assigned_at']);
+        $this->assertSame('2026-09-25 22:24:41', $briefCycles[0]['plan_submitted_at']);
+        $this->assertSame(8681, $briefCycles[0]['duration_seconds']);
+        $this->assertSame(144, $briefCycles[0]['duration_minutes']);
+        $this->assertSame('2 hours 24 minutes', $briefCycles[0]['duration']);
+        $this->assertSame('2026-09-27 00:00:00', $briefCycles[1]['assigned_at']);
+        $this->assertSame('2026-09-27 00:05:00', $briefCycles[1]['plan_submitted_at']);
+    }
+
     protected function createUser(string $name): User
     {
         $user = User::create([
@@ -223,6 +262,19 @@ class PlannerChartsAssignmentDaysTest extends TestCase
         $history->status = '2';
         $history->created_at = $assignedAt;
         $history->updated_at = $assignedAt;
+        $history->save();
+    }
+
+    protected function createPlannerHistory(int $briefId, int $plannerId, int $createdBy, string $submittedAt): void
+    {
+        $history = new PlannerHistory();
+        $history->planner_id = $plannerId;
+        $history->brief_id = $briefId;
+        $history->created_by = $createdBy;
+        $history->submitted_plan = ['plan.pdf'];
+        $history->status = '1';
+        $history->created_at = Carbon::parse($submittedAt);
+        $history->updated_at = Carbon::parse($submittedAt);
         $history->save();
     }
 }

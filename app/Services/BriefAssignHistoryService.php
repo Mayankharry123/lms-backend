@@ -221,11 +221,13 @@ class BriefAssignHistoryService
     /**
      * Time from each planner assignment to that planner's plan submission.
      *
-     * Assignment time is brief_assign_histories.created_at. Consecutive rows
-     * with the same assign_to_id stay in one cycle, because status and
-     * submission-date updates also write history for the current assignee.
-     * A later row for the same user starts a new cycle only after another
-     * planner has been assigned in between.
+    * Assignment time is brief_assign_histories.created_at, except the initial
+    * assignment can be recovered from briefs.created_at when the first
+    * assignment-history row confirms the same assignee. Consecutive rows with
+    * the same assign_to_id stay in one cycle, because status and submission-
+    * date updates also write history for the current assignee. A later row
+    * for the same user starts a new cycle only after another planner has been
+    * assigned in between.
      *
      * Plan submission time is the earliest planner_histories.created_at in
      * that cycle whose submitted_plan contains at least one file. The planner
@@ -401,6 +403,25 @@ class BriefAssignHistoryService
     private function buildAssignmentCycles(Collection $assignmentHistories): array
     {
         $cycles = [];
+
+        $firstAssignment = $assignmentHistories->first(
+            fn (BriefAssignHistory $history) => $history->assign_to_id !== null
+        );
+        $brief = $assignmentHistories->first()?->brief;
+
+        if (
+            $firstAssignment !== null
+            && $brief?->assign_user_id !== null
+            && (int) $firstAssignment->assign_to_id === (int) $brief->assign_user_id
+            && $brief->created_at !== null
+            && $brief->created_at->lt($firstAssignment->created_at)
+        ) {
+            $cycles[] = [
+                'planner_id' => (int) $brief->assign_user_id,
+                'planner_name' => $firstAssignment->assignedTo?->name,
+                'assigned_at' => $brief->created_at->copy(),
+            ];
+        }
 
         foreach ($assignmentHistories as $history) {
             if ($history->assign_to_id === null) {

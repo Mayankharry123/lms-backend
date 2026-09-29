@@ -16,26 +16,17 @@ class EloquentCountryRepository implements CountryRepositoryInterface
 
     public function getAll()
     {
-        // No status field exists, so get all records
-        return $this->model->latest()->get();
+        return $this->model->getLatest();
     }
 
     public function getPaginated(int $perPage = 15, ?string $search = null)
     {
-        $query = $this->model->with('states');
-        
-        // Apply search filter if provided
-        if ($search) {
-            $query->where('name', 'like', '%' . $search . '%');
-        }
-        
-        return $query->latest()->paginate($perPage);
+        return $this->model->getPaginatedWithStates($perPage, $search);
     }
 
     public function findById(int $id)
     {
-        // Load with states relationship
-        return $this->model->with('states')->findOrFail($id);
+        return $this->model->getByIdWithStates($id);
     }
 
     public function create(array $data)
@@ -66,25 +57,7 @@ class EloquentCountryRepository implements CountryRepositoryInterface
      */
     public function findByNames(array $names)
     {
-        $normalized = [];
-        foreach ($names as $name) {
-            $value = mb_strtolower(trim((string) $name));
-            if ($value !== '') {
-                $normalized[$value] = $value;
-            }
-        }
-        $normalized = array_values($normalized);
-
-        if ($normalized === []) {
-            return $this->model->newCollection();
-        }
-
-        return $this->model
-            ->whereRaw(
-                'LOWER(name) IN (' . implode(',', array_fill(0, count($normalized), '?')) . ')',
-                $normalized
-            )
-            ->get(['id', 'name']);
+        return $this->model->findByNames($names);
     }
 }
 
