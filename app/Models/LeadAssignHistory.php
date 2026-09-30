@@ -118,6 +118,11 @@ class LeadAssignHistory extends Model
         return $this->belongsTo(CallStatus::class, 'call_status_id');
     }
 
+    public static function createHistory(array $data): self
+    {
+        return self::create($data);
+    }
+
     public static function getPaginatedForLead(int $leadId, int $perPage = 10): LengthAwarePaginator
     {
         return self::where('lead_id', $leadId)

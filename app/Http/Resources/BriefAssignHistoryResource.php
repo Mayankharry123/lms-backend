@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\DateTimeFormatter;
 
 class BriefAssignHistoryResource extends JsonResource
 {
@@ -55,8 +56,8 @@ class BriefAssignHistoryResource extends JsonResource
             'attachment' => $this->attachment,
 
             // Timestamps
-            'created_at' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s A') : null,
-            'updated_at' => $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s A') : null,   
+            'created_at' => DateTimeFormatter::format($this->created_at),
+            'updated_at' => DateTimeFormatter::format($this->updated_at),
             //'deleted_at' => $this->deleted_at->toIso8601String(),
         ];
     }

@@ -8,7 +8,6 @@ use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -393,35 +392,7 @@ class UserService
      */
     public function syncUserRoles(int $userId, array $roleIds): void
     {
-        $user = User::find($userId);
-        
-        if (!$user) {
-            return;
-        }
-
-        // Get the user type class
-        $userType = User::class;
-
-        // First, delete all existing role entries for this user
-        DB::table('role_user')
-            ->where('user_id', $userId)
-            ->delete();
-
-        // Insert new role entries
-        $insertData = [];
-        foreach ($roleIds as $roleId) {
-            $insertData[] = [
-                'role_id' => $roleId,
-                'user_id' => $userId,
-                'user_type' => $userType,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-
-        if (!empty($insertData)) {
-            DB::table('role_user')->insert($insertData);
-        }
+        User::syncRepositoryRoles($userId, $roleIds);
     }
 
     /**
@@ -433,40 +404,7 @@ class UserService
      */
     public function syncUserParents(int $userId, array $parentIds): void
     {
-        $user = User::find($userId);
-        
-        if (!$user) {
-            return;
-        }
-
-        // Delete all existing parent relationships for this user
-        DB::table('user_parent')
-            ->where('user_id', $userId)
-            ->delete();
-
-        // Insert new parent relationships
-        $insertData = [];
-        foreach ($parentIds as $parentId) {
-            $parentId = (int) $parentId;
-
-            if ($parentId <= 0) {
-                continue;
-            }
-
-            // Ensure parent user exists and is not the same as the user
-            if ($parentId !== $userId && User::find($parentId)) {
-                $insertData[] = [
-                    'user_id' => $userId,
-                    'is_parent' => $parentId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-        }
-
-        if (!empty($insertData)) {
-            DB::table('user_parent')->insert($insertData);
-        }
+        User::syncRepositoryParents($userId, $parentIds);
     }
 
     /**
@@ -478,40 +416,7 @@ class UserService
      */
     public function syncUserOrganisations(int $userId, array $organisationIds): void
     {
-        $user = User::find($userId);
-
-        if (!$user) {
-            return;
-        }
-
-        DB::table('organisation_user')
-            ->where('user_id', $userId)
-            ->delete();
-
-        $insertData = [];
-        $uniqueOrganisationIds = [];
-
-        foreach ($organisationIds as $organisationId) {
-            $organisationId = (int) $organisationId;
-
-            if ($organisationId <= 0 || in_array($organisationId, $uniqueOrganisationIds, true)) {
-                continue;
-            }
-
-            if (DB::table('organisations')->where('id', $organisationId)->exists()) {
-                $uniqueOrganisationIds[] = $organisationId;
-                $insertData[] = [
-                    'user_id' => $userId,
-                    'organisation_id' => $organisationId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-        }
-
-        if (!empty($insertData)) {
-            DB::table('organisation_user')->insert($insertData);
-        }
+        User::syncRepositoryOrganisations($userId, $organisationIds);
     }
 
     /**
@@ -523,38 +428,7 @@ class UserService
      */
     public function syncUserZones(int $userId, array $zoneIds): void
     {
-        $user = User::find($userId);
-
-        if (!$user) {
-            return;
-        }
-
-        DB::table('zone_user')->where('user_id', $userId)->delete();
-
-        $insertData = [];
-        $uniqueZoneIds = [];
-
-        foreach ($zoneIds as $zoneId) {
-            $zoneId = (int) $zoneId;
-
-            if ($zoneId <= 0 || in_array($zoneId, $uniqueZoneIds, true)) {
-                continue;
-            }
-
-            if (DB::table('zones')->where('id', $zoneId)->exists()) {
-                $uniqueZoneIds[] = $zoneId;
-                $insertData[] = [
-                    'user_id' => $userId,
-                    'zone_id' => $zoneId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-        }
-
-        if (!empty($insertData)) {
-            DB::table('zone_user')->insert($insertData);
-        }
+        User::syncRepositoryZones($userId, $zoneIds);
     }
 
     /**

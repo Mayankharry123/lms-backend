@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Traits\NotificationTrait;
 
@@ -442,6 +443,125 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         $user = self::find($userId);
         if ($user) {
             $user->syncValidDepartments($departmentIds);
+        }
+    }
+
+    public static function syncRepositoryRoles(int $userId, array $roleIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('role_user')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        foreach ($roleIds as $roleId) {
+            $insertData[] = [
+                'role_id' => $roleId,
+                'user_id' => $userId,
+                'user_type' => self::class,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if ($insertData !== []) {
+            DB::table('role_user')->insert($insertData);
+        }
+    }
+
+    public static function syncRepositoryParents(int $userId, array $parentIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('user_parent')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        foreach ($parentIds as $parentId) {
+            $parentId = (int) $parentId;
+
+            if ($parentId <= 0 || $parentId === $userId || !self::find($parentId)) {
+                continue;
+            }
+
+            $insertData[] = [
+                'user_id' => $userId,
+                'is_parent' => $parentId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if ($insertData !== []) {
+            DB::table('user_parent')->insert($insertData);
+        }
+    }
+
+    public static function syncRepositoryOrganisations(int $userId, array $organisationIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('organisation_user')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        $uniqueOrganisationIds = [];
+        foreach ($organisationIds as $organisationId) {
+            $organisationId = (int) $organisationId;
+
+            if ($organisationId <= 0 || in_array($organisationId, $uniqueOrganisationIds, true)) {
+                continue;
+            }
+
+            if (DB::table('organisations')->where('id', $organisationId)->exists()) {
+                $uniqueOrganisationIds[] = $organisationId;
+                $insertData[] = [
+                    'user_id' => $userId,
+                    'organisation_id' => $organisationId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if ($insertData !== []) {
+            DB::table('organisation_user')->insert($insertData);
+        }
+    }
+
+    public static function syncRepositoryZones(int $userId, array $zoneIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('zone_user')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        $uniqueZoneIds = [];
+        foreach ($zoneIds as $zoneId) {
+            $zoneId = (int) $zoneId;
+
+            if ($zoneId <= 0 || in_array($zoneId, $uniqueZoneIds, true)) {
+                continue;
+            }
+
+            if (DB::table('zones')->where('id', $zoneId)->exists()) {
+                $uniqueZoneIds[] = $zoneId;
+                $insertData[] = [
+                    'user_id' => $userId,
+                    'zone_id' => $zoneId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if ($insertData !== []) {
+            DB::table('zone_user')->insert($insertData);
         }
     }
 

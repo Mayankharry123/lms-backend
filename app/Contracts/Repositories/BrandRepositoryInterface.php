@@ -54,6 +54,11 @@ interface BrandRepositoryInterface
     public function nameExists(string $name): bool;
 
     /**
+     * Check whether a slug exists, including soft-deleted brands.
+     */
+    public function slugExistsWithTrashed(string $slug, int $exceptId): bool;
+
+    /**
      * Return existing non-deleted brand names (lowercased) for the given list.
      *
      * @param array<int, string> $names

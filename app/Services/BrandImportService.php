@@ -10,7 +10,6 @@ use App\Contracts\Repositories\CountryRepositoryInterface;
 use App\Contracts\Repositories\IndustryRepositoryInterface;
 use App\Contracts\Repositories\StateRepositoryInterface;
 use App\Contracts\Repositories\ZoneRepositoryInterface;
-use App\Models\Brand;
 use App\Models\BrandImport;
 use App\Support\ExcelChunkReadFilter;
 use DomainException;
@@ -972,12 +971,7 @@ class BrandImportService
         }
 
         $finalSlug = $slugBase . '-' . $id;
-        $existing = Brand::withTrashed()
-            ->where('slug', $finalSlug)
-            ->where('id', '!=', $id)
-            ->exists();
-
-        if ($existing) {
+        if ($this->brandRepository->slugExistsWithTrashed($finalSlug, $id)) {
             $finalSlug = $slugBase . '-' . $id . '-' . Str::random(4);
         }
 

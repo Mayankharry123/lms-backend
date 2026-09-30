@@ -26,6 +26,12 @@ class BrandImportTest extends TestCase
     /** @var array<int, int> */
     protected array $createdBrandIds = [];
 
+    /** @var array<int, int> */
+    protected array $createdUserIds = [];
+
+    /** @var array<int, int> */
+    protected array $createdImportIds = [];
+
     /** @var array<int, string> */
     protected array $tempFiles = [];
 
@@ -33,12 +39,17 @@ class BrandImportTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::first() ?? User::create([
-            'name' => 'Brand Import Tester',
-            'email' => 'brand_import_' . uniqid() . '@example.com',
-            'password' => app('hash')->make('password123'),
-        ]);
+        $user = User::first();
+        if (!$user) {
+            $user = User::create([
+                'name' => 'Brand Import Tester',
+                'email' => 'brand_import_' . uniqid() . '@example.com',
+                'password' => app('hash')->make('password123'),
+            ]);
+            $this->createdUserIds[] = $user->id;
+        }
 
+        $this->user = $user;
         $this->token = auth()->login($this->user);
     }
 
@@ -52,10 +63,18 @@ class BrandImportTest extends TestCase
             }
         }
 
+        if (!empty($this->createdImportIds)) {
+            BrandImport::whereIn('id', $this->createdImportIds)->delete();
+        }
+
         foreach ($this->tempFiles as $path) {
             if (is_file($path)) {
                 @unlink($path);
             }
+        }
+
+        if (!empty($this->createdUserIds)) {
+            User::whereIn('id', $this->createdUserIds)->delete();
         }
 
         parent::tearDown();
@@ -138,6 +157,12 @@ class BrandImportTest extends TestCase
 
         $this->seeStatusCode(200);
         $payload = json_decode($this->response->getContent(), true);
+        $this->trackImport($payload['data']);
+        $created = Brand::where('name', $validName)->first();
+        if ($created) {
+            $this->createdBrandIds[] = $created->id;
+        }
+
         $this->assertTrue($payload['success']);
         $this->assertSame('Brand import completed.', $payload['message']);
         $this->assertSame(1, $payload['data']['total_rows']);
@@ -151,9 +176,7 @@ class BrandImportTest extends TestCase
         $this->assertSame(1, $payload['data']['created_records']);
         $this->assertNotNull(BrandImport::where('stored_filename', $payload['data']['stored_filename'])->first());
 
-        $created = Brand::where('name', $validName)->first();
         $this->assertNotNull($created);
-        $this->createdBrandIds[] = $created->id;
     }
 
     public function test_import_inserts_valid_rows_and_reports_invalid_rows(): void
@@ -227,6 +250,11 @@ class BrandImportTest extends TestCase
             $uploaded,
             $this->user->id
         );
+        $this->trackImport($result);
+        $created = Brand::where('name', $validName)->first();
+        if ($created) {
+            $this->createdBrandIds[] = $created->id;
+        }
 
         $this->assertSame(3, $result['total_rows']);
         $this->assertSame(2, $result['success_rows']);
@@ -243,9 +271,6 @@ class BrandImportTest extends TestCase
         $publicPath = base_path('public/exports/brands/' . $failedFilename);
         $this->assertFileExists($failedPath);
         $this->assertFileExists($publicPath);
-        $this->tempFiles[] = $failedPath;
-        $this->tempFiles[] = $publicPath;
-
         $token = (string) preg_replace('/\.xlsx$/i', '', $failedFilename);
         $this->get('/api/v1/brands/import-failed-files/' . $token, [
             'Authorization' => "Bearer {$this->token}",
@@ -268,9 +293,7 @@ class BrandImportTest extends TestCase
         $this->assertSame('Missing Industry Brand', $result['failed_records'][0]['brand_name']);
         $this->assertSame("Industry 'XYZ' not found.", $result['failed_records'][0]['reason']);
 
-        $created = Brand::where('name', $validName)->first();
         $this->assertNotNull($created);
-        $this->createdBrandIds[] = $created->id;
         $this->assertSame($masters['brand_type']->id, (int) $created->brand_type_id);
         $this->assertSame($masters['industry']->id, (int) $created->industry_id);
         $this->assertSame($masters['country']->id, (int) $created->country_id);
@@ -328,6 +351,7 @@ class BrandImportTest extends TestCase
             $this->makeUploadedExcel($binary),
             $this->user->id
         );
+        $this->trackImport($result);
 
         $this->assertSame(0, $result['success_rows']);
         $this->assertSame(1, $result['failed_rows']);
@@ -344,12 +368,8 @@ class BrandImportTest extends TestCase
      */
     private function resolveMasters(): ?array
     {
-        $brandType = BrandType::whereNull('deleted_at')->first();
-        $industry = Industry::whereNull('deleted_at')->first();
-        $zone = Zone::whereNull('deleted_at')->first();
         $country = Country::where('name', 'India')->first() ?? Country::first();
-
-        if (!$brandType || !$industry || !$zone || !$country) {
+        if (!$country) {
             return null;
         }
 
@@ -363,6 +383,14 @@ class BrandImportTest extends TestCase
             return null;
         }
 
+        $brandType = BrandType::whereNull('deleted_at')->first();
+        $industry = Industry::whereNull('deleted_at')->first();
+        $zone = Zone::whereNull('deleted_at')->first();
+
+        if (!$brandType || !$industry || !$zone) {
+            return null;
+        }
+
         return [
             'brand_type' => $brandType,
             'industry' => $industry,
@@ -371,6 +399,33 @@ class BrandImportTest extends TestCase
             'city' => $city,
             'zone' => $zone,
         ];
+    }
+
+    /** @param array<string, mixed> $summary */
+    private function trackImport(array $summary): void
+    {
+        if (empty($summary['stored_filename'])) {
+            return;
+        }
+
+        $import = BrandImport::where('stored_filename', $summary['stored_filename'])->first();
+        if (!$import) {
+            return;
+        }
+
+        $this->createdImportIds[] = $import->id;
+        if ($import->stored_path) {
+            $this->tempFiles[] = base_path($import->stored_path);
+        }
+
+        $failedFileUrl = $summary['failed_file_url'] ?? null;
+        if ($failedFileUrl) {
+            $failedFilename = basename(parse_url($failedFileUrl, PHP_URL_PATH) ?: '');
+            if ($failedFilename !== '') {
+                $this->tempFiles[] = base_path('writable/exports/brands/' . $failedFilename);
+                $this->tempFiles[] = base_path('public/exports/brands/' . $failedFilename);
+            }
+        }
     }
 
     private function writeTempXlsx(string $binary): string

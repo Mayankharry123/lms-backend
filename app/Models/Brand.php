@@ -220,6 +220,14 @@ class Brand extends Model
             ->exists();
     }
 
+    public function slugExistsWithTrashed(string $slug, int $exceptId): bool
+    {
+        return $this->withTrashed()
+            ->where('slug', $slug)
+            ->where('id', '!=', $exceptId)
+            ->exists();
+    }
+
     /** @param array<int, string> $names */
     public function findExistingNames(array $names): array
     {

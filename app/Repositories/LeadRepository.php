@@ -803,7 +803,7 @@ class LeadRepository implements LeadRepositoryInterface
             $reminderEnabled = filter_var($reminder['reminder'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
             // Create history record
-            $history = LeadAssignHistory::create([
+            $history = LeadAssignHistory::createHistory([
                 'uuid' => Str::uuid(),
                 'lead_id' => $lead->id,
                 'assign_user_id' => $lead->current_assign_user ?? $currentUserId ?? $lead->created_by,

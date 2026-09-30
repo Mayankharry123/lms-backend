@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\DateTimeFormatter;
 
 class BriefStatusResource extends JsonResource
 {
@@ -26,8 +27,8 @@ class BriefStatusResource extends JsonResource
             /**
              * Updated brief status response and standardized timestamp formatting.
              */
-            'created_at' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s A') : null,
-            'updated_at' => $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s A') : null,
+            'created_at' => DateTimeFormatter::format($this->created_at),
+            'updated_at' => DateTimeFormatter::format($this->updated_at),
         ];
     }
 }

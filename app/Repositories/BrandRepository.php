@@ -51,6 +51,11 @@ class BrandRepository implements BrandRepositoryInterface
         return $this->model->nameExists($name);
     }
 
+    public function slugExistsWithTrashed(string $slug, int $exceptId): bool
+    {
+        return $this->model->slugExistsWithTrashed($slug, $exceptId);
+    }
+
     /**
      * Return existing non-deleted brand names (lowercased) for the given list.
      *
