@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Collection;
 
 class City extends Model
 {
@@ -23,7 +24,7 @@ class City extends Model
         return $this->belongsTo(State::class);
     }
 
-    public function getAllWithLocation(): \Illuminate\Database\Eloquent\Collection
+    public function getAllWithLocation(): Collection
     {
         return $this->newQuery()->with(['country', 'state'])->latest()->get();
     }
@@ -39,7 +40,7 @@ class City extends Model
         return $query->latest()->paginate($perPage);
     }
 
-    public function getByStateWithLocation(int $stateId): \Illuminate\Database\Eloquent\Collection
+    public function getByStateWithLocation(int $stateId): Collection
     {
         return $this->newQuery()->where('state_id', $stateId)
             ->with(['country', 'state'])
@@ -47,7 +48,7 @@ class City extends Model
             ->get();
     }
 
-    public function getByCountryWithLocation(int $countryId): \Illuminate\Database\Eloquent\Collection
+    public function getByCountryWithLocation(int $countryId): Collection
     {
         return $this->newQuery()->where('country_id', $countryId)
             ->with(['country', 'state'])
@@ -62,9 +63,9 @@ class City extends Model
 
     /**
      * @param array<int, string> $names
-     * @return \Illuminate\Database\Eloquent\Collection<int, static>
+    * @return Collection<int, static>
      */
-    public function findByNames(array $names): \Illuminate\Database\Eloquent\Collection
+    public function findByNames(array $names): Collection
     {
         $normalized = $this->normalizeNameList($names);
         if ($normalized === []) {

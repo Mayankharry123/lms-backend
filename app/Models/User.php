@@ -278,6 +278,89 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return $tree;
     }
 
+    public function getChildTreeByDepartments(
+        array $departmentIds = [],
+        array $departmentSlugs = [],
+        ?int $organisationId = null,
+        bool $includeAssignedBriefCount = false
+    ): array {
+        $query = $this->children()->select('users.id', 'users.name', 'users.organisation_id');
+
+        if ($organisationId !== null) {
+            $query->with(['organisations:id']);
+        }
+
+        if ($includeAssignedBriefCount) {
+            $query->withCount(['assignedBriefs as assigned_brief_count' => function ($briefQuery) {
+                $briefQuery->where('briefs.status', '!=', '15');
+            }]);
+        }
+
+        if ($departmentIds !== [] || $departmentSlugs !== []) {
+            $query->whereHas('departments', function ($departmentQuery) use ($departmentIds, $departmentSlugs) {
+                $departmentQuery->where(function ($filterQuery) use ($departmentIds, $departmentSlugs) {
+                    if ($departmentIds !== []) {
+                        $filterQuery->whereIn('departments.id', $departmentIds);
+                    }
+
+                    if ($departmentSlugs !== []) {
+                        if ($departmentIds !== []) {
+                            $filterQuery->orWhereIn('departments.slug', $departmentSlugs);
+                        } else {
+                            $filterQuery->whereIn('departments.slug', $departmentSlugs);
+                        }
+                    }
+                });
+            });
+        }
+
+        $children = $query->orderBy('users.name', 'asc')->get();
+        $tree = [];
+
+        foreach ($children as $child) {
+            $nestedChildren = $child->getChildTreeByDepartments(
+                $departmentIds,
+                $departmentSlugs,
+                $organisationId,
+                $includeAssignedBriefCount
+            );
+
+            if ($organisationId !== null && !$child->belongsToOrganisation($organisationId)) {
+                foreach ($nestedChildren as $descendant) {
+                    $tree[] = $descendant;
+                }
+                continue;
+            }
+
+            $node = [
+                'id' => $child->id,
+                'name' => $child->name,
+            ];
+
+            if ($includeAssignedBriefCount) {
+                $node['assigned_brief_count'] = (int) $child->assigned_brief_count;
+            }
+
+            $node['children'] = $nestedChildren;
+            $tree[] = $node;
+        }
+
+        return $tree;
+    }
+
+    private function belongsToOrganisation(int $organisationId): bool
+    {
+        if ((int) $this->organisation_id === $organisationId) {
+            return true;
+        }
+
+        $organisations = $this->relationLoaded('organisations')
+            ? $this->organisations
+            : $this->organisations()->get(['organisations.id']);
+
+        return $organisations->contains(fn ($organisation) => (int) $organisation->id === $organisationId);
+    }
+
     /**
      * Scope for verified users
      */

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Collection;
 
 class State extends Model
 {
@@ -23,12 +24,12 @@ class State extends Model
         return $this->hasMany(City::class);
     }
 
-    public function getAllWithCountry(): \Illuminate\Database\Eloquent\Collection
+    public function getAllWithCountry(): Collection
     {
         return $this->newQuery()->with('country')->latest()->get();
     }
 
-    public function getByCountryWithCountry(int $countryId): \Illuminate\Database\Eloquent\Collection
+    public function getByCountryWithCountry(int $countryId): Collection
     {
         return $this->newQuery()->where('country_id', $countryId)
             ->with('country')
@@ -54,9 +55,9 @@ class State extends Model
 
     /**
      * @param array<int, string> $names
-     * @return \Illuminate\Database\Eloquent\Collection<int, static>
+    * @return Collection<int, static>
      */
-    public function findByNames(array $names): \Illuminate\Database\Eloquent\Collection
+    public function findByNames(array $names): Collection
     {
         $normalized = $this->normalizeNameList($names);
         if ($normalized === []) {

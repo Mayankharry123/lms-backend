@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Contracts\Repositories\BrandTypeRepositoryInterface;
 use App\Models\BrandType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class BrandTypeRepository implements BrandTypeRepositoryInterface
 {
@@ -74,9 +75,9 @@ class BrandTypeRepository implements BrandTypeRepositoryInterface
      * Find non-deleted brand types by name (case-insensitive).
      *
      * @param array<int, string> $names
-     * @return \Illuminate\Support\Collection
+    * @return Collection
      */
-    public function findByNames(array $names): \Illuminate\Support\Collection
+    public function findByNames(array $names): Collection
     {
         return $this->model->findByNames($names);
     }

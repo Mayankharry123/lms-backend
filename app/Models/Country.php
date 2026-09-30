@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Collection;
 
 class Country extends Model
 {
@@ -17,7 +18,7 @@ class Country extends Model
         return $this->hasMany(State::class);
     }
 
-    public function getLatest(): \Illuminate\Database\Eloquent\Collection
+    public function getLatest(): Collection
     {
         return $this->newQuery()->latest()->get();
     }
@@ -40,9 +41,9 @@ class Country extends Model
 
     /**
      * @param array<int, string> $names
-     * @return \Illuminate\Database\Eloquent\Collection<int, static>
+    * @return Collection<int, static>
      */
-    public function findByNames(array $names): \Illuminate\Database\Eloquent\Collection
+    public function findByNames(array $names): Collection
     {
         $normalized = $this->normalizeNameList($names);
         if ($normalized === []) {

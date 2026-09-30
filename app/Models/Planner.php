@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Support\PlannerMetrics;
 use App\Traits\HandlesFileUploads;
 
 class Planner extends BaseModel
@@ -167,10 +168,10 @@ class Planner extends BaseModel
             ->whereNull('planners.deleted_at')
             ->whereIn('planners.brief_id', $briefIds);
 
-        $submittedQuery = \App\Support\PlannerMetrics::applySubmittedPlansScope(clone $plannerQuery);
+        $submittedQuery = PlannerMetrics::applySubmittedPlansScope(clone $plannerQuery);
         $averageAssignmentDays = $submittedQuery
             ->selectRaw(
-                'AVG(' . \App\Support\PlannerMetrics::assignmentToSubmissionDaysSql() . ') as avg_days'
+                'AVG(' . PlannerMetrics::assignmentToSubmissionDaysSql() . ') as avg_days'
             )
             ->value('avg_days');
 

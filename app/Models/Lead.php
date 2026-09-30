@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use App\Support\UserAccessScope;
 
 class Lead extends Model
@@ -140,8 +141,8 @@ class Lead extends Model
     {
         $query = $this->newQuery()->with($this->repositoryEagerLoadRelations())
             ->notDeleted()
-            ->accessibleToUser(\Illuminate\Support\Facades\Auth::user());
-        $this->applyOrganisationValidation($query, \Illuminate\Support\Facades\Auth::user());
+            ->accessibleToUser(Auth::user());
+        $this->applyOrganisationValidation($query, Auth::user());
 
         return $query;
     }
@@ -212,8 +213,8 @@ class Lead extends Model
     public function getLeadList(): Collection
     {
         $query = $this->newQuery()->select('id', 'name')->notDeleted()
-            ->accessibleToUser(\Illuminate\Support\Facades\Auth::user());
-        $this->applyOrganisationValidation($query, \Illuminate\Support\Facades\Auth::user());
+            ->accessibleToUser(Auth::user());
+        $this->applyOrganisationValidation($query, Auth::user());
 
         return $query->where('status', '1')->orderBy('id', 'asc')->get();
     }
@@ -483,14 +484,14 @@ class Lead extends Model
     {
         $query = $this->newQuery()
             ->with($this->repositoryEagerLoadRelations())
-            ->accessibleToUser(\Illuminate\Support\Facades\Auth::user())
+            ->accessibleToUser(Auth::user())
             ->notDeleted()
             ->whereHas('leadStatusRelation', function ($statusQuery) {
                 $statusQuery->whereNull('statuses.deleted_at')->where('statuses.slug', 'pending');
             }, '>=', 1)
             ->where('leads.status', '1');
 
-        $this->applyOrganisationValidation($query, \Illuminate\Support\Facades\Auth::user());
+        $this->applyOrganisationValidation($query, Auth::user());
         \App\Support\DashboardFilters::applyPendingLeadDashboardFilters($query, $filters, 'leads');
 
         return $query->orderBy('leads.created_at', 'desc')->paginate($perPage)->appends(request()->query());

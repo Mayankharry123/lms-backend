@@ -15,9 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
 use App\Models\Lead;
-use App\Models\User;
 use App\Models\Zone;
 
 class UserController extends Controller
@@ -465,41 +463,7 @@ class UserController extends Controller
                 fn ($id) => $id > 0
             ));
 
-            $organisationUserIds = User::query()
-                ->where(function ($query) use ($organisationIds) {
-                    $query->whereIn('organisation_id', $organisationIds)
-                        ->orWhereHas('organisations', function ($organisationQuery) use ($organisationIds) {
-                            $organisationQuery->whereIn('organisations.id', $organisationIds);
-                        });
-                })
-                ->pluck('id');
-
-            $zones = Zone::query()
-                ->leftJoin('users', function ($join) use ($organisationUserIds) {
-                    $join->on('users.zone_id', '=', 'zones.id')
-                        ->whereNull('users.deleted_at')
-                        ->whereIn('users.id', $organisationUserIds);
-                })
-                ->leftJoin('leads', function ($join) {
-                    $join->on('leads.current_assign_user', '=', 'users.id')
-                        ->whereNull('leads.deleted_at');
-                })
-                ->select(
-                    'zones.id as zone_id',
-                    'zones.name as zone_name',
-                    DB::raw('COUNT(leads.id) as assigned_leads_count')
-                )
-                ->groupBy('zones.id', 'zones.name')
-                ->orderBy('zones.name')
-                ->get()
-                ->map(function ($zone) {
-                    return [
-                        'zone_id' => (int) $zone->zone_id,
-                        'zone_name' => $zone->zone_name,
-                        'assigned_leads_count' => (int) $zone->assigned_leads_count,
-                    ];
-                })
-                ->values();
+            $zones = Zone::getOrganisationLeadCounts($organisationIds);
 
             return $this->responseService->success(
                 $zones,
@@ -532,7 +496,7 @@ class UserController extends Controller
             $departmentSlugs = $this->extractDepartmentSlugs($request);
 
             // Get all descendants in nested tree format (optionally filtered by departments_id / departments_slug)
-            $childTree = $this->buildChildTree($user, $departmentIds, $departmentSlugs);
+            $childTree = $user->getChildTreeByDepartments($departmentIds, $departmentSlugs);
             
             return $this->responseService->success(
                 $childTree,
@@ -631,7 +595,7 @@ class UserController extends Controller
                 $departmentSlugs = ['planing'];
             }
 
-            $childTree = $this->buildChildTree($user, $departmentIds, $departmentSlugs, $organisationId, true);
+            $childTree = $user->getChildTreeByDepartments($departmentIds, $departmentSlugs, $organisationId, true);
             
             return $this->responseService->success(
                 $childTree,
@@ -772,111 +736,6 @@ class UserController extends Controller
         }
 
         return array_values(array_filter(array_map('trim', $raw), fn($slug) => $slug !== ''));
-    }
-
-    /**
-     * Build nested tree structure for children recursively
-     *
-     * @param \App\Models\User $user
-     * @param array $departmentIds
-     * @param array $departmentSlugs
-     * @param int|null $organisationId When set, each parent and child must belong to this organisation.
-     * @param bool $includeAssignedBriefCount Include assigned_brief_count on each user.
-     * @return array
-     */
-    /**
-     * Added recursive child-user hierarchy builder with optional department
-     * ID/slug filtering at each hierarchy level.
-     */
-    private function buildChildTree(
-        $user,
-        array $departmentIds = [],
-        array $departmentSlugs = [],
-        ?int $organisationId = null,
-        bool $includeAssignedBriefCount = false
-    ): array {
-        $query = $user->children()->select('users.id', 'users.name', 'users.organisation_id');
-
-        if ($organisationId !== null) {
-            $query->with(['organisations:id']);
-        }
-
-        if ($includeAssignedBriefCount) {
-            $query->withCount(['assignedBriefs as assigned_brief_count' => function ($briefQuery) {
-                $briefQuery->where('briefs.status', '!=', '15');
-            }]);
-        }
-
-        if (!empty($departmentIds) || !empty($departmentSlugs)) {
-            $query->whereHas('departments', function ($q) use ($departmentIds, $departmentSlugs) {
-                $q->where(function ($subQ) use ($departmentIds, $departmentSlugs) {
-                    if (!empty($departmentIds)) {
-                        $subQ->whereIn('departments.id', $departmentIds);
-                    }
-                    if (!empty($departmentSlugs)) {
-                        if (!empty($departmentIds)) {
-                            $subQ->orWhereIn('departments.slug', $departmentSlugs);
-                        } else {
-                            $subQ->whereIn('departments.slug', $departmentSlugs);
-                        }
-                    }
-                });
-            });
-        }
-
-        $children = $query->orderBy('users.name', 'asc')->get();
-        
-        $tree = [];
-        foreach ($children as $child) {
-            $nestedChildren = $this->buildChildTree(
-                $child,
-                $departmentIds,
-                $departmentSlugs,
-                $organisationId,
-                $includeAssignedBriefCount
-            );
-
-            if ($organisationId !== null && !$this->userBelongsToOrganisation($child, $organisationId)) {
-                foreach ($nestedChildren as $descendant) {
-                    $tree[] = $descendant;
-                }
-                continue;
-            }
-
-            $node = [
-                'id' => $child->id,
-                'name' => $child->name,
-            ];
-
-            if ($includeAssignedBriefCount) {
-                $node['assigned_brief_count'] = (int) $child->assigned_brief_count;
-            }
-
-            $node['children'] = $nestedChildren;
-            $tree[] = $node;
-        }
-        
-        return $tree;
-    }
-
-    /**
-     * A user belongs to an organisation through users.organisation_id or organisation_user.
-     *
-     * @param \App\Models\User $user
-     * @param int $organisationId
-     * @return bool
-     */
-    private function userBelongsToOrganisation($user, int $organisationId): bool
-    {
-        if ((int) $user->organisation_id === $organisationId) {
-            return true;
-        }
-
-        $organisations = $user->relationLoaded('organisations')
-            ? $user->organisations
-            : $user->organisations()->get(['organisations.id']);
-
-        return $organisations->contains(fn ($organisation) => (int) $organisation->id === $organisationId);
     }
 
     /**

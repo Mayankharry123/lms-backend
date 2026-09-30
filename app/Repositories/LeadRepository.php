@@ -5,10 +5,12 @@ namespace App\Repositories;
 use App\Contracts\Repositories\LeadRepositoryInterface;
 use App\Models\Lead;
 use App\Models\LeadAssignHistory;
+use App\Models\LeadMobileNumber;
 use App\Models\Meeting;
 use App\Models\Priority;
 use App\Models\Status;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use DomainException;
 use Exception;
@@ -241,7 +243,7 @@ class LeadRepository implements LeadRepositoryInterface
             if (!empty($mobileNumbers)) {
                 $isFirst = true;
                 foreach ($mobileNumbers as $number) {
-                    \App\Models\LeadMobileNumber::create([
+                    LeadMobileNumber::create([
                         'lead_id' => $lead->id,
                         'mobile_number' => $number,
                         'is_primary' => $isFirst,
@@ -344,10 +346,10 @@ class LeadRepository implements LeadRepositoryInterface
             
             // Update mobile numbers if provided
             if ($mobileNumbers !== null && !empty($mobileNumbers)) {
-                \App\Models\LeadMobileNumber::deleteForLead($id);
+                LeadMobileNumber::deleteForLead($id);
                 $isFirst = true;
                 foreach ($mobileNumbers as $number) {
-                    \App\Models\LeadMobileNumber::create([
+                    LeadMobileNumber::create([
                         'lead_id' => $id,
                         'mobile_number' => $number,
                         'is_primary' => $isFirst,
@@ -400,7 +402,7 @@ class LeadRepository implements LeadRepositoryInterface
                 'lead' => $lead,
                 'history' => $history,
             ];
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             throw $e;
         } catch (QueryException $e) {
             Log::error('Database error updating lead activity', ['id' => $id, 'data' => $data, 'exception' => $e]);
