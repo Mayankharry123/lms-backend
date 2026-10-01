@@ -4,7 +4,6 @@ namespace App\Repositories;
 
 use App\Models\User;
 use App\Contracts\Repositories\UserRepositoryInterface;
-use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -23,11 +22,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function all(int $perPage = 15): LengthAwarePaginator
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::with(['roles', 'permissions', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone']);
-        $this->applyOrganisationValidation($query, auth()->user());
-        
-        return $query->latest()->paginate($perPage);
+        return User::getRepositoryUsers($perPage);
     }
 
     /**
@@ -35,11 +30,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function find(int $id): ?User
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::where('id', $id);
-        $this->applyOrganisationValidation($query, auth()->user());
-        
-        return $query->first();
+        return User::findRepositoryUser($id);
     }
 
     /**
@@ -47,11 +38,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findByEmail(string $email): ?User
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::where('email', $email);
-        $this->applyOrganisationValidation($query, auth()->user());
-        
-        return $query->first();
+        return User::findRepositoryUserByEmail($email);
     }
 
     /**
@@ -83,11 +70,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findWithRelations(int $id, array $relations = []): ?User
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::with($relations)->where('id', $id);
-        $this->applyOrganisationValidation($query, auth()->user());
-        
-        return $query->first();
+        return User::findRepositoryUserWithRelations($id, $relations);
     }
 
     /**
@@ -95,36 +78,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function search(array $criteria, int $perPage = 15): LengthAwarePaginator
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::with(['roles', 'permissions', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone']);
-
-        // Handle the generic 'search' parameter
-        if (!empty($criteria['search'])) {
-            $search = $criteria['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
-        foreach ($criteria as $field => $value) {
-            if ($field === 'search') {
-                // Already handled above
-                continue;
-            } elseif ($field === 'role') {
-                // Handle role search through relationships
-                $query->whereHas('roles', function ($q) use ($value) {
-                    $q->where('name', $value);
-                });
-            } else {
-                $query->where($field, $value);
-            }
-        }
-
-        $this->applyOrganisationValidation($query, auth()->user());
-
-        return $query->latest()->paginate($perPage);
+        return User::searchRepositoryUsers($criteria, $perPage);
     }
 
     /**
@@ -132,11 +86,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findBy(array $conditions): Collection
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::where($conditions);
-        $this->applyOrganisationValidation($query, auth()->user());
-        
-        return $query->get();
+        return User::findRepositoryUsersBy($conditions);
     }
 
     /**
@@ -144,11 +94,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findFirstBy(array $conditions): ?User
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::where($conditions);
-        $this->applyOrganisationValidation($query, auth()->user());
-        
-        return $query->first();
+        return User::findFirstRepositoryUserBy($conditions);
     }
 
     /**
@@ -156,11 +102,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function countBy(array $conditions): int
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::where($conditions);
-        $this->applyOrganisationValidation($query, auth()->user());
-        
-        return $query->count();
+        return User::countRepositoryUsersBy($conditions);
     }
 
     /**
@@ -168,15 +110,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function updateLastLogin(int $userId): ?User
     {
-        $user = $this->find($userId);
-        if (!$user) {
-            return null;
-        }
-
-        $user->last_login_at = Carbon::now();
-        $user->save();
-
-        return $user;
+        return User::updateRepositoryLastLogin($userId);
     }
 
     /**
@@ -184,39 +118,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function getStatistics(): array
     {
-        $modelClass = $this->modelClass;
-        
-        $baseQuery = $modelClass::query();
-        $this->applyOrganisationValidation($baseQuery, auth()->user());
-        
-        return [
-            'total' => (clone $baseQuery)->count(),
-            'active' => (clone $baseQuery)->where('status', 'active')->count(),
-            'inactive' => (clone $baseQuery)->where('status', 'inactive')->count(),
-            'suspended' => (clone $baseQuery)->where('status', 'suspended')->count(),
-            'verified' => (clone $baseQuery)->whereNotNull('email_verified_at')->count(),
-            'unverified' => (clone $baseQuery)->whereNull('email_verified_at')->count(),
-        ];
-    }
-
-    /**
-     * Ensure users belong to the authenticated user's organisation.
-     *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param \App\Models\User|null $user
-     */
-    protected function applyOrganisationValidation($query, $user): void
-    {
-        if (!$user) {
-            return;
-        }
-
-        // First check with the organization, AND then check with the parent child flow.
-        // This ensures a user can ONLY see their descendants who are ALSO in their organization.
-        // Peers in the organization will NOT be shown.
-        $strictDescendantIds = \App\Support\UserAccessScope::getStrictDescendantsInOrganisation($user);
-        
-        $query->whereIn('users.id', $strictDescendantIds);
+        return User::getRepositoryStatistics();
     }
 
     /**
@@ -228,13 +130,17 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function syncDepartments(int $userId, array $departmentIds): void
     {
-        $modelClass = $this->modelClass;
-        $user = $modelClass::find($userId);
+        User::syncRepositoryDepartments($userId, $departmentIds);
+    }
 
-        if (!$user) {
-            return;
-        }
-
-        $user->syncValidDepartments($departmentIds);
+    /**
+     * Active planner-admin users that belong to the given organisation.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActivePlannerAdminsByOrganisation(int $organisationId): Collection
+    {
+        return User::findActivePlannerAdminsByOrganisation($organisationId);
     }
 }

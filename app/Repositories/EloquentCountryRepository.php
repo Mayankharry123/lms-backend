@@ -16,26 +16,17 @@ class EloquentCountryRepository implements CountryRepositoryInterface
 
     public function getAll()
     {
-        // No status field exists, so get all records
-        return $this->model->latest()->get();
+        return $this->model->getLatest();
     }
 
     public function getPaginated(int $perPage = 15, ?string $search = null)
     {
-        $query = $this->model->with('states');
-        
-        // Apply search filter if provided
-        if ($search) {
-            $query->where('name', 'like', '%' . $search . '%');
-        }
-        
-        return $query->latest()->paginate($perPage);
+        return $this->model->getPaginatedWithStates($perPage, $search);
     }
 
     public function findById(int $id)
     {
-        // Load with states relationship
-        return $this->model->with('states')->findOrFail($id);
+        return $this->model->getByIdWithStates($id);
     }
 
     public function create(array $data)
@@ -56,6 +47,17 @@ class EloquentCountryRepository implements CountryRepositoryInterface
         $country = $this->model->findOrFail($id);
         // This will be a HARD delete since model doesn't use SoftDeletes
         return $country->delete(); 
+    }
+
+    /**
+     * Find countries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        return $this->model->findByNames($names);
     }
 }
 

@@ -57,4 +57,12 @@ interface BrandTypeRepositoryInterface
      * @return int
      */
     public function getBrandsCount(int $id): int;
+
+    /**
+     * Find non-deleted brand types by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return Collection
+     */
+    public function findByNames(array $names): Collection;
 }

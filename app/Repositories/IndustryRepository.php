@@ -22,13 +22,7 @@ class IndustryRepository implements IndustryRepositoryInterface
 
     public function getAllIndustries(int $perPage = 10, ?string $searchTerm = null)
     {
-        $query = $this->model->query(); 
-
-        
-        if ($searchTerm) {
-            $query->where('name', 'LIKE', "%{$searchTerm}%");
-        }
-        return $query->orderBy('created_at', 'desc')->paginate($perPage); 
+        return $this->model->getAllIndustries($perPage, $searchTerm);
     }   
 
     public function getIndustryById($id) 
@@ -68,5 +62,16 @@ class IndustryRepository implements IndustryRepositoryInterface
     {
         $industry = $this->model->findOrFail($id);
         return $industry->delete();
+    }
+
+    /**
+     * Find non-deleted industries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        return $this->model->findByNames($names);
     }
 }

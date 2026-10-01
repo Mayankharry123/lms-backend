@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Collection;
 
 class Meeting extends Model
 {
@@ -70,5 +71,27 @@ class Meeting extends Model
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /**
+     * @return array{all: Collection<int, self>, meeting: self|null}
+     */
+    public static function getLeadHistoryContext(int $leadId): array
+    {
+        $allMeetings = self::where('lead_id', $leadId)->get();
+        $meeting = self::where('lead_id', $leadId)
+            ->where('status', '1')
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$meeting) {
+            $meeting = self::where('lead_id', $leadId)
+                ->whereNull('deleted_at')
+                ->orderBy('created_at', 'desc')
+                ->first();
+        }
+
+        return ['all' => $allMeetings, 'meeting' => $meeting];
     }
 }

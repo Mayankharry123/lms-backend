@@ -4,6 +4,7 @@ namespace App\Contracts\Repositories;
 
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 interface UserRepositoryInterface
 {
@@ -98,4 +99,13 @@ interface UserRepositoryInterface
      * @return void
      */
     public function syncDepartments(int $userId, array $departmentIds): void;
+
+    /**
+     * Active users in an organisation whose role slug is planner-admin.
+     * Matches users.organisation_id and the organisation_user pivot.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActivePlannerAdminsByOrganisation(int $organisationId): Collection;
 }

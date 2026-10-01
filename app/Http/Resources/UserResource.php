@@ -30,6 +30,20 @@ class UserResource extends BaseResource
                 return $this->organisations->pluck('id')->values();
             }),
 
+            'zone_ids' => $this->whenLoaded('zones', function () {
+                return $this->zones->pluck('id')->values();
+            }),
+
+            'zones' => $this->whenLoaded('zones', function () {
+                return $this->zones->map(function ($zone) {
+                    return [
+                        'id' => $zone->id,
+                        'name' => $zone->name,
+                        'slug' => $zone->slug,
+                    ];
+                })->values();
+            }),
+
             'organisations' => $this->whenLoaded('organisations', function () {
                 return $this->organisations->map(function ($organisation) {
                     return [
@@ -39,16 +53,16 @@ class UserResource extends BaseResource
                     ];
                 })->values();
             }),
-
-            'department_ids' => $this->whenLoaded('departments', function () {
-                return $this->departments->pluck('id')->values();
-            }),
-
+          
+            /**
+             * Added department details to the user response in a simplified
+             * departments_id and departments_name array format.
+             */
             'departments' => $this->whenLoaded('departments', function () {
                 return $this->departments->map(function ($department) {
                     return [
-                        'id' => $department->id,
-                        'name' => $department->name,
+                        'departments_id' => $department->id,
+                        'departments_name' => $department->name,
                     ];
                 })->values();
             }),

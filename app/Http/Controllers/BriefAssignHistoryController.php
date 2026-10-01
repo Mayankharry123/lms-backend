@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\BriefAssignHistoryResource;
+use App\Models\Brief;
+use App\Models\User;
 use App\Services\BriefAssignHistoryService;
 use App\Services\ResponseService;
 use App\Traits\HandlesFileUploads;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use App\Http\Resources\BriefActivityResource;
 use Throwable;
 
 class BriefAssignHistoryController extends Controller
@@ -126,16 +130,206 @@ class BriefAssignHistoryController extends Controller
      * @param int $briefId
      * @return JsonResponse
      */
+    /**
+     * Updated brief assignment history API to apply authenticated-user
+     * visibility rules while retrieving assignment history.
+     */
     public function getByBriefId(int $briefId, Request $request): JsonResponse
     {
         try {
-            $perPage = $request->input('per_page', 10);
-            $briefAssignHistories = $this->briefAssignHistoryService->getBriefAssignHistoriesByBriefId($briefId, $perPage);
+            $perPage = (int) $request->input('per_page', 10);
+            $user = auth()->user();
+            $briefAssignHistories = $this->briefAssignHistoryService->getBriefAssignHistoriesByBriefId($briefId, $perPage, $user);
 
             return $this->responseService->success(
                 BriefAssignHistoryResource::collection($briefAssignHistories),
                 'Brief assign histories retrieved successfully.'
             );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get compact assignment history entries for the brief chat.
+     *
+     * GET /briefs/{briefId}/assign-histories-chat
+     *
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function getChatByBriefId(int $briefId): JsonResponse
+    {
+        try {
+            $histories = $this->briefAssignHistoryService->getBriefAssignHistoryChat($briefId);
+            $chatHistory = $histories->map(function ($history) {
+                return [
+                    'current_user_id' => $history->assign_by_id,
+                    'current_user_name' => $history->assignedBy?->name,
+                    'brief_comment' => $history->comment,
+                    'created_at' => $history->created_at?->format('Y-m-d H:i:s'),
+                ];
+            })->values();
+
+            return $this->responseService->success(
+                $chatHistory,
+                'Brief assignment chat history retrieved successfully.'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get activity history for a brief.
+     *
+     * GET /briefs/{briefId}/activity
+     *
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function getActivityByBriefId(int $briefId): JsonResponse
+    {
+        try {
+            $activities = $this->briefAssignHistoryService->getBriefAssignHistoryChat($briefId);
+
+            return $this->responseService->success(
+                BriefActivityResource::collection($activities),
+                'Brief activity retrieved successfully.'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Save brief activity and optional reminder details.
+     *
+     * POST /briefs/{briefId}/activity
+     *
+     * @param Request $request
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function createActivity(Request $request, int $briefId): JsonResponse
+    {
+        try {
+            if ($request->exists('reminder')) {
+                $request->merge([
+                    'reminder' => filter_var($request->input('reminder'), FILTER_VALIDATE_BOOLEAN),
+                ]);
+            }
+
+            $reminderEnabled = filter_var($request->input('reminder', false), FILTER_VALIDATE_BOOLEAN);
+            $validated = $this->validate($request, [
+                'comment' => 'required|string|max:1000',
+                'reminder' => 'sometimes|nullable|boolean',
+                'reminder_at' => ($reminderEnabled ? 'required' : 'nullable') . '|date',
+                'reminder_before' => ($reminderEnabled ? 'required' : 'nullable') . '|integer|min:1',
+                'reminder_before_unit' => ($reminderEnabled ? 'required' : 'nullable') . '|in:minutes,hours,days',
+            ]);
+
+            $validated['reminder'] = $reminderEnabled;
+            if (!$reminderEnabled) {
+                $validated['reminder_at'] = null;
+                $validated['reminder_before'] = null;
+                $validated['reminder_before_unit'] = null;
+            }
+
+            $history = $this->briefAssignHistoryService->createBriefActivity(
+                $briefId,
+                (int) auth()->id(),
+                $validated
+            );
+
+            return $this->responseService->success(
+                new BriefActivityResource($history),
+                'Brief activity saved successfully.'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->responseService->notFound('Brief not found');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Duration from each planner assignment to that planner's plan submission.
+     *
+     * GET /briefs/{briefId}/assignment-submission-durations
+     *
+     * @param int $briefId
+     * @return JsonResponse
+     */
+    public function getAssignmentSubmissionDurations(int $briefId): JsonResponse
+    {
+        try {
+            $brief = Brief::query()->where('status', '!=', '15')->find($briefId);
+
+            if (!$brief) {
+                return $this->responseService->notFound('Brief not found');
+            }
+
+            $durations = $this->briefAssignHistoryService->getAssignmentSubmissionDurations($briefId);
+
+            return $this->responseService->success(
+                $durations,
+                'Planner assignment submission durations retrieved successfully.'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Assignment-to-submission durations for every brief cycle of one planner.
+     *
+     * GET /users/{userId}/assignment-submission-durations?page=1
+     * assignment_cycles are returned 5 per page.
+     *
+     * @param int $userId
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getUserAssignmentSubmissionDurations(int $userId, Request $request): JsonResponse
+    {
+        try {
+            $user = User::query()->find($userId);
+
+            if (!$user) {
+                return $this->responseService->notFound('User not found');
+            }
+
+            $cycles = $this->briefAssignHistoryService->getUserAssignmentSubmissionDurations($userId);
+            $perPage = 5;
+            $page = max(1, (int) $request->input('page', 1));
+            $total = count($cycles);
+
+            $paginator = new LengthAwarePaginator(
+                array_slice($cycles, ($page - 1) * $perPage, $perPage),
+                $total,
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
+
+            $response = $this->responseService->paginated(
+                $paginator,
+                'User assignment submission durations retrieved successfully.'
+            );
+            $payload = $response->getData(true);
+            $payload['data'] = [
+                'user_id' => (int) $user->id,
+                'user_name' => $user->name,
+                'assignment_cycles' => $payload['data'],
+            ];
+
+            return response()->json($payload, $response->status());
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class LeadAssignHistory extends Model
 {
@@ -32,6 +33,10 @@ class LeadAssignHistory extends Model
         'call_status_id',
         'last_call_status_date_time',
         'lead_comment',
+        'reminder',
+        'reminder_at',
+        'reminder_before',
+        'reminder_before_unit',
         'meeting_date',
         'meeting_time',
         'status',
@@ -48,6 +53,9 @@ class LeadAssignHistory extends Model
         'deleted_at' => 'datetime',
         'meeting_date' => 'date',
         'last_call_status_date_time' => 'datetime',
+        'reminder' => 'boolean',
+        'reminder_at' => 'datetime',
+        'reminder_before' => 'integer',
     ];
 
     /**
@@ -108,6 +116,28 @@ class LeadAssignHistory extends Model
     public function callStatus()
     {
         return $this->belongsTo(CallStatus::class, 'call_status_id');
+    }
+
+    public static function createHistory(array $data): self
+    {
+        return self::create($data);
+    }
+
+    public static function getPaginatedForLead(int $leadId, int $perPage = 10): LengthAwarePaginator
+    {
+        return self::where('lead_id', $leadId)
+            ->with(['assignedUser', 'currentUser', 'priority', 'status', 'callStatus'])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+    }
+
+    public static function getCommentsForLead(int $leadId, int $perPage = 9): LengthAwarePaginator
+    {
+        return self::query()
+            ->with(['currentUser:id,name'])
+            ->where('lead_id', $leadId)
+            ->orderByDesc('id')
+            ->paginate($perPage, ['id', 'current_user_id', 'lead_comment', 'created_at']);
     }
 }
 

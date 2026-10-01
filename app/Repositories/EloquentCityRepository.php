@@ -16,42 +16,27 @@ class EloquentCityRepository implements CityRepositoryInterface
 
     public function getAll()
     {
-        // Load all cities with their country and state relationships
-        return $this->model->with(['country', 'state'])->latest()->get();
+        return $this->model->getAllWithLocation();
     }
 
     public function getPaginated(int $perPage = 15, ?string $search = null)
     {
-        $query = $this->model->with(['country', 'state']);
-        
-        // Apply search filter if provided
-        if ($search) {
-            $query->where('name', 'like', '%' . $search . '%');
-        }
-        
-        return $query->latest()->paginate($perPage);
+        return $this->model->getPaginatedWithLocation($perPage, $search);
     }
 
     public function getByState(int $stateId)
     {
-        return $this->model->where('state_id', $stateId)
-                           ->with(['country', 'state'])
-                           ->latest()
-                           ->get();
+        return $this->model->getByStateWithLocation($stateId);
     }
 
     public function getByCountry(int $countryId)
     {
-        return $this->model->where('country_id', $countryId)
-                           ->with(['country', 'state'])
-                           ->latest()
-                           ->get();
+        return $this->model->getByCountryWithLocation($countryId);
     }
 
     public function findById(int $id)
     {
-        // Load with country and state relationships
-        return $this->model->with(['country', 'state'])->findOrFail($id);
+        return $this->model->getByIdWithLocation($id);
     }
 
     public function create(array $data)
@@ -72,5 +57,16 @@ class EloquentCityRepository implements CityRepositoryInterface
         $city = $this->model->findOrFail($id);
         // Model doesn't use SoftDeletes, so this will be a HARD delete
         return $city->delete(); 
+    }
+
+    /**
+     * Find cities by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        return $this->model->findByNames($names);
     }
 }

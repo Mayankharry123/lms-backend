@@ -6,29 +6,9 @@ use App\Contracts\Repositories\BrandRepositoryInterface;
 use App\Models\Brand;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use DomainException;
-use Exception;
-use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\Log;
 
 class BrandRepository implements BrandRepositoryInterface
 {
-    /**
-     * Default relationships to eager load.
-     *
-     * @var array<string>
-     */
-    protected const DEFAULT_RELATIONSHIPS = [
-        'agency',
-        'agencies',
-        'zone',
-        'brandType',
-        'industry',
-        'country',
-        'state',
-        'city',
-    ];
-
     /**
      * @var Brand
      */
@@ -57,37 +37,34 @@ class BrandRepository implements BrandRepositoryInterface
      */
     public function getAllBrands(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
-        $query = $this->model
-            ->with(self::DEFAULT_RELATIONSHIPS)
-            ->where('status', '1');
+        return $this->model->getAllBrands($perPage, $searchTerm);
+    }
 
-        // Apply search filter if search term is provided
-        if ($searchTerm) {
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('name', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('slug', 'LIKE', "%{$searchTerm}%");
-            })
-            ->orWhereHas('agencies', function ($agenciesQuery) use ($searchTerm) {
-                $agenciesQuery->where('name', 'LIKE', "%{$searchTerm}%");
-            })
-            ->orWhereHas('brandType', function ($brandTypeQuery) use ($searchTerm) {
-                $brandTypeQuery->where('name', 'LIKE', "%{$searchTerm}%");
-            })
-            ->orWhereHas('industry', function ($industryQuery) use ($searchTerm) {
-                $industryQuery->where('name', 'LIKE', "%{$searchTerm}%");
-            })
-            ->orWhereHas('city', function ($cityQuery) use ($searchTerm) {
-                $cityQuery->where('name', 'LIKE', "%{$searchTerm}%");
-            })
-            ->orWhereHas('zone', function ($zoneQuery) use ($searchTerm) {
-                $zoneQuery->where('name', 'LIKE', "%{$searchTerm}%");
-            });
-        }
+    /**
+     * Check whether a non-deleted brand already exists with the given name.
+     *
+     * @param string $name
+     * @return bool
+     */
+    public function nameExists(string $name): bool
+    {
+        return $this->model->nameExists($name);
+    }
 
-        return $query
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage)
-            ->appends(request()->query());
+    public function slugExistsWithTrashed(string $slug, int $exceptId): bool
+    {
+        return $this->model->slugExistsWithTrashed($slug, $exceptId);
+    }
+
+    /**
+     * Return existing non-deleted brand names (lowercased) for the given list.
+     *
+     * @param array<int, string> $names
+     * @return array<int, string>
+     */
+    public function findExistingNames(array $names): array
+    {
+        return $this->model->findExistingNames($names);
     }
 
     /**
@@ -97,11 +74,7 @@ class BrandRepository implements BrandRepositoryInterface
      */
     public function getBrandList(): ?Collection
     {
-        return $this->model
-            ->select('id', 'name')        // Select only id and name
-            ->where('status', '1')        // Match 'active' status from getAllBrands
-            ->orderBy('created_at', 'desc')      // Order by created_at in descending order
-            ->get();
+        return $this->model->getBrandList();
     }
 
     /**
@@ -112,9 +85,7 @@ class BrandRepository implements BrandRepositoryInterface
      */
     public function getBrandById(int $id): ?Brand
     {
-        return $this->model
-            ->with(self::DEFAULT_RELATIONSHIPS)
-            ->find($id);
+        return $this->model->getBrandById($id);
     }
 
     /**
@@ -125,10 +96,7 @@ class BrandRepository implements BrandRepositoryInterface
      */
     public function getBrandBySlug(string $slug): ?Brand
     {
-        return $this->model
-            ->with(self::DEFAULT_RELATIONSHIPS)
-            ->where('slug', $slug)
-            ->first();
+        return $this->model->getBrandBySlug($slug);
     }
 
     // ============================================================================
@@ -143,38 +111,7 @@ class BrandRepository implements BrandRepositoryInterface
      */
     public function createBrand(array $data): Brand
     {
-        try {
-            // Create the brand with the temporary slug
-            $brand = $this->model->create($data);
-            
-            // Now update with the final unique slug using the brand ID
-            $slugBase = \Illuminate\Support\Str::slug($data['name'] ?? '');
-            $finalSlug = $slugBase . '-' . $brand->id;
-            
-            // Check if this final slug already exists (accounting for soft deletes)
-            $existingSlug = $this->model->withTrashed()
-                ->where('slug', $finalSlug)
-                ->where('id', '!=', $brand->id)
-                ->first();
-            
-            if ($existingSlug) {
-                // If it exists, append a random string
-                $finalSlug = $slugBase . '-' . $brand->id . '-' . \Illuminate\Support\Str::random(4);
-            }
-            
-            // Update with the final slug
-            $brand->update(['slug' => $finalSlug]);
-            
-            return $brand;
-        } catch (DomainException $e) {
-            throw $e;
-        } catch (QueryException $e) {
-            Log::error('Database error creating brand', ['data' => $data, 'exception' => $e]);
-            throw new DomainException('Database error while creating brand.');
-        } catch (Exception $e) {
-            Log::error('Unexpected error creating brand', ['data' => $data, 'exception' => $e]);
-            throw new DomainException('Unexpected error while creating brand.');
-        }
+        return $this->model->createBrand($data);
     }
 
     /**
@@ -186,28 +123,7 @@ class BrandRepository implements BrandRepositoryInterface
      */
     public function updateBrand(int $id, array $data): bool
     {
-        $brand = $this->model->findOrFail($id);
-        
-        // If slug is being updated, ensure it's unique
-        if (isset($data['slug'])) {
-            $slugBase = $data['slug'];
-            $finalSlug = $slugBase . '-' . $id;
-            
-            // Check if this final slug already exists (accounting for soft deletes)
-            $existingSlug = $this->model->withTrashed()
-                ->where('slug', $finalSlug)
-                ->where('id', '!=', $id)
-                ->first();
-            
-            if ($existingSlug) {
-                // If it exists, append a random string
-                $finalSlug = $slugBase . '-' . $id . '-' . \Illuminate\Support\Str::random(4);
-            }
-            
-            $data['slug'] = $finalSlug;
-        }
-        
-        return $brand->update($data);
+        return $this->model->updateBrand($id, $data);
     }
 
     /**
@@ -218,7 +134,62 @@ class BrandRepository implements BrandRepositoryInterface
      */
     public function deleteBrand(int $id): bool
     {
-        $brand = $this->model->findOrFail($id);
-        return $brand->delete();
+        return $this->model->deleteBrand($id);
+    }
+
+    /**
+     * Return existing non-deleted brands for the given names.
+     *
+     * @param array<int, string> $names
+     * @return Collection
+     */
+    public function findByNames(array $names): Collection
+    {
+        return $this->model->findByNames($names);
+    }
+
+    /**
+     * Return brands matching the given slugs.
+     *
+     * @param array<int, string> $slugs
+     * @return Collection
+     */
+    public function findBySlugs(array $slugs): Collection
+    {
+        return $this->model->findBySlugs($slugs);
+    }
+
+    /**
+     * Insert multiple brand rows in a single query.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return void
+     */
+    public function insertBatch(array $rows): void
+    {
+        $this->model->insertBatch($rows);
+    }
+
+    /**
+     * Update multiple brand rows by primary key.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return void
+     */
+    public function updateBatch(array $rows): void
+    {
+        $this->model->updateBatch($rows);
+    }
+
+    /**
+     * Attach an agency to many brands.
+     *
+     * @param array<int, int> $brandIds
+     * @param int $agencyId
+     * @return void
+     */
+    public function attachAgencyToBrands(array $brandIds, int $agencyId): void
+    {
+        $this->model->attachAgencyToBrands($brandIds, $agencyId);
     }
 }

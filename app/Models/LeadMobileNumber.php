@@ -45,4 +45,9 @@ class LeadMobileNumber extends Model
     {
         return $this->belongsTo(Lead::class, 'lead_id');
     }
+
+    public static function deleteForLead(int $leadId): void
+    {
+        self::where('lead_id', $leadId)->delete();
+    }
 }

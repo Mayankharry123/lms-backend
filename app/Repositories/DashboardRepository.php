@@ -46,8 +46,8 @@ class DashboardRepository implements DashboardRepositoryInterface
         return $this->model->fetchPlannerOrganisationRow($filters, $user, $organisationId, $organisationName);
     }
 
-    public function getOverallAssignmentDays(array $filters, ?User $user): float
+    public function getBriefIdsByOrganisation(array $filters, ?User $user): array
     {
-        return $this->model->fetchOverallAssignmentDays($filters, $user);
+        return $this->model->fetchBriefIdsByOrganisation($filters, $user);
     }
 }

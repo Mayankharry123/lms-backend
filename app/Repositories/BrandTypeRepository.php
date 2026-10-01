@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Contracts\Repositories\BrandTypeRepositoryInterface;
 use App\Models\BrandType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class BrandTypeRepository implements BrandTypeRepositoryInterface
 {
@@ -25,19 +26,7 @@ class BrandTypeRepository implements BrandTypeRepositoryInterface
      */
     public function getAllActive(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
-        // Initialize query builder
-        $query = $this->model
-            ->where('status', '1')
-            ->whereNull('deleted_at');
-
-        // NEW: Add search functionality
-        if ($searchTerm) {
-            // Search in the 'name' column
-            $query->where('name', 'LIKE', "%{$searchTerm}%");
-        }
-
-        // UPDATE: Use ->paginate() instead of ->get() for pagination
-        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+        return $this->model->getAllActive($perPage, $searchTerm);
     }
 
     /**
@@ -79,8 +68,17 @@ class BrandTypeRepository implements BrandTypeRepositoryInterface
      */
     public function getBrandsCount(int $id): int
     {
-        // We find the *model* first to ensure it exists
-        // before checking the relationship.
-        return $this->findById($id)->brands()->count();
+        return $this->model->getBrandsCount($id);
+    }
+
+    /**
+     * Find non-deleted brand types by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+    * @return Collection
+     */
+    public function findByNames(array $names): Collection
+    {
+        return $this->model->findByNames($names);
     }
 }

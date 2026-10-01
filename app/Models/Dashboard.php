@@ -9,10 +9,8 @@ use App\Models\Organisation;
 use App\Models\Lead;
 use App\Models\Brief;
 use App\Models\MissCampaign;
-use App\Models\Planner;
 use App\Support\DashboardFilters;
 use App\Support\UserAccessScope;
-use App\Support\PlannerMetrics;
 
 class Dashboard extends Model
 {
@@ -110,47 +108,52 @@ class Dashboard extends Model
 
     public function fetchPlannerOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array
     {
-        $plannerQuery = Planner::query()
-            ->whereNull('planners.deleted_at')
-            ->whereHas('brief', function ($query) use ($user, $filters) {
-                $query->accessibleToUser($user)
-                    ->whereNull('briefs.deleted_at')
-                    ->whereRaw('briefs.status != 15');
-                DashboardFilters::applyBriefDashboardFilters($query, $filters, 'briefs');
-            });
+        $assignedBriefQuery = Brief::query()
+            ->accessibleToUser($user)
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15')
+            ->whereNotNull('briefs.assign_user_id');
+        DashboardFilters::applyBriefDashboardFilters($assignedBriefQuery, $filters, 'briefs');
 
-        $assignedPlans = (int) (clone $plannerQuery)->count();
-        $avgAssignmentDays = $this->calculateAverageAssignmentToSubmissionDays($plannerQuery);
+        $assignedPlans = (int) (clone $assignedBriefQuery)->count();
 
         return [
             'organisation_id' => $organisationId,
             'organisation_name' => $organisationName,
             'assigned_plans' => $assignedPlans,
-            'avg_assignment_days' => $avgAssignmentDays ? round((float) $avgAssignmentDays, 1) : 0,
+            'avg_assignment_days' => 0,
         ];
     }
 
-    public function fetchOverallAssignmentDays(array $filters, ?User $user): float
+    /**
+     * Brief ids visible on the planner chart, grouped by contact-person organisation.
+     *
+     * @param array<string, mixed> $filters
+     * @return array<int, array<int, int>>
+     */
+    public function fetchBriefIdsByOrganisation(array $filters, ?User $user): array
     {
-        $plannerQuery = Planner::query()
-            ->whereNull('planners.deleted_at')
-            ->whereHas('brief', function ($query) use ($user, $filters) {
-                $query->accessibleToUser($user)
-                    ->whereNull('briefs.deleted_at')
-                    ->whereRaw('briefs.status != 15');
-                DashboardFilters::applyBriefDashboardFilters($query, $filters, 'briefs');
-            });
+        $query = Brief::query()
+            ->accessibleToUser($user)
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15');
+        DashboardFilters::applyBriefDashboardFilters($query, $filters, 'briefs');
 
-        return $this->calculateAverageAssignmentToSubmissionDays($plannerQuery);
-    }
+        $briefs = $query
+            ->with(['contactPerson:id,organisation_id'])
+            ->get(['briefs.id', 'briefs.contact_person_id']);
 
-    private function calculateAverageAssignmentToSubmissionDays($plannerQuery): float
-    {
-        $submittedQuery = PlannerMetrics::applySubmittedPlansScope(clone $plannerQuery);
-        $avgDays = $submittedQuery
-            ->selectRaw('AVG(' . PlannerMetrics::assignmentToSubmissionDaysSql() . ') as avg_days')
-            ->value('avg_days');
+        $grouped = [];
 
-        return $avgDays ? round((float) $avgDays, 1) : 0;
+        foreach ($briefs as $brief) {
+            $organisationId = $brief->contactPerson?->organisation_id;
+            if ($organisationId === null) {
+                continue;
+            }
+
+            $grouped[(int) $organisationId][] = (int) $brief->id;
+        }
+
+        return $grouped;
     }
 }

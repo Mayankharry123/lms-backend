@@ -253,6 +253,9 @@ class ResponseService
         if ($success) {
             $response['data'] = $this->transformDataWithPagination($data, $response['meta']);
         } else {
+            if ($data !== null) {
+                $response['data'] = $data;
+            }
             $response['errors'] = $errors;
             $response['error_code'] = $errorCode;
         }

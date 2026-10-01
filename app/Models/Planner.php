@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Support\PlannerMetrics;
 use App\Traits\HandlesFileUploads;
 
 class Planner extends BaseModel
@@ -152,6 +153,35 @@ class Planner extends BaseModel
             return count($this->submitted_plan);
         }
         return 0;
+    }
+
+    /** @param array<int, int> $briefIds
+     * @return array{assigned_plans: int, average_assignment_days: float}
+     */
+    public static function getSummaryForBriefIds(array $briefIds): array
+    {
+        if ($briefIds === []) {
+            return ['assigned_plans' => 0, 'average_assignment_days' => 0.0];
+        }
+
+        $plannerQuery = self::query()
+            ->whereNull('planners.deleted_at')
+            ->whereIn('planners.brief_id', $briefIds);
+
+        $submittedQuery = PlannerMetrics::applySubmittedPlansScope(clone $plannerQuery);
+        $averageAssignmentDays = $submittedQuery
+            ->selectRaw(
+                'AVG(' . PlannerMetrics::assignmentToSubmissionDaysSql() . ') as avg_days'
+            )
+            ->value('avg_days');
+
+        return [
+            'assigned_plans' => self::query()
+                ->whereNull('deleted_at')
+                ->whereIn('brief_id', $briefIds)
+                ->count(),
+            'average_assignment_days' => $averageAssignmentDays ? (float) $averageAssignmentDays : 0.0,
+        ];
     }
 
     /**

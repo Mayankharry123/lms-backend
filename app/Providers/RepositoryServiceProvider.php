@@ -47,6 +47,8 @@ use App\Contracts\Repositories\BrandTypeRepositoryInterface;
 
 use App\Repositories\BrandRepository;
 use App\Contracts\Repositories\BrandRepositoryInterface;
+use App\Contracts\Repositories\BrandImportRepositoryInterface;
+use App\Repositories\BrandImportRepository;
 
 use App\Repositories\RegionRepository;
 use App\Contracts\Repositories\RegionRepositoryInterface;
@@ -196,6 +198,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             BrandRepositoryInterface::class,
             BrandRepository::class
+        );
+
+        $this->app->bind(
+            BrandImportRepositoryInterface::class,
+            BrandImportRepository::class
         );
 
         $this->app->bind(

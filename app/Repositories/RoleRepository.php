@@ -35,6 +35,17 @@ class RoleRepository implements RoleRepositoryInterface
         return $this->model->where('name', $name)->first();
     }
 
+    /**
+     * Find a role by slug, including soft-deleted rows.
+     *
+     * @param string $slug
+     * @return Role|null
+     */
+    public function findBySlug(string $slug): ?Role
+    {
+        return $this->model->withTrashed()->where('slug', $slug)->first();
+    }
+
     public function create(array $data): Role
     {
         return $this->model->create($data);

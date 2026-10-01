@@ -16,35 +16,22 @@ class EloquentStateRepository implements StateRepositoryInterface
 
     public function getAll()
     {
-        // Sabhi states ko unke country ke saath load karein
-        return $this->model->with('country')->latest()->get();
+        return $this->model->getAllWithCountry();
     }
 
     public function getByCountry(int $countryId)
     {
-        // Sirf us country ke states layein
-        return $this->model->where('country_id', $countryId)
-                           ->with('country')
-                           ->latest()
-                           ->get();
+        return $this->model->getByCountryWithCountry($countryId);
     }
 
     public function getPaginated(int $perPage = 15, ?string $search = null)
     {
-        $query = $this->model->with(['country', 'cities']);
-        
-        // Apply search filter if provided
-        if ($search) {
-            $query->where('name', 'like', '%' . $search . '%');
-        }
-        
-        return $query->latest()->paginate($perPage);
+        return $this->model->getPaginatedWithRelations($perPage, $search);
     }
 
     public function findById(int $id)
     {
-        // Country aur cities ke saath load karein
-        return $this->model->with(['country', 'cities'])->findOrFail($id);
+        return $this->model->getByIdWithRelations($id);
     }
 
     public function create(array $data)
@@ -65,5 +52,16 @@ class EloquentStateRepository implements StateRepositoryInterface
         $state = $this->model->findOrFail($id);
         // Model mein SoftDeletes nahi hai, isliye yeh HARD delete hoga
         return $state->delete(); 
+    }
+
+    /**
+     * Find states by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        return $this->model->findByNames($names);
     }
 }

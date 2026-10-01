@@ -8,7 +8,6 @@ use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -62,7 +61,7 @@ class UserService
      */
     public function getUserById(int $id): ?User
     {
-        return $this->userRepository->findWithRelations($id, ['profile', 'roles', 'permissions', 'parentRelationships', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone']);
+        return $this->userRepository->findWithRelations($id, ['profile', 'roles', 'permissions', 'parentRelationships', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone', 'zones']);
     }
 
     /**
@@ -108,6 +107,9 @@ class UserService
         // Extract organisation IDs for organisation_user relationships
         $organisationIds = $this->extractOrganisationIds($data);
 
+        // Extract zone IDs for zone_user relationships
+        $zoneIds = $this->extractZoneIds($data);
+
         // Extract department IDs for user_department relationships
         $departmentIds = $data['department_ids'] ?? [];
 
@@ -130,13 +132,17 @@ class UserService
             $this->syncUserOrganisations($user->id, $organisationIds);
         }
 
+        if (!empty($zoneIds)) {
+            $this->syncUserZones($user->id, $zoneIds);
+        }
+
         // Sync departments if provided
         if (!empty($departmentIds)) {
             $this->syncUserDepartments($user->id, $departmentIds);
         }
 
         // Reload user with relationships
-        return $user->load(['profile', 'roles', 'permissions', 'parentRelationships', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone']);
+        return $user->load(['profile', 'roles', 'permissions', 'parentRelationships', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone', 'zones']);
     }
 
     /**
@@ -171,6 +177,10 @@ class UserService
             ? $this->extractOrganisationIds($data)
             : (array_key_exists('organisation_id', $data) ? [(int) $data['organisation_id']] : null);
 
+        $zoneIds = array_key_exists('zone_ids', $data)
+            ? $this->extractZoneIds($data)
+            : (array_key_exists('zone_id', $data) ? [(int) $data['zone_id']] : null);
+
         // Extract department IDs for user_department relationships
         $departmentIds = $data['department_ids'] ?? null;
 
@@ -196,6 +206,10 @@ class UserService
         // Sync organisations if provided
         if ($organisationIds !== null && is_array($organisationIds)) {
             $this->syncUserOrganisations($id, $organisationIds);
+        }
+
+        if ($zoneIds !== null && is_array($zoneIds)) {
+            $this->syncUserZones($id, $zoneIds);
         }
 
         // Sync departments if provided
@@ -318,6 +332,8 @@ class UserService
             'is_parent.*' => 'integer|exists:users,id',
             'organisation_ids' => 'nullable|array',
             'organisation_ids.*' => 'integer|exists:organisations,id',
+            'zone_ids' => 'nullable|array',
+            'zone_ids.*' => 'integer|exists:zones,id',
             'department_ids' => 'nullable|array',
             'department_ids.*' => 'integer|exists:departments,id',
         ];
@@ -326,7 +342,8 @@ class UserService
         if (!$userId) {
             $rules['organisation_id'] = 'required_without:organisation_ids|nullable|integer|exists:organisations,id';
             $rules['organisation_ids'] = 'required_without:organisation_id|nullable|array|min:1';
-            $rules['zone_id'] = 'required|integer|exists:zones,id';
+            $rules['zone_id'] = 'required_without:zone_ids|nullable|integer|exists:zones,id';
+            $rules['zone_ids'] = 'required_without:zone_id|nullable|array|min:1';
         } else {
             $rules['organisation_id'] = 'nullable|integer|exists:organisations,id';
             $rules['zone_id'] = 'nullable|integer|exists:zones,id';
@@ -375,35 +392,7 @@ class UserService
      */
     public function syncUserRoles(int $userId, array $roleIds): void
     {
-        $user = User::find($userId);
-        
-        if (!$user) {
-            return;
-        }
-
-        // Get the user type class
-        $userType = User::class;
-
-        // First, delete all existing role entries for this user
-        DB::table('role_user')
-            ->where('user_id', $userId)
-            ->delete();
-
-        // Insert new role entries
-        $insertData = [];
-        foreach ($roleIds as $roleId) {
-            $insertData[] = [
-                'role_id' => $roleId,
-                'user_id' => $userId,
-                'user_type' => $userType,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-
-        if (!empty($insertData)) {
-            DB::table('role_user')->insert($insertData);
-        }
+        User::syncRepositoryRoles($userId, $roleIds);
     }
 
     /**
@@ -415,40 +404,7 @@ class UserService
      */
     public function syncUserParents(int $userId, array $parentIds): void
     {
-        $user = User::find($userId);
-        
-        if (!$user) {
-            return;
-        }
-
-        // Delete all existing parent relationships for this user
-        DB::table('user_parent')
-            ->where('user_id', $userId)
-            ->delete();
-
-        // Insert new parent relationships
-        $insertData = [];
-        foreach ($parentIds as $parentId) {
-            $parentId = (int) $parentId;
-
-            if ($parentId <= 0) {
-                continue;
-            }
-
-            // Ensure parent user exists and is not the same as the user
-            if ($parentId !== $userId && User::find($parentId)) {
-                $insertData[] = [
-                    'user_id' => $userId,
-                    'is_parent' => $parentId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-        }
-
-        if (!empty($insertData)) {
-            DB::table('user_parent')->insert($insertData);
-        }
+        User::syncRepositoryParents($userId, $parentIds);
     }
 
     /**
@@ -460,40 +416,19 @@ class UserService
      */
     public function syncUserOrganisations(int $userId, array $organisationIds): void
     {
-        $user = User::find($userId);
+        User::syncRepositoryOrganisations($userId, $organisationIds);
+    }
 
-        if (!$user) {
-            return;
-        }
-
-        DB::table('organisation_user')
-            ->where('user_id', $userId)
-            ->delete();
-
-        $insertData = [];
-        $uniqueOrganisationIds = [];
-
-        foreach ($organisationIds as $organisationId) {
-            $organisationId = (int) $organisationId;
-
-            if ($organisationId <= 0 || in_array($organisationId, $uniqueOrganisationIds, true)) {
-                continue;
-            }
-
-            if (DB::table('organisations')->where('id', $organisationId)->exists()) {
-                $uniqueOrganisationIds[] = $organisationId;
-                $insertData[] = [
-                    'user_id' => $userId,
-                    'organisation_id' => $organisationId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-        }
-
-        if (!empty($insertData)) {
-            DB::table('organisation_user')->insert($insertData);
-        }
+    /**
+     * Sync user zones.
+     *
+     * @param int $userId
+     * @param array $zoneIds
+     * @return void
+     */
+    public function syncUserZones(int $userId, array $zoneIds): void
+    {
+        User::syncRepositoryZones($userId, $zoneIds);
     }
 
     /**
@@ -525,6 +460,11 @@ class UserService
             $data['zone_id'] = $data['zone'];
         }
 
+        if (isset($data['zone_id']) && is_array($data['zone_id']) && !isset($data['zone_ids'])) {
+            $data['zone_ids'] = array_values($data['zone_id']);
+            $data['zone_id'] = (int) $data['zone_ids'][0];
+        }
+
         if (isset($data['department_id']) && !isset($data['department_ids'])) {
             $data['department_ids'] = [(int) $data['department_id']];
         }
@@ -533,6 +473,12 @@ class UserService
 
         if (!empty($organisationIds) && empty($data['organisation_id'])) {
             $data['organisation_id'] = (int) $organisationIds[0];
+        }
+
+        $zoneIds = $this->extractZoneIds($data);
+
+        if (!empty($zoneIds) && empty($data['zone_id'])) {
+            $data['zone_id'] = (int) $zoneIds[0];
         }
 
         return $data;
@@ -555,6 +501,22 @@ class UserService
     }
 
     /**
+     * Extract zone IDs from request payload.
+     */
+    protected function extractZoneIds(array $data): array
+    {
+        if (isset($data['zone_ids']) && is_array($data['zone_ids'])) {
+            return array_values($data['zone_ids']);
+        }
+
+        if (isset($data['zone_id'])) {
+            return [(int) $data['zone_id']];
+        }
+
+        return [];
+    }
+
+    /**
      * Remove fields that should not be persisted on the users table.
      */
     protected function stripNonPersistedFields(array $data): array
@@ -564,6 +526,7 @@ class UserService
             $data['role'],
             $data['is_parent'],
             $data['organisation_ids'],
+            $data['zone_ids'],
             $data['department_ids'],
             $data['organisation'],
             $data['origination'],

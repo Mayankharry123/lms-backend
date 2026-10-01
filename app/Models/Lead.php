@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use App\Support\UserAccessScope;
 
 class Lead extends Model
@@ -106,6 +109,195 @@ class Lead extends Model
             'total_leads' => $totalLeadQuery->count(),
             'priority_lead_count' => $priorityLeadQuery->count(),
         ];
+    }
+
+    protected function repositoryEagerLoadRelations(): array
+    {
+        $notTrashed = static fn (string $table) => static fn ($query) => $query->whereNull($table . '.deleted_at');
+
+        return [
+            'brand' => $notTrashed('brands'),
+            'agency' => $notTrashed('agency'),
+            'leadType' => $notTrashed('lead_types'),
+            'assignedUser' => $notTrashed('users'),
+            'createdByUser' => $notTrashed('users'),
+            'priority' => $notTrashed('priorities'),
+            'designation' => $notTrashed('designations'),
+            'department' => $notTrashed('departments'),
+            'subSource' => $notTrashed('lead_sub_source'),
+            'country',
+            'state',
+            'city',
+            'zone' => $notTrashed('zones'),
+            'statusRelation' => $notTrashed('statuses'),
+            'callStatusRelation' => $notTrashed('call_statuses'),
+            'leadStatusRelation' => $notTrashed('statuses'),
+            'mobileNumbers',
+            'organisation',
+        ];
+    }
+
+    private function getRepositoryLeadQuery(): Builder
+    {
+        $query = $this->newQuery()->with($this->repositoryEagerLoadRelations())
+            ->notDeleted()
+            ->accessibleToUser(Auth::user());
+        $this->applyOrganisationValidation($query, Auth::user());
+
+        return $query;
+    }
+
+    public function getAllLeads(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
+    {
+        $query = $this->getRepositoryLeadQuery();
+        if ($searchTerm) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('email', 'LIKE', "%{$searchTerm}%")
+                    ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
+                        $brandQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('agency', function ($agencyQuery) use ($searchTerm) {
+                        $agencyQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('assignedUser', function ($userQuery) use ($searchTerm) {
+                        $userQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('mobileNumbers', function ($mobileQuery) use ($searchTerm) {
+                        $mobileQuery->where('mobile_number', 'LIKE', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('leadStatusRelation', function ($statusQuery) use ($searchTerm) {
+                        $statusQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                    });
+            });
+        }
+
+        return $query->orderByDesc('updated_at')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getLeadById(int $id): ?self
+    {
+        return $this->getRepositoryLeadQuery()->find($id);
+    }
+
+    public function getLeadsByBrandId(int $brandId, int $perPage = 10): LengthAwarePaginator
+    {
+        return $this->getRepositoryLeadQuery()->where('brand_id', $brandId)->where('status', '1')
+            ->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getLeadsByAgencyId(int $agencyId, int $perPage = 10): LengthAwarePaginator
+    {
+        return $this->getRepositoryLeadQuery()->where('agency_id', $agencyId)->where('status', '1')
+            ->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getLeadsByAssignedUser(int $userId, int $perPage = 10): LengthAwarePaginator
+    {
+        return $this->getRepositoryLeadQuery()->where('current_assign_user', $userId)->where('status', '1')
+            ->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getLeadsByStatus(string $status, int $perPage = 10): LengthAwarePaginator
+    {
+        return $this->getRepositoryLeadQuery()->where('status', $status)
+            ->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getLeadsByPriority(int $priorityId, int $perPage = 10): LengthAwarePaginator
+    {
+        return $this->getRepositoryLeadQuery()->where('priority_id', $priorityId)->where('status', '1')
+            ->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getLeadList(): Collection
+    {
+        $query = $this->newQuery()->select('id', 'name')->notDeleted()
+            ->accessibleToUser(Auth::user());
+        $this->applyOrganisationValidation($query, Auth::user());
+
+        return $query->where('status', '1')->orderBy('id', 'asc')->get();
+    }
+
+    public function getLeadsWithFilters(array $filters, int $perPage = 10): LengthAwarePaginator
+    {
+        $query = $this->getRepositoryLeadQuery();
+        foreach ([
+            'brand_id', 'agency_id', 'current_assign_user', 'priority_id', 'created_by', 'sub_source_id',
+            'call_status', 'lead_type_id', 'country_id', 'state_id', 'city_id',
+        ] as $column) {
+            $this->applyRepositoryIdFilter($query, $column, $filters[$column] ?? null);
+        }
+
+        if (isset($filters['status'])) {
+            $query->where('status', $filters['status']);
+        } else {
+            $query->where('status', '1');
+        }
+
+        if (isset($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('email', 'LIKE', "%{$search}%")
+                    ->orWhere('profile_url', 'LIKE', "%{$search}%")
+                    ->orWhereHas('agency', function ($agencyQuery) use ($search) {
+                        $agencyQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$search}%");
+                    })
+                    ->orWhereHas('mobileNumbers', function ($mobileQuery) use ($search) {
+                        $mobileQuery->where('mobile_number', 'LIKE', "%{$search}%");
+                    });
+            });
+        }
+
+        return $query->orderByDesc('updated_at')->paginate($perPage)->appends(request()->query());
+    }
+
+    private function applyRepositoryIdFilter(Builder $query, string $column, $value): void
+    {
+        if ($value === null || $value === '' || $value === []) {
+            return;
+        }
+        if (is_array($value)) {
+            $ids = array_values(array_filter(array_map('intval', $value)));
+            if ($ids !== []) {
+                $query->whereIn($column, $ids);
+            }
+            return;
+        }
+
+        $query->where($column, (int) $value);
+    }
+
+    private function applyOrganisationValidation(Builder $query, $user): void
+    {
+        if (!$user) {
+            return;
+        }
+
+        $userOrgIds = UserAccessScope::getAccessibleOrganisationIds($user);
+        if (empty($userOrgIds)) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $orgUserIds = \App\Support\DashboardFilters::getOrganisationUserIds($userOrgIds);
+        if (empty($orgUserIds)) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $query->where(function ($q) use ($orgUserIds) {
+            $q->whereIn('current_assign_user', $orgUserIds)->orWhereIn('created_by', $orgUserIds);
+        });
+
+        $ancestorIds = UserAccessScope::getAncestorIds($user);
+        if (!empty($ancestorIds)) {
+            $query->where(function ($q) use ($ancestorIds, $user) {
+                $descendantIds = UserAccessScope::getStrictDescendantIds($user);
+                $q->whereNotIn('created_by', $ancestorIds)->orWhereIn('current_assign_user', $descendantIds);
+            });
+        }
     }
 
     public function scopeAccessibleToUser(Builder $query, $user = null): Builder
@@ -281,5 +473,83 @@ class Lead extends Model
     public function organisation()
     {
         return $this->belongsTo(Organisation::class, 'organisation_id');
+    }
+
+    public function getLeadHistory(int $leadId, int $perPage = 10): LengthAwarePaginator
+    {
+        return LeadAssignHistory::getPaginatedForLead($leadId, $perPage);
+    }
+
+    public function getPendingLeads(int $perPage = 10, array $filters = []): LengthAwarePaginator
+    {
+        $query = $this->newQuery()
+            ->with($this->repositoryEagerLoadRelations())
+            ->accessibleToUser(Auth::user())
+            ->notDeleted()
+            ->whereHas('leadStatusRelation', function ($statusQuery) {
+                $statusQuery->whereNull('statuses.deleted_at')->where('statuses.slug', 'pending');
+            }, '>=', 1)
+            ->where('leads.status', '1');
+
+        $this->applyOrganisationValidation($query, Auth::user());
+        \App\Support\DashboardFilters::applyPendingLeadDashboardFilters($query, $filters, 'leads');
+
+        return $query->orderBy('leads.created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getUserLeadPerformance(int $userId, array $filters = []): Collection
+    {
+        $notTrashed = static fn (string $table) => static fn ($query) => $query->whereNull($table . '.deleted_at');
+        $query = $this->newQuery()->with([
+            'callStatusRelation' => $notTrashed('call_statuses'),
+            'leadStatusRelation' => $notTrashed('statuses'),
+            'priority' => $notTrashed('priorities'),
+        ])->where('current_assign_user', $userId);
+
+        foreach (['call_status', 'lead_status', 'priority_id'] as $column) {
+            $this->applyRepositoryIdFilter($query, $column, $filters[$column] ?? null);
+        }
+
+        return $query->orderBy('id', 'asc')->get();
+    }
+
+    public function getAssignHistoryByLeadId(int $leadId, int $perPage = 9): LengthAwarePaginator
+    {
+        return LeadAssignHistory::getCommentsForLead($leadId, $perPage);
+    }
+
+    public function getLatestTwoLeads(array $filters = []): Collection
+    {
+        $query = $this->getRepositoryLeadQuery();
+        \App\Support\DashboardFilters::applyLeadDashboardFilters($query, $filters, 'leads');
+
+        return $query->orderBy('leads.created_at', 'desc')->limit(2)->get();
+    }
+
+    public function getLatestTwoFollowUpLeads(array $filters = []): Collection
+    {
+        $query = $this->getRepositoryLeadQuery()->whereHas('callStatusRelation', function ($statusQuery) {
+            $statusQuery->where('slug', 'follow-up');
+        });
+        \App\Support\DashboardFilters::applyLeadDashboardFilters($query, $filters, 'leads');
+
+        return $query->orderBy('leads.created_at', 'desc')->limit(2)->get();
+    }
+
+    public function getLatestTwoMeetingScheduledLeads(array $filters = []): Collection
+    {
+        $query = $this->getRepositoryLeadQuery()->whereHas('callStatusRelation', function ($statusQuery) {
+            $statusQuery->where('slug', 'meeting-schedule');
+        });
+        \App\Support\DashboardFilters::applyLeadDashboardFilters($query, $filters, 'leads');
+
+        return $query->orderBy('leads.created_at', 'desc')->limit(2)->get();
+    }
+
+    public function getLatestTwoMeetingDoneLeads(): Collection
+    {
+        return $this->getRepositoryLeadQuery()->whereHas('callStatusRelation', function ($statusQuery) {
+            $statusQuery->where('slug', 'meeting-done');
+        })->orderBy('created_at', 'desc')->limit(2)->get();
     }
 }

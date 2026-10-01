@@ -33,5 +33,13 @@ interface CountryRepositoryInterface
      * Delete a country (This will be a HARD delete)
      */
     public function delete(int $id);
+
+    /**
+     * Find countries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names);
 }
 

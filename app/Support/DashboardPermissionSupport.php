@@ -110,6 +110,12 @@ class DashboardPermissionSupport
             $result['brief_status'] = $payload['brief_status'] ?? [];
         }
 
+        $result['plan_submission'] = $payload['plan_submission'] ?? [
+            'avg_submission_days' => 0,
+            'avg_submission_hours' => 0,
+            'submitted_plans' => 0,
+        ];
+
         return $result;
     }
 

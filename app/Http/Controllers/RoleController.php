@@ -70,7 +70,6 @@ class RoleController extends Controller
         try {
             $rules = [
                 'name' => 'required|string|max:255|unique:roles,name',
-                'slug' => 'nullable|string|max:255',
                 'display_name' => 'nullable|string|max:255',
                 'description' => 'required|string',
                 'status' => 'nullable|string|max:50',
@@ -86,13 +85,8 @@ class RoleController extends Controller
             $permissions = $validatedData['permissions'] ?? $validatedData['permission'] ?? [];
             unset($validatedData['permissions']);
             unset($validatedData['permission']);
-            
-            // Explicitly get slug from request if not in validated data
-            if (empty($validatedData['slug'])) {
-                $validatedData['slug'] = $request->input('slug');
-            }
-            
-            // Create role with permissions
+
+            // Create role with permissions. Slug is generated from name in RoleService.
             $role = $this->roleService->create($validatedData, $permissions);
             
             // Reload role with permissions relationship
@@ -135,7 +129,6 @@ class RoleController extends Controller
                     'max:255',
                     Rule::unique('roles', 'name')->ignore($id)
                 ],
-                'slug' => 'sometimes|nullable|string|max:255',
                 'display_name' => 'sometimes|nullable|string|max:255',
                 'description' => 'sometimes|required|string|max:1000',
                 'status' => 'sometimes|nullable|string|max:50',

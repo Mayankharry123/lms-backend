@@ -4,6 +4,7 @@ namespace App\Contracts\Repositories;
 
 use App\Models\BriefAssignHistory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 interface BriefAssignHistoryRepositoryInterface
 {
@@ -41,9 +42,33 @@ interface BriefAssignHistoryRepositoryInterface
      *
      * @param int $briefId The brief ID.
      * @param int $perPage The number of items per page.
+     * @param \App\Models\User|null $user The user instance to scope visibility.
      * @return LengthAwarePaginator
      */
-    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10): LengthAwarePaginator;
+
+    /**
+     * Added brief-wise assignment history retrieval with pagination
+     * and authenticated-user visibility scoping.
+     */
+    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?\App\Models\User $user = null): LengthAwarePaginator;
+
+    /**
+     * Fetch all chat histories for a brief, newest first.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getBriefAssignHistoryChat(int $briefId): Collection;
+
+    /**
+     * Store a brief activity entry and its reminder details.
+     *
+     * @param int $briefId
+     * @param int $currentUserId
+     * @param array<string, mixed> $data
+     * @return BriefAssignHistory
+     */
+    public function createBriefActivity(int $briefId, int $currentUserId, array $data): BriefAssignHistory;
 
     /**
      * Fetch all assign histories assigned by a specific user.
@@ -62,4 +87,34 @@ interface BriefAssignHistoryRepositoryInterface
      * @return LengthAwarePaginator
      */
     public function getBriefAssignHistoriesByAssignTo(int $userId, int $perPage = 10): LengthAwarePaginator;
+
+    /**
+     * Assignment rows for one brief, oldest first.
+     * Excludes soft-deleted and status 15 rows. Status 2 is included because
+     * brief updates store assignment history as inactive snapshots.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBrief(int $briefId): Collection;
+
+    /**
+     * Assignment rows for many briefs, oldest first within each brief.
+     * Excludes soft-deleted and status 15 rows. Status 2 is included because
+     * brief updates store assignment history as inactive snapshots.
+     *
+     * @param array<int, int> $briefIds
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBriefs(array $briefIds): Collection;
+
+    /**
+     * Assignment rows for every brief that was assigned to the user.
+     * Includes later assignees so each cycle window can end at the next assignment.
+     * Excludes soft-deleted rows, status 15 rows, and deleted briefs.
+     *
+     * @param int $userId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForUserCycles(int $userId): Collection;
 }

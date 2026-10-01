@@ -26,6 +26,21 @@ class Status extends BaseModel
         'deleted_at' => 'datetime',
     ];
 
+    public static function findForCallStatus(int $callStatusId): ?self
+    {
+        foreach (self::all() as $status) {
+            $callStatuses = is_string($status->call_status)
+                ? json_decode($status->call_status, true)
+                : $status->call_status;
+
+            if (is_array($callStatuses) && in_array($callStatusId, $callStatuses)) {
+                return $status;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Get the call statuses associated with this status.
      */

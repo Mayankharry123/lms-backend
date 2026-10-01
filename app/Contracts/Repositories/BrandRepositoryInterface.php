@@ -45,6 +45,27 @@ interface BrandRepositoryInterface
      */
     public function getBrandList(): ?Collection;
 
+    /**
+     * Check whether a non-deleted brand already exists with the given name.
+     *
+     * @param string $name
+     * @return bool
+     */
+    public function nameExists(string $name): bool;
+
+    /**
+     * Check whether a slug exists, including soft-deleted brands.
+     */
+    public function slugExistsWithTrashed(string $slug, int $exceptId): bool;
+
+    /**
+     * Return existing non-deleted brand names (lowercased) for the given list.
+     *
+     * @param array<int, string> $names
+     * @return array<int, string>
+     */
+    public function findExistingNames(array $names): array;
+
     // ============================================================================
     // WRITE OPERATIONS
     // ============================================================================
@@ -65,6 +86,47 @@ interface BrandRepositoryInterface
      * @return bool
      */
     public function updateBrand(int $id, array $data): bool;
+
+    /**
+     * Return existing non-deleted brands for the given names.
+     *
+     * @param array<int, string> $names
+     * @return Collection
+     */
+    public function findByNames(array $names): Collection;
+
+    /**
+     * Return brands matching the given slugs.
+     *
+     * @param array<int, string> $slugs
+     * @return Collection
+     */
+    public function findBySlugs(array $slugs): Collection;
+
+    /**
+     * Insert multiple brand rows in a single query.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return void
+     */
+    public function insertBatch(array $rows): void;
+
+    /**
+     * Update multiple brand rows by primary key.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return void
+     */
+    public function updateBatch(array $rows): void;
+
+    /**
+     * Attach an agency to many brands.
+     *
+     * @param array<int, int> $brandIds
+     * @param int $agencyId
+     * @return void
+     */
+    public function attachAgencyToBrands(array $brandIds, int $agencyId): void;
 
     /**
      * Soft delete a brand by ID.

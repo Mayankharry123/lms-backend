@@ -34,6 +34,9 @@ $router->group(['prefix' => 'v1'], function () use ($router) {
         $router->post('forgot-password','Api\AuthController@forgotPassword');
         $router->post('reset-password', 'Api\AuthController@resetPassword');
     });
+
+    // Unguessable failed-import Excel download (window.open cannot send JWT)
+    $router->get('brands/import-failed-files/{token}', 'BrandController@downloadFailedRecords');
 });
 
 // -------------------------------------------------------
@@ -75,7 +78,12 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     $router->group(['prefix' => 'profile', 'middleware' => 'permission:profile.read'], function () use ($router) {
         $router->get('/', 'Api\UserController@me');
         $router->get('login-history', 'Api\UserController@getLoginHistory');
+        $router->get('organisation-zone', 'Api\UserController@getOrganisationZone');
+        /**
+         * Added API routes for user hierarchy and planning department users.
+         */
         $router->get('child-users', 'Api\UserController@getChildUsers');
+        $router->get('child-planing-users', 'Api\UserController@getChildPlaningUsers'); // optional ?Organisation_Id=
         $router->get('child-users-by-organisation', 'Api\UserController@getChildUsersByOrganisation');
         $router->get('child-users-by-lead/{leadId:[0-9]+}', 'Api\UserController@getChildUsersByLead');
         $router->get('child-users-for-brief-creation/{leadId:[0-9]+}', 'Api\UserController@getChildUsersForBriefCreation');
@@ -208,6 +216,8 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     $router->group(['prefix' => 'brands'], function () use ($router) {
         $router->get('/', 'BrandController@index');
         $router->post('name', 'BrandController@storeByName');
+        $router->post('import', 'BrandController@import');
+        $router->get('import-template', 'BrandController@importTemplate');
         $router->post('/', 'BrandController@store');
         $router->get('/list', 'BrandController@list');
         $router->get('/{id:[0-9]+}/agencies', 'BrandController@agencies');
@@ -295,6 +305,7 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     $router->group(['prefix' => 'roles', 'middleware' => 'permission:roles.update'], function () use ($router) {
         $router->put('{id:[0-9]+}', 'RoleController@update');
         $router->patch('{id:[0-9]+}', 'RoleController@update');
+        $router->post('{id:[0-9]+}', 'RoleController@update');
         $router->post('{id:[0-9]+}/permissions', 'RoleController@syncPermissions');
         $router->post('{id:[0-9]+}/permissions/attach', 'RoleController@attachPermission');
         $router->post('{id:[0-9]+}/permissions/detach', 'RoleController@detachPermission');
@@ -379,21 +390,25 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('activity-leads', 'LeadController@activity');
         $router->get('contact-persons/by-brand/{brandId:[0-9]+}', 'LeadController@getContactPersonsByBrand');
         $router->get('contact-persons/by-agency/{agencyId:[0-9]+}', 'LeadController@getContactPersonsByAgency');
+        $router->get('user-performance/{user_id}', 'LeadController@userPerformance');
         
         // Generic CRUD operations
         $router->get('/', 'LeadController@index');
         $router->post('/', 'LeadController@store');
         $router->get('{id:[0-9]+}', 'LeadController@show');
+        $router->post('{id:[0-9]+}', 'LeadController@update');
         $router->put('{id:[0-9]+}', 'LeadController@update');
         $router->patch('{id:[0-9]+}', 'LeadController@update');
         $router->delete('{id:[0-9]+}', 'LeadController@destroy');
         
         // Additional Lead routes (specific routes after generic CRUD)
         $router->get('{id:[0-9]+}/history', 'LeadController@getHistory');
+        $router->get('{lead_id}/assign-history', 'LeadController@assignHistory');
         $router->post('{id:[0-9]+}/assign', 'LeadController@assign');
         $router->put('{id:[0-9]+}/assign-user', 'LeadController@updateAssignedUser');
         $router->post('{id:[0-9]+}/priority', 'LeadController@updatePriority');
         $router->post('{id:[0-9]+}/status', 'LeadController@updateStatus');
+        $router->post('{id:[0-9]+}/activity', 'LeadController@updateActivity');
         $router->put('{id:[0-9]+}/call-status', 'LeadController@addCallStatus');
         $router->delete('{id:[0-9]+}/call-status/{callStatusId:[0-9]+}', 'LeadController@removeCallStatus');
     });
@@ -442,12 +457,17 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('{id:[0-9]+}', 'BriefController@show');
         $router->put('{id:[0-9]+}', 'BriefController@update');
         $router->patch('{id:[0-9]+}', 'BriefController@update');
+        $router->post('{id:[0-9]+}', 'BriefController@update');
         $router->delete('{id:[0-9]+}', 'BriefController@destroy');
         
         // Additional Brief routes
         $router->put('{id:[0-9]+}/update-status', 'BriefController@updateStatus');
         $router->put('{id:[0-9]+}/update-assign-user', 'BriefController@updateAssignUser');
+        $router->get('{briefId:[0-9]+}/activity', 'BriefAssignHistoryController@getActivityByBriefId');
+        $router->post('{briefId:[0-9]+}/activity', 'BriefAssignHistoryController@createActivity');
+        $router->get('{briefId:[0-9]+}/assign-histories-chat', 'BriefAssignHistoryController@getChatByBriefId');
         $router->get('{briefId:[0-9]+}/assign-histories', 'BriefAssignHistoryController@getByBriefId');
+        $router->get('{briefId:[0-9]+}/assignment-submission-durations', 'BriefAssignHistoryController@getAssignmentSubmissionDurations');
         $router->get('brand/{brandId:[0-9]+}', 'BriefController@getByBrand');
         $router->get('agency/{agencyId:[0-9]+}', 'BriefController@getByAgency');
         $router->get('user/{userId:[0-9]+}', 'BriefController@getByAssignedUser');
@@ -495,6 +515,7 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     // Meetings by attendee (e.g., /api/v1/users/1/meetings)
     $router->group(['prefix' => 'users'], function () use ($router) {
         $router->get('{attendeeId:[0-9]+}/meetings', 'MeetingController@getMeetingsByAttendee');
+        $router->get('{userId:[0-9]+}/assignment-submission-durations', 'BriefAssignHistoryController@getUserAssignmentSubmissionDurations');
     });
 
     // Planners routes

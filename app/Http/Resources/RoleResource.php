@@ -18,7 +18,7 @@ class RoleResource extends JsonResource
 			'id' => $this->id,
 			//'uuid' => $this->uuid,
 			'name' => $this->name,
-			//'slug' => $this->slug ?? null,
+			'slug' => $this->slug,
 			//'display_name' => $this->display_name,
 			'description' => $this->description,
 			//'status' => $this->status ?? null,

@@ -4,7 +4,9 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\BriefAssignHistoryRepositoryInterface;
 use App\Models\BriefAssignHistory;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterface
 {
@@ -36,16 +38,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getAllBriefAssignHistories(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
-        $query = $this->model->query()->with(['brief', 'assignedBy', 'assignedTo', 'briefStatus']);
-
-        if ($searchTerm) {
-            $query->where('comment', 'like', "%{$searchTerm}%")
-                ->orWhereHas('brief', function ($q) use ($searchTerm) {
-                    $q->where('name', 'like', "%{$searchTerm}%");
-                });
-        }
-
-        return $query->paginate($perPage);
+        return $this->model->getAllBriefAssignHistories($perPage, $searchTerm);
     }
 
     /**
@@ -56,7 +49,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoryById(int $id): ?BriefAssignHistory
     {
-        return $this->model->with(['brief', 'assignedBy', 'assignedTo', 'briefStatus'])->find($id);
+        return $this->model->getBriefAssignHistoryById($id);
     }
 
     /**
@@ -67,7 +60,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoryByUuid(string $uuid): ?BriefAssignHistory
     {
-        return $this->model->with(['brief', 'assignedBy', 'assignedTo', 'briefStatus'])->where('uuid', $uuid)->first();
+        return $this->model->getBriefAssignHistoryByUuid($uuid);
     }
 
     /**
@@ -75,13 +68,42 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      *
      * @param int $briefId The brief ID.
      * @param int $perPage The number of items per page.
+     * @param User|null $user The authenticated user to scope visibility.
      * @return LengthAwarePaginator
      */
-    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10): LengthAwarePaginator
+    /**
+     * Added brief-wise assignment history retrieval with pagination.
+     * Applied UserAccessScope to restrict history visibility to the
+     * authenticated user's accessible hierarchy, while allowing
+     * Super Admin users to view all histories.
+     */
+    public function getBriefAssignHistoriesByBriefId(int $briefId, int $perPage = 10, ?User $user = null): LengthAwarePaginator
     {
-        return $this->model->where('brief_id', $briefId)
-            ->with(['assignedBy', 'assignedTo', 'briefStatus'])
-            ->paginate($perPage);
+        return $this->model->getBriefAssignHistoriesByBriefId($briefId, $perPage, $user);
+    }
+
+    /**
+     * Fetch all chat histories for a brief, newest first.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getBriefAssignHistoryChat(int $briefId): Collection
+    {
+        return $this->model->getBriefAssignHistoryChat($briefId);
+    }
+
+    /**
+     * Store a brief activity entry and its reminder details.
+     *
+     * @param int $briefId
+     * @param int $currentUserId
+     * @param array<string, mixed> $data
+     * @return BriefAssignHistory
+     */
+    public function createBriefActivity(int $briefId, int $currentUserId, array $data): BriefAssignHistory
+    {
+        return $this->model->createBriefActivity($briefId, $currentUserId, $data);
     }
 
     /**
@@ -93,9 +115,7 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoriesByAssignBy(int $userId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model->where('assign_by_id', $userId)
-            ->with(['brief', 'assignedTo', 'briefStatus'])
-            ->paginate($perPage);
+        return $this->model->getBriefAssignHistoriesByAssignBy($userId, $perPage);
     }
 
     /**
@@ -107,8 +127,39 @@ class BriefAssignHistoryRepository implements BriefAssignHistoryRepositoryInterf
      */
     public function getBriefAssignHistoriesByAssignTo(int $userId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model->where('assign_to_id', $userId)
-            ->with(['brief', 'assignedBy', 'briefStatus'])
-            ->paginate($perPage);
+        return $this->model->getBriefAssignHistoriesByAssignTo($userId, $perPage);
+    }
+
+    /**
+     * Assignment rows for one brief, oldest first.
+     *
+     * @param int $briefId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBrief(int $briefId): Collection
+    {
+        return $this->model->getAssignmentHistoriesForBrief($briefId);
+    }
+
+    /**
+     * Assignment rows for many briefs, oldest first within each brief.
+     *
+     * @param array<int, int> $briefIds
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForBriefs(array $briefIds): Collection
+    {
+        return $this->model->getAssignmentHistoriesForBriefs($briefIds);
+    }
+
+    /**
+     * Assignment rows for every brief that was assigned to the user.
+     *
+     * @param int $userId
+     * @return Collection<int, BriefAssignHistory>
+     */
+    public function getAssignmentHistoriesForUserCycles(int $userId): Collection
+    {
+        return $this->model->getAssignmentHistoriesForUserCycles($userId);
     }
 }

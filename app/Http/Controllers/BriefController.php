@@ -154,7 +154,7 @@ class BriefController extends Controller
                     'product_name' => $brief->product_name,
                     'brand_name' => isset($brief->brand) ? $brief->brand->name : null,
                     'comment' => $brief->comment,
-                    'submission_date' => $brief->submission_date ? $brief->submission_date->format('Y-m-d H:i:s A') : null,
+                    'submission_date' => $brief->submission_date ? $brief->submission_date->format('Y-m-d h:i:s A') : null,
                     'budget' => $brief->budget,
                     'left_time' => $leftTime,
                 ];
@@ -253,14 +253,25 @@ class BriefController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Authorization: Allow if Super Admin role OR created_by OR assigned_to
-            $isSuperAdmin = $user->hasRole('Super Admin');
+            // Authorization: Allow if Super Admin / Admin role OR has brief.view permission OR created_by OR assigned_to
+            /**
+             * Added brief view authorization for Super Admin/Admin, users with
+             * brief.view permission, brief creator, and assigned user.
+             */
+
+            $isSuperAdmin = $user->hasRole('Super Admin') || $user->hasRole('admin');
+            $hasViewPermission = $user->hasPermission('brief.view');
             $isCreatedBy = $user->id == $brief->created_by;
             $isAssignedTo = $user->id == $brief->assign_user_id;
 
-            if (!$isSuperAdmin && !$isCreatedBy && !$isAssignedTo) {
+            /**
+             * Updated brief creation to always assign the brief to the
+             * top-level planner-admin user within the relevant organisation.
+             */
+            
+            if (!$isSuperAdmin && !$hasViewPermission && !$isCreatedBy && !$isAssignedTo) {
                 return $this->responseService->forbidden(
-                    'You are not authorized to view this brief. Only Super Admin, the user who created this brief, or the user assigned to this brief can view it.'
+                    'You are not authorized to view this brief.'
                 );
             }
 
@@ -353,7 +364,17 @@ class BriefController extends Controller
                 }
             }
 
+            // assign_user_id is filled in BriefService when it is empty.
             $brief = $this->briefService->createBrief($data);
+            $brief->load([
+                'contactPerson.organisation',
+                'brand',
+                'agency',
+                'assignedUser',
+                'createdByUser',
+                'briefStatus',
+                'priority',
+            ]);
 
             return $this->responseService->success(
                 new BriefResource($brief),

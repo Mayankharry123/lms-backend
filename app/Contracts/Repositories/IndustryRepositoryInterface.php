@@ -35,4 +35,12 @@ interface IndustryRepositoryInterface
      * @param int $id
      */
     public function deleteIndustry($id);
+
+    /**
+     * Find non-deleted industries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names);
 }

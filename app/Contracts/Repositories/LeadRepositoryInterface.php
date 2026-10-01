@@ -94,6 +94,23 @@ interface LeadRepositoryInterface
      */
     public function getPendingLeads(int $perPage = 10, array $filters = []): LengthAwarePaginator;
 
+    /**
+     * Fetch all leads assigned to a specific user with performance relations.
+     *
+     * @param int $userId The user ID.
+     * @return Collection
+     */
+    public function getUserLeadPerformance(int $userId, array $filters = []): Collection;
+
+    /**
+     * Fetch assign-history comments for a lead in pages of 9.
+     *
+     * @param int $leadId The lead ID.
+     * @param int $perPage Number of history rows per page.
+     * @return LengthAwarePaginator
+     */
+    public function getAssignHistoryByLeadId(int $leadId, int $perPage = 9): LengthAwarePaginator;
+
     // ============================================================================
     // WRITE OPERATIONS
     // ============================================================================
@@ -114,6 +131,15 @@ interface LeadRepositoryInterface
      * @return bool
      */
     public function updateLead(int $id, array $data): bool;
+
+    /**
+     * Update lead activity fields only (comment and/or call_status).
+     *
+     * @param int $id The lead ID.
+     * @param array<string, mixed> $data
+     * @return array{lead: Lead, history: \App\Models\LeadAssignHistory}
+     */
+    public function updateLeadActivity(int $id, array $data): array;
 
     /**
      * Assign a lead to a user.

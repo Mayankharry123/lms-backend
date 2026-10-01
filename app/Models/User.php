@@ -19,6 +19,10 @@ use App\Models\Organisation;
 use App\Models\Zone;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use App\Traits\NotificationTrait;
 
 class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
@@ -166,16 +170,61 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     /**
      * Build nested tree structure for children recursively filtered by organisation
      * 
-     * @param int $organisationId
+     * @param int|array<int> $organisationId
+     * @param array<int> $zoneIds
+     * @param array<int, string> $excludedRoleSlugs Role slugs omitted at every level. Their children are omitted too.
      * @return array
      */
-    public function getChildTreeByOrganisation($organisationId): array
+    public function getChildTreeByOrganisation($organisationId, array $leadFilters = [], array $zoneIds = [], array $excludedRoleSlugs = []): array
     {
+        $organisationIds = is_array($organisationId) ? $organisationId : [$organisationId];
+        $excludedRoleSlugs = array_values(array_filter($excludedRoleSlugs, fn ($slug) => is_string($slug) && $slug !== ''));
+
         $children = $this->children()
-            ->whereHas('organisations', function($query) use ($organisationId) {
-                $query->where('organisations.id', $organisationId);
+            ->when($excludedRoleSlugs !== [], function ($query) use ($excludedRoleSlugs) {
+                $query->whereDoesntHave('roles', function ($roleQuery) use ($excludedRoleSlugs) {
+                    $roleQuery->whereIn('roles.slug', $excludedRoleSlugs);
+                });
             })
-            ->select('users.id', 'users.name')
+            ->when(!empty($organisationIds) || !empty($zoneIds), function ($query) use ($organisationIds, $zoneIds) {
+                if (!empty($organisationIds)) {
+                    $query->where(function ($organisationQuery) use ($organisationIds) {
+                        $organisationQuery->whereIn('users.organisation_id', $organisationIds)
+                            ->orWhereHas('organisations', function ($pivotQuery) use ($organisationIds) {
+                                $pivotQuery->whereIn('organisations.id', $organisationIds);
+                            });
+                    });
+                }
+
+                if (!empty($zoneIds)) {
+                    $query->where(function ($zoneQuery) use ($zoneIds) {
+                        $zoneQuery->whereIn('users.zone_id', $zoneIds)
+                            ->orWhereHas('zones', function ($pivotQuery) use ($zoneIds) {
+                                $pivotQuery->whereIn('zones.id', $zoneIds);
+                            });
+                    });
+                }
+            })
+            ->when(!empty($leadFilters['name']), function ($query) use ($leadFilters) {
+                $query->where('users.name', 'LIKE', '%' . $leadFilters['name'] . '%');
+            })
+            ->select('users.id', 'users.name', 'users.email')
+            ->withCount(['assignedLeads as assigned_leads_count' => function ($query) use ($leadFilters) {
+                foreach (['call_status', 'lead_status', 'priority'] as $column) {
+                    if (!array_key_exists($column, $leadFilters) || $leadFilters[$column] === null || $leadFilters[$column] === '') {
+                        continue;
+                    }
+
+                    $values = is_array($leadFilters[$column])
+                        ? $leadFilters[$column]
+                        : explode(',', (string) $leadFilters[$column]);
+                    $values = array_values(array_filter(array_map('intval', $values), fn ($value) => $value > 0));
+
+                    if ($values !== []) {
+                        $query->whereIn($column === 'priority' ? 'priority_id' : $column, $values);
+                    }
+                }
+            }])
             ->orderBy('users.name', 'asc')
             ->get();
         
@@ -184,7 +233,9 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
             $tree[] = [
                 'id' => $child->id,
                 'name' => $child->name,
-                'children' => $child->getChildTreeByOrganisation($organisationId)
+                'email' => $child->email,
+                'assigned_leads_count' => $child->assigned_leads_count,
+                'children' => $child->getChildTreeByOrganisation($organisationIds, $leadFilters, $zoneIds, $excludedRoleSlugs)
             ];
         }
         
@@ -202,8 +253,11 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function getChildTreeByOrganisationAndDepartmentSlug($organisationId, $departmentSlug = 'planner'): array
     {
         $children = $this->children()
-            ->whereHas('organisations', function($query) use ($organisationId) {
-                $query->where('organisations.id', $organisationId);
+            ->where(function ($query) use ($organisationId) {
+                $query->where('users.organisation_id', $organisationId)
+                    ->orWhereHas('organisations', function ($organisationQuery) use ($organisationId) {
+                        $organisationQuery->where('organisations.id', $organisationId);
+                    });
             })
             ->whereHas('departments', function($query) use ($departmentSlug) {
                 $query->where('departments.slug', $departmentSlug);
@@ -224,12 +278,374 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return $tree;
     }
 
+    public function getChildTreeByDepartments(
+        array $departmentIds = [],
+        array $departmentSlugs = [],
+        ?int $organisationId = null,
+        bool $includeAssignedBriefCount = false
+    ): array {
+        $query = $this->children()->select('users.id', 'users.name', 'users.organisation_id');
+
+        if ($organisationId !== null) {
+            $query->with(['organisations:id']);
+        }
+
+        if ($includeAssignedBriefCount) {
+            $query->withCount(['assignedBriefs as assigned_brief_count' => function ($briefQuery) {
+                $briefQuery->where('briefs.status', '!=', '15');
+            }]);
+        }
+
+        if ($departmentIds !== [] || $departmentSlugs !== []) {
+            $query->whereHas('departments', function ($departmentQuery) use ($departmentIds, $departmentSlugs) {
+                $departmentQuery->where(function ($filterQuery) use ($departmentIds, $departmentSlugs) {
+                    if ($departmentIds !== []) {
+                        $filterQuery->whereIn('departments.id', $departmentIds);
+                    }
+
+                    if ($departmentSlugs !== []) {
+                        if ($departmentIds !== []) {
+                            $filterQuery->orWhereIn('departments.slug', $departmentSlugs);
+                        } else {
+                            $filterQuery->whereIn('departments.slug', $departmentSlugs);
+                        }
+                    }
+                });
+            });
+        }
+
+        $children = $query->orderBy('users.name', 'asc')->get();
+        $tree = [];
+
+        foreach ($children as $child) {
+            $nestedChildren = $child->getChildTreeByDepartments(
+                $departmentIds,
+                $departmentSlugs,
+                $organisationId,
+                $includeAssignedBriefCount
+            );
+
+            if ($organisationId !== null && !$child->belongsToOrganisation($organisationId)) {
+                foreach ($nestedChildren as $descendant) {
+                    $tree[] = $descendant;
+                }
+                continue;
+            }
+
+            $node = [
+                'id' => $child->id,
+                'name' => $child->name,
+            ];
+
+            if ($includeAssignedBriefCount) {
+                $node['assigned_brief_count'] = (int) $child->assigned_brief_count;
+            }
+
+            $node['children'] = $nestedChildren;
+            $tree[] = $node;
+        }
+
+        return $tree;
+    }
+
+    private function belongsToOrganisation(int $organisationId): bool
+    {
+        if ((int) $this->organisation_id === $organisationId) {
+            return true;
+        }
+
+        $organisations = $this->relationLoaded('organisations')
+            ? $this->organisations
+            : $this->organisations()->get(['organisations.id']);
+
+        return $organisations->contains(fn ($organisation) => (int) $organisation->id === $organisationId);
+    }
+
     /**
      * Scope for verified users
      */
     public function scopeVerified($query)
     {
         return $query->whereNotNull('email_verified_at');
+    }
+
+    public function scopeVisibleToAuthenticatedUser($query, $user = null)
+    {
+        $user = $user ?? auth()->user();
+        if (!$user) {
+            return $query;
+        }
+
+        return $query->whereIn(
+            'users.id',
+            \App\Support\UserAccessScope::getStrictDescendantsInOrganisation($user)
+        );
+    }
+
+    public static function getRepositoryUsers(int $perPage = 15): LengthAwarePaginator
+    {
+        return self::with([
+            'roles', 'permissions', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone',
+        ])->visibleToAuthenticatedUser()->latest()->paginate($perPage);
+    }
+
+    public static function findRepositoryUser(int $id): ?self
+    {
+        return self::visibleToAuthenticatedUser()->where('id', $id)->first();
+    }
+
+    public static function findRepositoryUserByEmail(string $email): ?self
+    {
+        return self::visibleToAuthenticatedUser()->where('email', $email)->first();
+    }
+
+    public static function findRepositoryUserWithRelations(int $id, array $relations = []): ?self
+    {
+        return self::with($relations)->visibleToAuthenticatedUser()->where('id', $id)->first();
+    }
+
+    public static function searchRepositoryUsers(array $criteria, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = self::with([
+            'roles', 'permissions', 'parents', 'children', 'organisation', 'organisations', 'departments', 'zone',
+        ]);
+
+        if (!empty($criteria['search'])) {
+            $search = $criteria['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $departmentIds = [];
+        $departmentSlugs = [];
+
+        foreach ($criteria as $field => $value) {
+            if ($field === 'search' || $value === null || $value === '') {
+                continue;
+            }
+            if ($field === 'role') {
+                $query->whereHas('roles', function ($q) use ($value) {
+                    $q->where('name', $value);
+                });
+            } elseif (in_array($field, ['departments_id', 'departments_ids', 'department_id', 'department_ids'], true)) {
+                $raw = is_string($value) ? explode(',', $value) : (array) $value;
+                $ids = array_values(array_filter(array_map('intval', $raw), fn ($id) => $id > 0));
+                $departmentIds = array_merge($departmentIds, $ids);
+            } elseif (in_array($field, ['departments_slug', 'departments_slugs', 'department_slug', 'department_slugs'], true)) {
+                $raw = is_string($value) ? explode(',', $value) : (array) $value;
+                $slugs = array_values(array_filter(array_map('trim', $raw), fn ($slug) => $slug !== ''));
+                $departmentSlugs = array_merge($departmentSlugs, $slugs);
+            } elseif (!in_array($field, ['page', 'per_page'], true)) {
+                $query->where($field, $value);
+            }
+        }
+
+        if (!empty($departmentIds) || !empty($departmentSlugs)) {
+            $query->whereHas('departments', function ($q) use ($departmentIds, $departmentSlugs) {
+                $q->where(function ($subQ) use ($departmentIds, $departmentSlugs) {
+                    if (!empty($departmentIds)) {
+                        $subQ->whereIn('departments.id', array_unique($departmentIds));
+                    }
+                    if (!empty($departmentSlugs)) {
+                        if (!empty($departmentIds)) {
+                            $subQ->orWhereIn('departments.slug', array_unique($departmentSlugs));
+                        } else {
+                            $subQ->whereIn('departments.slug', array_unique($departmentSlugs));
+                        }
+                    }
+                });
+            });
+        }
+
+        return $query->visibleToAuthenticatedUser()->latest()->paginate($perPage);
+    }
+
+    public static function findRepositoryUsersBy(array $conditions): Collection
+    {
+        return self::where($conditions)->visibleToAuthenticatedUser()->get();
+    }
+
+    public static function findFirstRepositoryUserBy(array $conditions): ?self
+    {
+        return self::where($conditions)->visibleToAuthenticatedUser()->first();
+    }
+
+    public static function countRepositoryUsersBy(array $conditions): int
+    {
+        return self::where($conditions)->visibleToAuthenticatedUser()->count();
+    }
+
+    public static function updateRepositoryLastLogin(int $userId): ?self
+    {
+        $user = self::findRepositoryUser($userId);
+        if (!$user) {
+            return null;
+        }
+
+        $user->last_login_at = Carbon::now();
+        $user->save();
+
+        return $user;
+    }
+
+    public static function getRepositoryStatistics(): array
+    {
+        $baseQuery = self::query()->visibleToAuthenticatedUser();
+
+        return [
+            'total' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('status', 'active')->count(),
+            'inactive' => (clone $baseQuery)->where('status', 'inactive')->count(),
+            'suspended' => (clone $baseQuery)->where('status', 'suspended')->count(),
+            'verified' => (clone $baseQuery)->whereNotNull('email_verified_at')->count(),
+            'unverified' => (clone $baseQuery)->whereNull('email_verified_at')->count(),
+        ];
+    }
+
+    public static function findActivePlannerAdminsByOrganisation(int $organisationId): Collection
+    {
+        return self::query()
+            ->active()
+            ->whereHas('roles', function ($query) {
+                $query->where('slug', 'planner-admin');
+            })
+            ->where(function ($query) use ($organisationId) {
+                $query->where('users.organisation_id', $organisationId)
+                    ->orWhereHas('organisations', function ($organisationQuery) use ($organisationId) {
+                        $organisationQuery->where('organisations.id', $organisationId);
+                    });
+            })
+            ->get();
+    }
+
+    public static function syncRepositoryDepartments(int $userId, array $departmentIds): void
+    {
+        $user = self::find($userId);
+        if ($user) {
+            $user->syncValidDepartments($departmentIds);
+        }
+    }
+
+    public static function syncRepositoryRoles(int $userId, array $roleIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('role_user')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        foreach ($roleIds as $roleId) {
+            $insertData[] = [
+                'role_id' => $roleId,
+                'user_id' => $userId,
+                'user_type' => self::class,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if ($insertData !== []) {
+            DB::table('role_user')->insert($insertData);
+        }
+    }
+
+    public static function syncRepositoryParents(int $userId, array $parentIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('user_parent')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        foreach ($parentIds as $parentId) {
+            $parentId = (int) $parentId;
+
+            if ($parentId <= 0 || $parentId === $userId || !self::find($parentId)) {
+                continue;
+            }
+
+            $insertData[] = [
+                'user_id' => $userId,
+                'is_parent' => $parentId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if ($insertData !== []) {
+            DB::table('user_parent')->insert($insertData);
+        }
+    }
+
+    public static function syncRepositoryOrganisations(int $userId, array $organisationIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('organisation_user')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        $uniqueOrganisationIds = [];
+        foreach ($organisationIds as $organisationId) {
+            $organisationId = (int) $organisationId;
+
+            if ($organisationId <= 0 || in_array($organisationId, $uniqueOrganisationIds, true)) {
+                continue;
+            }
+
+            if (DB::table('organisations')->where('id', $organisationId)->exists()) {
+                $uniqueOrganisationIds[] = $organisationId;
+                $insertData[] = [
+                    'user_id' => $userId,
+                    'organisation_id' => $organisationId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if ($insertData !== []) {
+            DB::table('organisation_user')->insert($insertData);
+        }
+    }
+
+    public static function syncRepositoryZones(int $userId, array $zoneIds): void
+    {
+        if (!self::find($userId)) {
+            return;
+        }
+
+        DB::table('zone_user')->where('user_id', $userId)->delete();
+
+        $insertData = [];
+        $uniqueZoneIds = [];
+        foreach ($zoneIds as $zoneId) {
+            $zoneId = (int) $zoneId;
+
+            if ($zoneId <= 0 || in_array($zoneId, $uniqueZoneIds, true)) {
+                continue;
+            }
+
+            if (DB::table('zones')->where('id', $zoneId)->exists()) {
+                $uniqueZoneIds[] = $zoneId;
+                $insertData[] = [
+                    'user_id' => $userId,
+                    'zone_id' => $zoneId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if ($insertData !== []) {
+            DB::table('zone_user')->insert($insertData);
+        }
     }
 
     /**
@@ -247,6 +663,22 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     {
         return $this->belongsToMany(Organisation::class, 'organisation_user', 'user_id', 'organisation_id')
             ->withTimestamps();
+    }
+
+    /**
+     * Leads currently assigned to this user.
+     */
+    public function assignedLeads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'current_assign_user');
+    }
+
+    /**
+     * Briefs currently assigned to this user.
+     */
+    public function assignedBriefs(): HasMany
+    {
+        return $this->hasMany(Brief::class, 'assign_user_id');
     }
 
     /**
@@ -290,6 +722,15 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class);
+    }
+
+    /**
+     * Zones assigned to this user.
+     */
+    public function zones(): BelongsToMany
+    {
+        return $this->belongsToMany(Zone::class, 'zone_user', 'user_id', 'zone_id')
+            ->withTimestamps();
     }
 
     /**

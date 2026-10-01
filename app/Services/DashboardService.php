@@ -16,15 +16,18 @@ class DashboardService
     protected LeadRepositoryInterface $leadRepository;
     protected DashboardRepositoryInterface $dashboardRepository;
     protected UserRepositoryInterface $userRepository;
+    protected BriefAssignHistoryService $briefAssignHistoryService;
 
     public function __construct(
         LeadRepositoryInterface $leadRepository,
         DashboardRepositoryInterface $dashboardRepository,
-        UserRepositoryInterface $userRepository
+        UserRepositoryInterface $userRepository,
+        BriefAssignHistoryService $briefAssignHistoryService
     ) {
         $this->leadRepository = $leadRepository;
         $this->dashboardRepository = $dashboardRepository;
         $this->userRepository = $userRepository;
+        $this->briefAssignHistoryService = $briefAssignHistoryService;
     }
 
     /**
@@ -206,9 +209,27 @@ class DashboardService
             $plannerByOrgId = collect($plannerRows)->keyBy('organisation_id');
 
             $briefStatusCounts = $this->dashboardRepository->getPlannerBriefStatusCounts($filters, $user);
+            $briefIdsByOrganisation = $this->dashboardRepository->getBriefIdsByOrganisation($filters, $user);
+            $completedDaysByBrief = $this->briefAssignHistoryService->getCompletedCycleDurationDaysByBrief(
+                $this->flattenBriefIds($briefIdsByOrganisation)
+            );
+            $completedDaysForPlanSubmission = [];
 
-            $byOrganisation = array_map(static function (array $row) use ($plannerByOrgId) {
+            $byOrganisation = array_map(function (array $row) use (
+                $plannerByOrgId,
+                $briefIdsByOrganisation,
+                $completedDaysByBrief,
+                &$completedDaysForPlanSubmission
+            ) {
                 $planner = $plannerByOrgId->get($row['organisation_id'], []);
+                $organisationDays = [];
+
+                foreach ($briefIdsByOrganisation[(int) $row['organisation_id']] ?? [] as $briefId) {
+                    foreach ($completedDaysByBrief[$briefId] ?? [] as $days) {
+                        $organisationDays[] = $days;
+                        $completedDaysForPlanSubmission[] = $days;
+                    }
+                }
 
                 return [
                     'organisation_id' => $row['organisation_id'],
@@ -216,11 +237,12 @@ class DashboardService
                     'briefs' => $row['briefs'],
                     'brief_budget' => $row['brief_budget'],
                     'assigned_plans' => (int) ($planner['assigned_plans'] ?? 0),
-                    'avg_assignment_days' => (float) ($planner['avg_assignment_days'] ?? 0),
+                    'avg_plan_submission_days' => $this->averagePlanSubmissionDays($organisationDays),
                 ];
             }, $charts['by_organisation']);
 
-            $overallAvgAssignmentDays = $this->dashboardRepository->getOverallAssignmentDays($filters, $user);
+            $avgPlanSubmissionDays = $this->averagePlanSubmissionDays($completedDaysForPlanSubmission);
+            $avgPlanSubmissionHours = $this->averagePlanSubmissionHours($completedDaysForPlanSubmission);
 
             return [
                 'by_organisation' => $byOrganisation,
@@ -228,9 +250,14 @@ class DashboardService
                     'briefs' => $charts['totals']['briefs'],
                     'brief_budget' => $charts['totals']['brief_budget'],
                     'assigned_plans' => (int) array_sum(array_column($byOrganisation, 'assigned_plans')),
-                    'avg_assignment_days' => $overallAvgAssignmentDays,
+                    'avg_plan_submission_days' => $avgPlanSubmissionDays,
                 ],
                 'brief_status' => $briefStatusCounts,
+                'plan_submission' => [
+                    'avg_submission_days' => $avgPlanSubmissionDays,
+                    'avg_submission_hours' => $avgPlanSubmissionHours,
+                    'submitted_plans' => count($completedDaysForPlanSubmission),
+                ],
             ];
         } catch (Exception $e) {
             Log::error('Error fetching planner dashboard chart metrics', ['exception' => $e]);
@@ -276,5 +303,50 @@ class DashboardService
         }
 
         return $rows;
+    }
+
+    /**
+     * @param array<int, array<int, int>> $briefIdsByOrganisation
+     * @return array<int, int>
+     */
+    private function flattenBriefIds(array $briefIdsByOrganisation): array
+    {
+        $briefIds = [];
+
+        foreach ($briefIdsByOrganisation as $organisationBriefIds) {
+            foreach ($organisationBriefIds as $briefId) {
+                $briefIds[$briefId] = (int) $briefId;
+            }
+        }
+
+        return array_values($briefIds);
+    }
+
+    /**
+     * Plan submission days retain enough precision for short submission cycles.
+     *
+     * @param array<int, float> $dayValues
+     */
+    private function averagePlanSubmissionDays(array $dayValues): float
+    {
+        if ($dayValues === []) {
+            return 0;
+        }
+
+        return round(array_sum($dayValues) / count($dayValues), 2);
+    }
+
+    /**
+     * Calculate hours from the unrounded day values so short cycles do not become zero.
+     *
+     * @param array<int, float> $dayValues
+     */
+    private function averagePlanSubmissionHours(array $dayValues): float
+    {
+        if ($dayValues === []) {
+            return 0;
+        }
+
+        return round((array_sum($dayValues) / count($dayValues)) * 24, 1);
     }
 }
