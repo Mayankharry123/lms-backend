@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             PrioritySeeder::class,
             StatusSeeder::class,
             BriefStatusSeeder::class,
+            OperationStatusSeeder::class,
         ]);
         
         // Re-enable foreign key checks
