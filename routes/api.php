@@ -559,6 +559,16 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('status/{status}', 'PlannerHistoryController@getByStatus');
     });
 
+    // Operation Statuses routes
+    $router->group(['prefix' => 'operation-statuses'], function () use ($router) {
+        $router->get('/', 'OperationStatusController@index');
+        $router->post('/', 'OperationStatusController@store');
+        $router->get('{id:[0-9]+}', 'OperationStatusController@show');
+        $router->put('{id:[0-9]+}', 'OperationStatusController@update');
+        $router->patch('{id:[0-9]+}', 'OperationStatusController@update');
+        $router->delete('{id:[0-9]+}', 'OperationStatusController@destroy');
+    });
+
     // Planner Statuses routes
     $router->group(['prefix' => 'planner-statuses'], function () use ($router) {
         // List and filter routes first (specific routes before generic {id})
