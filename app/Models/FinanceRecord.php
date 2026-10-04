@@ -14,6 +14,8 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+
 class FinanceRecord extends BaseModel
 {
     protected $table = 'finance_records';
@@ -79,7 +81,50 @@ class FinanceRecord extends BaseModel
         'brief:id,name',
         'financeStatus:id,name',
         'assignedBy:id,name',
+        'assignedTo:id,name',
     ];
+
+    /**
+     * Get finance records with pagination.
+     */
+    public function paginateRecords(array $criteria = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->newQuery()->with(self::RESPONSE_RELATIONS);
+
+        if (!empty($criteria['brief_id'])) {
+            $query->where('brief_id', $criteria['brief_id']);
+        }
+
+        if (!empty($criteria['planner_id'])) {
+            $query->where('planner_id', $criteria['planner_id']);
+        }
+
+        if (!empty($criteria['finance_status_id'])) {
+            $query->where('finance_status_id', $criteria['finance_status_id']);
+        }
+
+        if (!empty($criteria['assign_by'])) {
+            $query->where('assign_by', $criteria['assign_by']);
+        }
+
+        if (!empty($criteria['assign_to'])) {
+            $query->where('assign_to', $criteria['assign_to']);
+        }
+
+        if (isset($criteria['status']) && $criteria['status'] !== '') {
+            $query->where('status', $criteria['status']);
+        }
+
+        return $query->orderByDesc('id')->paginate($perPage);
+    }
+
+    /**
+     * Find a finance record by ID.
+     */
+    public function findRecordById(int $id): ?self
+    {
+        return $this->newQuery()->with(self::RESPONSE_RELATIONS)->find($id);
+    }
 
     /**
      * Find the active finance record for a brief and planner.

@@ -3,7 +3,7 @@
 /**
  * FinanceRecord Service
  * -----------------------------------------
- * Uploads a cost sheet for a brief only when that brief has an approved plan.
+ * Uploads a cost sheet for a planner only when that plan is approved.
  *
  * @package App\Services
  * @author Achal Sharma
@@ -18,6 +18,7 @@ use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
 use App\Models\FinanceRecord;
 use App\Traits\HandlesFileUploads;
 use DomainException;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -43,22 +44,52 @@ class FinanceRecordService
     }
 
     /**
-     * Store a cost sheet against the approved plan of a brief.
+     * Get a paginated list of finance records.
+     *
+     * @throws Throwable
+     */
+    public function list(array $criteria = [], int $perPage = 15): LengthAwarePaginator
+    {
+        try {
+            return $this->financeRecordRepository->paginate($criteria, $perPage);
+        } catch (Throwable $e) {
+            Log::error('Error fetching finance records', ['criteria' => $criteria, 'exception' => $e]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Find one finance record.
+     *
+     * @throws Throwable
+     */
+    public function find(int $id): ?FinanceRecord
+    {
+        try {
+            return $this->financeRecordRepository->find($id);
+        } catch (Throwable $e) {
+            Log::error('Error fetching finance record by ID', ['id' => $id, 'exception' => $e]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Store a cost sheet against an approved planner.
      *
      * @throws DomainException
      * @throws ValidationException
      * @throws Throwable
      */
-    public function uploadCostSheet(int $briefId, UploadedFile $file): ?FinanceRecord
+    public function uploadCostSheet(int $plannerId, UploadedFile $file): ?FinanceRecord
     {
         try {
-            if (!$this->financeRecordRepository->briefExists($briefId)) {
+            $planner = $this->financeRecordRepository->findPlannerById($plannerId);
+
+            if (!$planner) {
                 return null;
             }
 
-            $planner = $this->financeRecordRepository->findApprovedPlannerByBriefId($briefId);
-
-            if (!$planner) {
+            if (!$planner->isPlanApproved()) {
                 throw new DomainException('Plan is not approved, you cannot upload the cost sheet.');
             }
 
@@ -74,11 +105,11 @@ class FinanceRecordService
                 'public/finance-records/cost-sheets'
             );
 
-            return $this->saveCostSheet($briefId, (int) $planner->id, (int) $financeStatus->id, $uploadedFile['path']);
+            return $this->saveCostSheet((int) $planner->brief_id, $plannerId, (int) $financeStatus->id, $uploadedFile['path']);
         } catch (Throwable $e) {
             if (!$e instanceof DomainException && !$e instanceof ValidationException) {
                 Log::error('Error uploading cost sheet', [
-                    'brief_id' => $briefId,
+                    'planner_id' => $plannerId,
                     'exception' => $e,
                 ]);
             }

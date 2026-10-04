@@ -527,6 +527,7 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         // Additional Planner routes (specific routes BEFORE generic CRUD)
         $router->post('{id:[0-9]+}/upload-submitted-plans', 'PlannerController@uploadSubmittedPlans');
         $router->post('{id:[0-9]+}/upload-backup-plan', 'PlannerController@uploadBackupPlan');
+        $router->post('{plannerId:[0-9]+}/upload-cost-sheet', 'FinanceRecordController@uploadCostSheet');
         $router->put('{id:[0-9]+}/update-status', 'PlannerController@updateStatus');
         
         // Generic CRUD operations
@@ -578,9 +579,10 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->delete('{id:[0-9]+}', 'OperationStatusController@destroy');
     });
 
-    // Upload a cost sheet for a brief whose plan is approved
-    $router->group(['prefix' => 'briefs'], function () use ($router) {
-        $router->post('{briefId:[0-9]+}/upload-cost-sheet', 'FinanceRecordController@uploadCostSheet');
+    // Finance Records routes
+    $router->group(['prefix' => 'finance-records'], function () use ($router) {
+        $router->get('/', 'FinanceRecordController@index');
+        $router->get('{id:[0-9]+}', 'FinanceRecordController@show');
     });
 
     // Finance Statuses routes
@@ -590,6 +592,15 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('{id:[0-9]+}', 'FinanceStatusController@show');
         $router->put('{id:[0-9]+}', 'FinanceStatusController@update');
         $router->delete('{id:[0-9]+}', 'FinanceStatusController@destroy');
+    });
+
+    // Cost Sheet Statuses routes
+    $router->group(['prefix' => 'cost-sheet-statuses'], function () use ($router) {
+        $router->get('/', 'CostSheetStatusController@index');
+        $router->post('/', 'CostSheetStatusController@store');
+        $router->get('{id:[0-9]+}', 'CostSheetStatusController@show');
+        $router->put('{id:[0-9]+}', 'CostSheetStatusController@update');
+        $router->delete('{id:[0-9]+}', 'CostSheetStatusController@destroy');
     });
 
     // Planner Statuses routes

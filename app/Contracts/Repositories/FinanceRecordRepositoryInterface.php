@@ -15,18 +15,24 @@ namespace App\Contracts\Repositories;
 
 use App\Models\FinanceRecord;
 use App\Models\Planner;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface FinanceRecordRepositoryInterface
 {
     /**
-     * Check whether a brief exists
+     * Get finance records with pagination
      */
-    public function briefExists(int $briefId): bool;
+    public function paginate(array $criteria = [], int $perPage = 15): LengthAwarePaginator;
 
     /**
-     * Find the latest approved planner for a brief
+     * Find a finance record by ID
      */
-    public function findApprovedPlannerByBriefId(int $briefId): ?Planner;
+    public function find(int $id): ?FinanceRecord;
+
+    /**
+     * Find a planner by ID with its status
+     */
+    public function findPlannerById(int $plannerId): ?Planner;
 
     /**
      * Find the active finance record for a brief and planner

@@ -1,24 +1,24 @@
 <?php
 
 /**
- * FinanceStatus
+ * CostSheetStatus
  * -----------------------------------------
- * This model represents the finance_statuses table,
- * which stores the statuses of finance records.
+ * This model represents the cost_sheet_statuses table,
+ * which stores the statuses of cost sheets.
  *
  * @package App\Models
  * @author Achal Sharma
  * @version 1.0.0
- * @since 2026-10-04
+ * @since 2026-10-05
  */
 
 namespace App\Models;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
-class FinanceStatus extends BaseModel
+class CostSheetStatus extends BaseModel
 {
-    protected $table = 'finance_statuses';
+    protected $table = 'cost_sheet_statuses';
 
     protected $fillable = [
         'uuid',
@@ -39,7 +39,7 @@ class FinanceStatus extends BaseModel
     ];
 
     /**
-     * Get all finance statuses with pagination.
+     * Get all cost sheet statuses with pagination.
      */
     public function paginateAll(int $perPage = 15): LengthAwarePaginator
     {
@@ -47,7 +47,7 @@ class FinanceStatus extends BaseModel
     }
 
     /**
-     * Find a finance status by ID.
+     * Find a cost sheet status by ID.
      */
     public function findById(int $id): ?self
     {
@@ -55,7 +55,7 @@ class FinanceStatus extends BaseModel
     }
 
     /**
-     * Find a finance status by UUID.
+     * Find a cost sheet status by UUID.
      */
     public static function findByUuid(string $uuid): ?static
     {
@@ -63,7 +63,7 @@ class FinanceStatus extends BaseModel
     }
 
     /**
-     * Find a finance status by name.
+     * Find a cost sheet status by name.
      */
     public function findByName(string $name): ?self
     {
@@ -71,7 +71,7 @@ class FinanceStatus extends BaseModel
     }
 
     /**
-     * Find a finance status by slug.
+     * Find a cost sheet status by slug.
      */
     public function findBySlug(string $slug): ?self
     {
@@ -79,7 +79,7 @@ class FinanceStatus extends BaseModel
     }
 
     /**
-     * Find the first active finance status.
+     * Find the first active cost sheet status.
      */
     public function findFirstActive(): ?self
     {
@@ -90,7 +90,7 @@ class FinanceStatus extends BaseModel
     }
 
     /**
-     * Create a finance status.
+     * Create a cost sheet status.
      */
     public function storeRecord(array $data): self
     {
@@ -98,38 +98,38 @@ class FinanceStatus extends BaseModel
     }
 
     /**
-     * Update a finance status by ID.
+     * Update a cost sheet status by ID.
      */
     public function updateById(int $id, array $data): bool
     {
-        $financeStatus = $this->findById($id);
+        $costSheetStatus = $this->findById($id);
 
-        if (!$financeStatus) {
+        if (!$costSheetStatus) {
             return false;
         }
 
-        return (bool) $financeStatus->update($data);
+        return (bool) $costSheetStatus->update($data);
     }
 
     /**
-     * Soft delete a finance status by ID and set status to 15.
+     * Soft delete a cost sheet status by ID and set status to 15.
      */
     public function softDeleteById(int $id): bool
     {
-        $financeStatus = $this->findById($id);
+        $costSheetStatus = $this->findById($id);
 
-        if (!$financeStatus) {
+        if (!$costSheetStatus) {
             return false;
         }
 
-        $financeStatus->status = '15';
-        $financeStatus->save();
+        $costSheetStatus->status = '15';
+        $costSheetStatus->save();
 
-        return (bool) $financeStatus->delete();
+        return (bool) $costSheetStatus->delete();
     }
 
     /**
-     * Search finance statuses by criteria with pagination.
+     * Search cost sheet statuses by criteria with pagination.
      */
     public function searchRecords(array $criteria, int $perPage = 15): LengthAwarePaginator
     {

@@ -14,40 +14,46 @@
 namespace App\Repositories;
 
 use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
-use App\Models\Brief;
 use App\Models\FinanceRecord;
 use App\Models\Planner;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class FinanceRecordRepository implements FinanceRecordRepositoryInterface
 {
     protected FinanceRecord $model;
-    protected Brief $brief;
     protected Planner $planner;
 
     /**
      * Inject the models that own the finance record queries.
      */
-    public function __construct(FinanceRecord $model, Brief $brief, Planner $planner)
+    public function __construct(FinanceRecord $model, Planner $planner)
     {
         $this->model = $model;
-        $this->brief = $brief;
         $this->planner = $planner;
     }
 
     /**
-     * Check whether a brief exists
+     * Get finance records with pagination
      */
-    public function briefExists(int $briefId): bool
+    public function paginate(array $criteria = [], int $perPage = 15): LengthAwarePaginator
     {
-        return $this->brief->existsById($briefId);
+        return $this->model->paginateRecords($criteria, $perPage);
     }
 
     /**
-     * Find the latest approved planner for a brief
+     * Find a finance record by ID
      */
-    public function findApprovedPlannerByBriefId(int $briefId): ?Planner
+    public function find(int $id): ?FinanceRecord
     {
-        return $this->planner->findLatestApprovedByBriefId($briefId);
+        return $this->model->findRecordById($id);
+    }
+
+    /**
+     * Find a planner by ID with its status
+     */
+    public function findPlannerById(int $plannerId): ?Planner
+    {
+        return $this->planner->findByIdWithStatus($plannerId);
     }
 
     /**

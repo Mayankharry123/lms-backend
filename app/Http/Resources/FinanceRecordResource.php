@@ -33,6 +33,7 @@ class FinanceRecordResource extends JsonResource
             'finance_status' => $this->relationLoaded('financeStatus') ? $this->financeStatus?->name : null,
             'cost_sheet' => $this->cost_sheet,
             'assign_by_name' => $this->relationLoaded('assignedBy') ? $this->assignedBy?->name : null,
+            'assign_to_name' => $this->relationLoaded('assignedTo') ? $this->assignedTo?->name : null,
             'status' => $this->status,
             'created_at' => $this->created_at?->format('Y-m-d H:i:s A'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s A'),

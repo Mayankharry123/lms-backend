@@ -169,14 +169,6 @@ class Brief extends Model
         return $this->newQuery()->with(self::DEFAULT_RELATIONSHIPS)->find($id);
     }
 
-    /**
-     * Check whether a brief exists by ID.
-     */
-    public function existsById(int $id): bool
-    {
-        return $this->newQuery()->whereKey($id)->exists();
-    }
-
     public function getBriefsByBrand(int $brandId, int $perPage = 15): LengthAwarePaginator
     {
         return $this->getAccessibleBriefQuery()

@@ -94,20 +94,11 @@ class Planner extends BaseModel
     }
 
     /**
-     * Latest active planner for a brief whose status is Plan Approved.
+     * Find a planner by ID with its status loaded.
      */
-    public function findLatestApprovedByBriefId(int $briefId): ?self
+    public function findByIdWithStatus(int $id): ?self
     {
-        return $this->newQuery()
-            ->with('plannerStatus')
-            ->where('brief_id', $briefId)
-            ->where('status', '1')
-            ->whereHas('plannerStatus', function ($query) {
-                $query->where('slug', 'plan-approved')
-                    ->orWhere('name', 'Plan Approved');
-            })
-            ->orderByDesc('id')
-            ->first();
+        return $this->newQuery()->with('plannerStatus')->find($id);
     }
 
     /**

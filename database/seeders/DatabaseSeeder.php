@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Database Seeder
+ * -----------------------------------------
+ * Seeds the database with initial data for testing and development.
+ *
+ * @package Database\Seeders
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-05
+ */
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -35,6 +45,8 @@ class DatabaseSeeder extends Seeder
             StatusSeeder::class,
             BriefStatusSeeder::class,
             OperationStatusSeeder::class,
+            FinanceStatusSeeder::class,
+            CostSheetStatusSeeder::class,
         ]);
         
         // Re-enable foreign key checks
