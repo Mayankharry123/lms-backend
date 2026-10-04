@@ -94,6 +94,23 @@ class Planner extends BaseModel
     }
 
     /**
+     * Latest active planner for a brief whose status is Plan Approved.
+     */
+    public function findLatestApprovedByBriefId(int $briefId): ?self
+    {
+        return $this->newQuery()
+            ->with('plannerStatus')
+            ->where('brief_id', $briefId)
+            ->where('status', '1')
+            ->whereHas('plannerStatus', function ($query) {
+                $query->where('slug', 'plan-approved')
+                    ->orWhere('name', 'Plan Approved');
+            })
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
      * Scope: Get planners created by a specific user.
      */
     public function scopeCreatedBy($query, $userId)
@@ -142,6 +159,23 @@ class Planner extends BaseModel
     public function hasBackupPlan(): bool
     {
         return !empty($this->backup_plan);
+    }
+
+    /**
+     * True when the current planner status is Plan Approved.
+     */
+    public function isPlanApproved(): bool
+    {
+        $status = $this->relationLoaded('plannerStatus')
+            ? $this->plannerStatus
+            : $this->plannerStatus()->first();
+
+        if (!$status) {
+            return false;
+        }
+
+        return strcasecmp((string) $status->slug, 'plan-approved') === 0
+            || strcasecmp(trim((string) $status->name), 'Plan Approved') === 0;
     }
 
     /**

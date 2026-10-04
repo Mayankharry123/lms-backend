@@ -507,10 +507,28 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
 
     public static function findActivePlannerAdminsByOrganisation(int $organisationId): Collection
     {
+        return self::findActiveUsersByRoleAndOrganisation('planner-admin', $organisationId);
+    }
+
+    /**
+     * Active ops-admin users that belong to the given organisation.
+     *
+     * @return Collection<int, self>
+     */
+    public static function findActiveOpsAdminsByOrganisation(int $organisationId): Collection
+    {
+        return self::findActiveUsersByRoleAndOrganisation('ops-admin', $organisationId);
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    protected static function findActiveUsersByRoleAndOrganisation(string $roleSlug, int $organisationId): Collection
+    {
         return self::query()
             ->active()
-            ->whereHas('roles', function ($query) {
-                $query->where('slug', 'planner-admin');
+            ->whereHas('roles', function ($query) use ($roleSlug) {
+                $query->where('slug', $roleSlug);
             })
             ->where(function ($query) use ($organisationId) {
                 $query->where('users.organisation_id', $organisationId)

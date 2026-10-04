@@ -143,4 +143,15 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     {
         return User::findActivePlannerAdminsByOrganisation($organisationId);
     }
+
+    /**
+     * Active ops-admin users that belong to the given organisation.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActiveOpsAdminsByOrganisation(int $organisationId): Collection
+    {
+        return User::findActiveOpsAdminsByOrganisation($organisationId);
+    }
 }

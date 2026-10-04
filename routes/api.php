@@ -559,6 +559,15 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('status/{status}', 'PlannerHistoryController@getByStatus');
     });
 
+    // Operations routes
+    $router->group(['prefix' => 'operations'], function () use ($router) {
+        $router->get('/', 'OperationController@index');
+        $router->get('{id:[0-9]+}/backup-plan', 'OperationController@downloadBackupPlan');
+        $router->get('{id:[0-9]+}', 'OperationController@show');
+        $router->put('{id:[0-9]+}', 'OperationController@updateStatus');
+        $router->delete('{id:[0-9]+}', 'OperationController@destroy');
+    });
+
     // Operation Statuses routes
     $router->group(['prefix' => 'operation-statuses'], function () use ($router) {
         $router->get('/', 'OperationStatusController@index');
@@ -567,6 +576,20 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->put('{id:[0-9]+}', 'OperationStatusController@update');
         $router->patch('{id:[0-9]+}', 'OperationStatusController@update');
         $router->delete('{id:[0-9]+}', 'OperationStatusController@destroy');
+    });
+
+    // Upload a cost sheet for a brief whose plan is approved
+    $router->group(['prefix' => 'briefs'], function () use ($router) {
+        $router->post('{briefId:[0-9]+}/upload-cost-sheet', 'FinanceRecordController@uploadCostSheet');
+    });
+
+    // Finance Statuses routes
+    $router->group(['prefix' => 'finance-statuses'], function () use ($router) {
+        $router->get('/', 'FinanceStatusController@index');
+        $router->post('/', 'FinanceStatusController@store');
+        $router->get('{id:[0-9]+}', 'FinanceStatusController@show');
+        $router->put('{id:[0-9]+}', 'FinanceStatusController@update');
+        $router->delete('{id:[0-9]+}', 'FinanceStatusController@destroy');
     });
 
     // Planner Statuses routes

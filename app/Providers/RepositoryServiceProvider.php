@@ -117,6 +117,15 @@ use App\Repositories\PlannerStatusRepository;
 use App\Contracts\Repositories\OperationStatusRepositoryInterface;
 use App\Repositories\OperationStatusRepository;
 
+use App\Contracts\Repositories\OperationRepositoryInterface;
+use App\Repositories\OperationRepository;
+
+use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
+use App\Repositories\FinanceStatusRepository;
+
+use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
+use App\Repositories\FinanceRecordRepository;
+
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use App\Repositories\UserParentRepository;
 
@@ -312,6 +321,21 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             OperationStatusRepositoryInterface::class,
             OperationStatusRepository::class
+        );
+
+        $this->app->bind(
+            OperationRepositoryInterface::class,
+            OperationRepository::class
+        );
+
+        $this->app->bind(
+            FinanceStatusRepositoryInterface::class,
+            FinanceStatusRepository::class
+        );
+
+        $this->app->bind(
+            FinanceRecordRepositoryInterface::class,
+            FinanceRecordRepository::class
         );
 
         $this->app->bind(
