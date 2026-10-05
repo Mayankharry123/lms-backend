@@ -174,7 +174,7 @@ class FinanceRecord extends BaseModel
     /**
      * Replace the cost sheet path on a finance record.
      */
-    public function replaceCostSheet(int $id, string $path, ?int $assignBy): ?self
+    public function replaceCostSheet(int $id, string $path, ?int $assignBy, ?int $assignTo = null): ?self
     {
         $financeRecord = $this->newQuery()->find($id);
 
@@ -182,10 +182,16 @@ class FinanceRecord extends BaseModel
             return null;
         }
 
-        $financeRecord->update([
+        $updates = [
             'cost_sheet' => $path,
             'assign_by' => $assignBy,
-        ]);
+        ];
+
+        if ($assignTo) {
+            $updates['assign_to'] = $assignTo;
+        }
+
+        $financeRecord->update($updates);
 
         return $financeRecord->refresh()->load(self::RESPONSE_RELATIONS);
     }

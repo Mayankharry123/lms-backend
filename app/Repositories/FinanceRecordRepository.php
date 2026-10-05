@@ -75,9 +75,9 @@ class FinanceRecordRepository implements FinanceRecordRepositoryInterface
     /**
      * Replace the cost sheet path on a finance record
      */
-    public function updateCostSheet(int $id, string $path, ?int $assignBy): ?FinanceRecord
+    public function updateCostSheet(int $id, string $path, ?int $assignBy, ?int $assignTo = null): ?FinanceRecord
     {
-        return $this->model->replaceCostSheet($id, $path, $assignBy);
+        return $this->model->replaceCostSheet($id, $path, $assignBy, $assignTo);
     }
 
     /**

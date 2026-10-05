@@ -47,7 +47,7 @@ interface FinanceRecordRepositoryInterface
     /**
      * Replace the cost sheet path on a finance record
      */
-    public function updateCostSheet(int $id, string $path, ?int $assignBy): ?FinanceRecord;
+    public function updateCostSheet(int $id, string $path, ?int $assignBy, ?int $assignTo = null): ?FinanceRecord;
 
     /**
      * Paginate cost sheets for the list API.

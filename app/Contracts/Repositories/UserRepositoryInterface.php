@@ -117,4 +117,13 @@ interface UserRepositoryInterface
      * @return Collection<int, User>
      */
     public function findActiveOpsAdminsByOrganisation(int $organisationId): Collection;
+
+    /**
+     * Active users in an organisation whose role slug is finance-admin.
+     * Matches users.organisation_id and the organisation_user pivot.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActiveFinanceAdminsByOrganisation(int $organisationId): Collection;
 }

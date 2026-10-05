@@ -30,7 +30,6 @@ class PurchaseOrderResource extends JsonResource
         $planner = $financeRecord && $financeRecord->relationLoaded('planner') ? $financeRecord->planner : null;
 
         return [
-            'id' => $financeRecord?->id,
             'purchase_order_id' => $this->id,
             'brief_id' => $financeRecord?->brief_id,
             'brief_name' => $brief?->name,

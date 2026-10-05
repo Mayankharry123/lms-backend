@@ -15,8 +15,11 @@ namespace App\Services;
 
 use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
 use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
+use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Models\Brief;
 use App\Models\FinanceRecord;
+use App\Models\Planner;
+use App\Support\UserAccessScope;
 use App\Traits\HandlesFileUploads;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -32,16 +35,19 @@ class FinanceRecordService
 
     protected FinanceRecordRepositoryInterface $financeRecordRepository;
     protected FinanceStatusRepositoryInterface $financeStatusRepository;
+    protected UserRepositoryInterface $userRepository;
 
     /**
-     * Inject the finance record and finance status repositories.
+     * Inject the finance record, finance status, and user repositories.
      */
     public function __construct(
         FinanceRecordRepositoryInterface $financeRecordRepository,
-        FinanceStatusRepositoryInterface $financeStatusRepository
+        FinanceStatusRepositoryInterface $financeStatusRepository,
+        UserRepositoryInterface $userRepository
     ) {
         $this->financeRecordRepository = $financeRecordRepository;
         $this->financeStatusRepository = $financeStatusRepository;
+        $this->userRepository = $userRepository;
     }
 
     /**
@@ -106,7 +112,7 @@ class FinanceRecordService
                 'public/finance-records/cost-sheets'
             );
 
-            return $this->saveCostSheet((int) $planner->brief_id, $plannerId, (int) $financeStatus->id, $uploadedFile['path']);
+            return $this->saveCostSheet($planner, (int) $financeStatus->id, $uploadedFile['path']);
         } catch (Throwable $e) {
             if (!$e instanceof DomainException && !$e instanceof ValidationException) {
                 Log::error('Error uploading cost sheet', [
@@ -121,17 +127,21 @@ class FinanceRecordService
 
     /**
      * Update the existing finance record, or create one when this brief has none.
+     * The sheet is assigned to the organisation finance admin.
      *
      * @throws Throwable
      */
-    protected function saveCostSheet(int $briefId, int $plannerId, int $financeStatusId, string $path): ?FinanceRecord
+    protected function saveCostSheet(Planner $planner, int $financeStatusId, string $path): ?FinanceRecord
     {
         try {
+            $briefId = (int) $planner->brief_id;
+            $plannerId = (int) $planner->id;
             $assignBy = auth()->id() ? (int) auth()->id() : null;
+            $assignTo = $this->resolveFinanceAdminId($planner);
             $existing = $this->financeRecordRepository->findActiveByBriefAndPlanner($briefId, $plannerId);
 
             if ($existing) {
-                $financeRecord = $this->financeRecordRepository->updateCostSheet((int) $existing->id, $path, $assignBy);
+                $financeRecord = $this->financeRecordRepository->updateCostSheet((int) $existing->id, $path, $assignBy, $assignTo);
             } else {
                 $financeRecord = $this->financeRecordRepository->create([
                     'uuid' => (string) Str::uuid(),
@@ -140,7 +150,7 @@ class FinanceRecordService
                     'finance_status_id' => $financeStatusId,
                     'cost_sheet' => $path,
                     'assign_by' => $assignBy,
-                    'assign_to' => null,
+                    'assign_to' => $assignTo,
                     'status' => '1',
                 ]);
             }
@@ -150,12 +160,109 @@ class FinanceRecordService
             return $financeRecord;
         } catch (Throwable $e) {
             Log::error('Error saving cost sheet', [
-                'brief_id' => $briefId,
-                'planner_id' => $plannerId,
+                'brief_id' => $planner->brief_id,
+                'planner_id' => $planner->id,
                 'exception' => $e,
             ]);
 
             throw $e;
+        }
+    }
+
+    /**
+     * Finance admin who should receive this cost sheet.
+     */
+    protected function resolveFinanceAdminId(Planner $planner): ?int
+    {
+        try {
+            $organisationId = $this->resolveOrganisationId($planner);
+
+            if (!$organisationId) {
+                Log::warning('Cost sheet has no organisation; assign_to left empty', [
+                    'planner_id' => $planner->id,
+                    'brief_id' => $planner->brief_id,
+                ]);
+
+                return null;
+            }
+
+            $financeAdminId = $this->resolveTopFinanceAdminUserId($organisationId);
+
+            if (!$financeAdminId) {
+                Log::warning('No finance-admin found for organisation; assign_to left empty', [
+                    'planner_id' => $planner->id,
+                    'organisation_id' => $organisationId,
+                ]);
+            }
+
+            return $financeAdminId;
+        } catch (Throwable $e) {
+            Log::error('Error resolving finance admin for cost sheet', [
+                'planner_id' => $planner->id,
+                'exception' => $e,
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Organisation from the brief contact, then the planner creator.
+     */
+    protected function resolveOrganisationId(Planner $planner): ?int
+    {
+        try {
+            $planner->loadMissing(['brief.contactPerson', 'creator']);
+
+            $organisationId = $planner->brief?->contactPerson?->organisation_id
+                ?? $planner->creator?->organisation_id;
+
+            return $organisationId ? (int) $organisationId : null;
+        } catch (Throwable $e) {
+            Log::error('Error resolving organisation ID for cost sheet', [
+                'planner_id' => $planner->id,
+                'exception' => $e,
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Top finance-admin in the organisation. Same hierarchy rule as planner-admin assignment.
+     */
+    protected function resolveTopFinanceAdminUserId(int $organisationId): ?int
+    {
+        try {
+            $financeAdmins = $this->userRepository->findActiveFinanceAdminsByOrganisation($organisationId);
+
+            if ($financeAdmins->isEmpty()) {
+                return null;
+            }
+
+            if ($financeAdmins->count() === 1) {
+                return (int) $financeAdmins->first()->id;
+            }
+
+            $adminIds = $financeAdmins->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+            foreach ($financeAdmins as $admin) {
+                $ancestorIds = UserAccessScope::getAncestorIds($admin);
+                $financeAdminAncestors = array_intersect($ancestorIds, $adminIds);
+
+                if ($financeAdminAncestors === []) {
+                    return (int) $admin->id;
+                }
+            }
+
+            return (int) $financeAdmins->first()->id;
+        } catch (Throwable $e) {
+            Log::error('Error resolving top finance admin user ID', [
+                'organisation_id' => $organisationId,
+                'exception' => $e,
+            ]);
+
+            return null;
         }
     }
 

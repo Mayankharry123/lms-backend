@@ -521,6 +521,16 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     }
 
     /**
+     * Active finance-admin users that belong to the given organisation.
+     *
+     * @return Collection<int, self>
+     */
+    public static function findActiveFinanceAdminsByOrganisation(int $organisationId): Collection
+    {
+        return self::findActiveUsersByRoleAndOrganisation('finance-admin', $organisationId);
+    }
+
+    /**
      * @return Collection<int, self>
      */
     protected static function findActiveUsersByRoleAndOrganisation(string $roleSlug, int $organisationId): Collection
