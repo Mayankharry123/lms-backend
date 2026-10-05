@@ -13,6 +13,8 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+
 class PurchaseOrder extends BaseModel
 {
     protected $table = 'purchase_orders';
@@ -60,11 +62,43 @@ class PurchaseOrder extends BaseModel
     ];
 
     /**
+     * Relations for the purchase order list and detail.
+     *
+     * @var array<int, string>
+     */
+    public const LIST_RELATIONS = [
+        'financeRecord.brief.costSheetStatus',
+        'financeRecord.planner.creator',
+        'financeRecord.financeStatus',
+        'financeRecord.assignedBy',
+        'financeRecord.assignedTo',
+    ];
+
+    /**
      * Finance record this purchase order was raised from.
      */
     public function financeRecord()
     {
         return $this->belongsTo(FinanceRecord::class, 'finance_record_id');
+    }
+
+    /**
+     * Paginate purchase orders for the list API.
+     */
+    public function paginateForList(int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->newQuery()
+            ->with(self::LIST_RELATIONS)
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
+    /**
+     * Find one purchase order for the detail API.
+     */
+    public function findForDetail(int $id): ?self
+    {
+        return $this->newQuery()->with(self::LIST_RELATIONS)->find($id);
     }
 
     /**

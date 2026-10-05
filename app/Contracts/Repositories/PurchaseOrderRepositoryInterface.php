@@ -14,6 +14,7 @@
 namespace App\Contracts\Repositories;
 
 use App\Models\PurchaseOrder;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface PurchaseOrderRepositoryInterface
 {
@@ -40,4 +41,14 @@ interface PurchaseOrderRepositoryInterface
      * @param array<int, array<string, mixed>> $items
      */
     public function createItems(PurchaseOrder $purchaseOrder, array $items): void;
+
+    /**
+     * Paginate purchase orders for the list API.
+     */
+    public function paginate(int $perPage = 15): LengthAwarePaginator;
+
+    /**
+     * Find one purchase order for the detail API.
+     */
+    public function find(int $id): ?PurchaseOrder;
 }

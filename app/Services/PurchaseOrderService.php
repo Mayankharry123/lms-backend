@@ -19,6 +19,7 @@ use App\Models\PurchaseOrder;
 use App\Support\AmountInWords;
 use Carbon\Carbon;
 use DomainException;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -555,6 +556,36 @@ class PurchaseOrderService
             return $states[$code] ?? '';
         } catch (Throwable $e) {
             Log::error('Error resolving place of supply', ['code' => $code, 'exception' => $e]);
+            throw $e;
+        }
+    }
+
+    /**
+     * List purchase orders.
+     *
+     * @throws Throwable
+     */
+    public function list(int $perPage = 15): LengthAwarePaginator
+    {
+        try {
+            return $this->purchaseOrderRepository->paginate($perPage);
+        } catch (Throwable $e) {
+            Log::error('Error fetching purchase orders', ['exception' => $e]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Find one purchase order.
+     *
+     * @throws Throwable
+     */
+    public function find(int $id): ?PurchaseOrder
+    {
+        try {
+            return $this->purchaseOrderRepository->find($id);
+        } catch (Throwable $e) {
+            Log::error('Error fetching purchase order by ID', ['id' => $id, 'exception' => $e]);
             throw $e;
         }
     }

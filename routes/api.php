@@ -596,6 +596,8 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
 
     // Purchase Orders
     $router->group(['prefix' => 'purchase-orders'], function () use ($router) {
+        $router->get('/', 'PurchaseOrderController@index');
+        $router->get('{id:[0-9]+}', 'PurchaseOrderController@show');
         $router->post('/', 'PurchaseOrderController@store');
     });
 

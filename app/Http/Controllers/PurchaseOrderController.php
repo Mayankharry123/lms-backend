@@ -13,11 +13,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\PurchaseOrderResource;
 use App\Services\PurchaseOrderService;
 use App\Services\ResponseService;
 use App\Traits\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class PurchaseOrderController extends Controller
@@ -34,6 +36,57 @@ class PurchaseOrderController extends Controller
     {
         $this->purchaseOrderService = $purchaseOrderService;
         $this->responseService = $responseService;
+    }
+
+    /**
+     * List purchase orders.
+     *
+     * GET /purchase-orders
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $validated = $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1',
+            ]);
+
+            $perPage = (int) ($validated['per_page'] ?? 15);
+            $purchaseOrders = $this->purchaseOrderService->list($perPage);
+
+            return $this->responseService->paginated(
+                PurchaseOrderResource::collection($purchaseOrders),
+                'Purchase orders retrieved successfully'
+            );
+        } catch (Throwable $e) {
+            if ($e instanceof ValidationException) {
+                return $this->responseService->validationError($e->errors(), 'Validation failed');
+            }
+
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Show one purchase order.
+     *
+     * GET /purchase-orders/{id}
+     */
+    public function show(int $id): JsonResponse
+    {
+        try {
+            $purchaseOrder = $this->purchaseOrderService->find($id);
+
+            if (!$purchaseOrder) {
+                return $this->responseService->notFound('Purchase order not found');
+            }
+
+            return $this->responseService->success(
+                new PurchaseOrderResource($purchaseOrder),
+                'Purchase order retrieved successfully'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
     }
 
     /**
