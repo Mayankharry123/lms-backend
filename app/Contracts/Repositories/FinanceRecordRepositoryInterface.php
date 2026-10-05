@@ -48,4 +48,29 @@ interface FinanceRecordRepositoryInterface
      * Replace the cost sheet path on a finance record
      */
     public function updateCostSheet(int $id, string $path, ?int $assignBy): ?FinanceRecord;
+
+    /**
+     * Paginate cost sheets for the list API.
+     */
+    public function paginateCostSheets(array $criteria = [], int $perPage = 15): LengthAwarePaginator;
+
+    /**
+     * Find one cost sheet for the detail API.
+     */
+    public function findCostSheet(int $id): ?FinanceRecord;
+
+    /**
+     * Update editable cost sheet fields.
+     */
+    public function updateRecord(int $id, array $data): ?FinanceRecord;
+
+    /**
+     * Soft delete a cost sheet.
+     */
+    public function deleteRecord(int $id): bool;
+
+    /**
+     * Whether another active cost sheet remains for this brief.
+     */
+    public function hasOtherActiveCostSheet(int $briefId, int $exceptId): bool;
 }

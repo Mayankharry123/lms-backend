@@ -14,9 +14,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseOrderItem extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'purchase_order_items';
 
     protected $fillable = [
@@ -27,6 +30,7 @@ class PurchaseOrderItem extends Model
         'qty',
         'rate',
         'amount',
+        'status',
     ];
 
     /**
@@ -36,6 +40,14 @@ class PurchaseOrderItem extends Model
         'qty' => 'float',
         'rate' => 'float',
         'amount' => 'float',
+        'deleted_at' => 'datetime',
+    ];
+
+    /**
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'deleted_at',
     ];
 
     /**

@@ -585,6 +585,15 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('{id:[0-9]+}', 'FinanceRecordController@show');
     });
 
+    // Cost Sheets routes
+    $router->group(['prefix' => 'cost-sheets'], function () use ($router) {
+        $router->get('/', 'FinanceRecordController@costSheets');
+        $router->get('{id:[0-9]+}', 'FinanceRecordController@showCostSheet');
+        $router->put('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
+        $router->post('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
+        $router->delete('{id:[0-9]+}', 'FinanceRecordController@deleteCostSheet');
+    });
+
     // Purchase Orders
     $router->group(['prefix' => 'purchase-orders'], function () use ($router) {
         $router->post('/', 'PurchaseOrderController@store');

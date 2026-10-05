@@ -579,6 +579,41 @@ class Brief extends Model
     }
 
     /**
+     * Mark this brief's cost status as pending when its cost sheet is removed.
+     */
+    public function markCostSheetPending(int $briefId): void
+    {
+        $pendingId = CostSheetStatus::query()->where('slug', 'pending')->value('id');
+
+        if (!$pendingId) {
+            return;
+        }
+
+        $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $pendingId,
+        ]);
+    }
+
+    /**
+     * Set a brief's cost sheet status when the status exists.
+     */
+    public function assignCostSheetStatus(int $briefId, int $statusId): bool
+    {
+        $statusExists = CostSheetStatus::query()
+            ->where('id', $statusId)
+            ->where('status', '1')
+            ->exists();
+
+        if (!$statusExists) {
+            return false;
+        }
+
+        return (bool) $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $statusId,
+        ]);
+    }
+
+    /**
      * Get the priority associated with this brief.
      */
     public function priority()

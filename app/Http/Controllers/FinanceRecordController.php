@@ -13,6 +13,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\CostSheetResource;
 use App\Http\Resources\FinanceRecordResource;
 use App\Services\FinanceRecordService;
 use App\Services\ResponseService;
@@ -139,6 +140,133 @@ class FinanceRecordController extends Controller
                 return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
             }
 
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * List cost sheets.
+     *
+     * GET /cost-sheets
+     */
+    public function costSheets(Request $request): JsonResponse
+    {
+        try {
+            $validated = $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1',
+                'brief_id' => 'nullable|integer|exists:briefs,id',
+                'planner_id' => 'nullable|integer|exists:planners,id',
+                'finance_status_id' => 'nullable|integer|exists:finance_statuses,id',
+                'assign_by' => 'nullable|integer|exists:users,id',
+                'assign_to' => 'nullable|integer|exists:users,id',
+            ]);
+
+            $perPage = (int) ($validated['per_page'] ?? 15);
+            $criteria = array_filter([
+                'brief_id' => $validated['brief_id'] ?? null,
+                'planner_id' => $validated['planner_id'] ?? null,
+                'finance_status_id' => $validated['finance_status_id'] ?? null,
+                'assign_by' => $validated['assign_by'] ?? null,
+                'assign_to' => $validated['assign_to'] ?? null,
+            ], fn ($value) => $value !== null && $value !== '');
+
+            $costSheets = $this->financeRecordService->listCostSheets($criteria, $perPage);
+
+            return $this->responseService->paginated(
+                CostSheetResource::collection($costSheets),
+                'Cost sheets retrieved successfully'
+            );
+        } catch (Throwable $e) {
+            if ($e instanceof ValidationException) {
+                return $this->responseService->validationError($e->errors(), 'Validation failed');
+            }
+
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Show one cost sheet.
+     *
+     * GET /cost-sheets/{id}
+     */
+    public function showCostSheet(int $id): JsonResponse
+    {
+        try {
+            $costSheet = $this->financeRecordService->findCostSheet($id);
+
+            if (!$costSheet) {
+                return $this->responseService->notFound('Cost sheet not found');
+            }
+
+            return $this->responseService->success(
+                new CostSheetResource($costSheet),
+                'Cost sheet retrieved successfully'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Update assignment, statuses, and the cost sheet file.
+     *
+     * PUT /cost-sheets/{id}
+     */
+    public function updateCostSheet(Request $request, int $id): JsonResponse
+    {
+        try {
+            $validated = $this->validate($request, [
+                'assign_by' => 'sometimes|nullable|integer|exists:users,id',
+                'assign_to' => 'sometimes|nullable|integer|exists:users,id',
+                'finance_status_id' => 'sometimes|required|integer|exists:finance_statuses,id',
+                'cost_sheet_status_id' => 'sometimes|required|integer|exists:cost_sheet_statuses,id',
+                'cost_sheet' => 'sometimes|file|mimes:xls,xlsx,csv,pdf|max:10240',
+            ]);
+
+            $costSheet = $this->financeRecordService->updateCostSheetRecord(
+                $id,
+                $validated,
+                $request->file('cost_sheet')
+            );
+
+            if (!$costSheet) {
+                return $this->responseService->notFound('Cost sheet not found');
+            }
+
+            return $this->responseService->updated(
+                new CostSheetResource($costSheet),
+                'Cost sheet updated successfully'
+            );
+        } catch (Throwable $e) {
+            if ($e instanceof ValidationException) {
+                return $this->responseService->validationError($e->errors(), 'Validation failed');
+            }
+
+            if ($e instanceof DomainException) {
+                return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
+            }
+
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Soft delete a cost sheet.
+     *
+     * DELETE /cost-sheets/{id}
+     */
+    public function deleteCostSheet(int $id): JsonResponse
+    {
+        try {
+            $deleted = $this->financeRecordService->deleteCostSheet($id);
+
+            if (!$deleted) {
+                return $this->responseService->notFound('Cost sheet not found');
+            }
+
+            return $this->responseService->deleted('Cost sheet deleted successfully');
+        } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }
     }

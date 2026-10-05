@@ -22,6 +22,22 @@ return new class extends Migration {
     public function up(): void
     {
         if (Schema::hasTable('purchase_order_items')) {
+            if (!Schema::hasColumn('purchase_order_items', 'status')) {
+                Schema::table('purchase_order_items', function (Blueprint $table) {
+                    $table->enum('status', ['1', '2', '15'])
+                        ->default('1')
+                        ->comment('1 = active, 2 = deactive, 15 = soft delete')
+                        ->after('amount');
+                    $table->index('status');
+                });
+            }
+
+            if (!Schema::hasColumn('purchase_order_items', 'deleted_at')) {
+                Schema::table('purchase_order_items', function (Blueprint $table) {
+                    $table->softDeletes();
+                });
+            }
+
             return;
         }
 
@@ -36,7 +52,13 @@ return new class extends Migration {
             $table->decimal('qty', 12, 2)->default(0);
             $table->decimal('rate', 15, 2)->default(0);
             $table->decimal('amount', 15, 2)->default(0);
+            $table->enum('status', ['1', '2', '15'])
+                ->default('1')
+                ->comment('1 = active, 2 = deactive, 15 = soft delete');
             $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('status');
         });
     }
 

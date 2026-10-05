@@ -67,6 +67,14 @@ class FinanceRecord extends BaseModel
         return $this->belongsTo(User::class, 'assign_to');
     }
 
+    /**
+     * Latest purchase order raised from this cost sheet.
+     */
+    public function latestPurchaseOrder()
+    {
+        return $this->hasOne(PurchaseOrder::class, 'finance_record_id')->latestOfMany();
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', '1');
@@ -82,6 +90,22 @@ class FinanceRecord extends BaseModel
         'financeStatus:id,name',
         'assignedBy:id,name',
         'assignedTo:id,name',
+    ];
+
+    /**
+     * Relations returned by the cost sheet list and detail APIs.
+     *
+     * @var array<int, string>
+     */
+    protected const COST_SHEET_RELATIONS = [
+        'brief:id,name,cost_sheet_status_id',
+        'brief.costSheetStatus:id,name,slug',
+        'planner:id,created_by',
+        'planner.creator:id,name',
+        'financeStatus:id,name',
+        'assignedBy:id,name',
+        'assignedTo:id,name',
+        'latestPurchaseOrder',
     ];
 
     /**
@@ -164,5 +188,90 @@ class FinanceRecord extends BaseModel
         ]);
 
         return $financeRecord->refresh()->load(self::RESPONSE_RELATIONS);
+    }
+
+    /**
+     * Paginate cost sheets with the list relations.
+     */
+    public function paginateCostSheets(array $criteria = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->newQuery()->with(self::COST_SHEET_RELATIONS);
+
+        if (!empty($criteria['brief_id'])) {
+            $query->where('brief_id', $criteria['brief_id']);
+        }
+
+        if (!empty($criteria['planner_id'])) {
+            $query->where('planner_id', $criteria['planner_id']);
+        }
+
+        if (!empty($criteria['finance_status_id'])) {
+            $query->where('finance_status_id', $criteria['finance_status_id']);
+        }
+
+        if (!empty($criteria['assign_by'])) {
+            $query->where('assign_by', $criteria['assign_by']);
+        }
+
+        if (!empty($criteria['assign_to'])) {
+            $query->where('assign_to', $criteria['assign_to']);
+        }
+
+        return $query->orderByDesc('id')->paginate($perPage);
+    }
+
+    /**
+     * Find one cost sheet with the list relations.
+     */
+    public function findCostSheetById(int $id): ?self
+    {
+        return $this->newQuery()->with(self::COST_SHEET_RELATIONS)->find($id);
+    }
+
+    /**
+     * Update the editable cost sheet fields.
+     */
+    public function updateCostSheetRecord(int $id, array $data): ?self
+    {
+        $financeRecord = $this->newQuery()->find($id);
+
+        if (!$financeRecord) {
+            return null;
+        }
+
+        $financeRecord->update($data);
+
+        return $financeRecord->refresh()->load(self::COST_SHEET_RELATIONS);
+    }
+
+    /**
+     * Soft delete a cost sheet and mark it deleted.
+     */
+    public function softDeleteRecord(int $id): bool
+    {
+        $financeRecord = $this->newQuery()->find($id);
+
+        if (!$financeRecord) {
+            return false;
+        }
+
+        $financeRecord->status = '15';
+        $financeRecord->save();
+
+        return (bool) $financeRecord->delete();
+    }
+
+    /**
+     * Whether another active cost sheet remains for this brief.
+     */
+    public function hasOtherActiveCostSheet(int $briefId, int $exceptId): bool
+    {
+        return $this->newQuery()
+            ->where('brief_id', $briefId)
+            ->where('id', '!=', $exceptId)
+            ->where('status', '1')
+            ->whereNotNull('cost_sheet')
+            ->where('cost_sheet', '!=', '')
+            ->exists();
     }
 }

@@ -79,4 +79,44 @@ class FinanceRecordRepository implements FinanceRecordRepositoryInterface
     {
         return $this->model->replaceCostSheet($id, $path, $assignBy);
     }
+
+    /**
+     * Paginate cost sheets for the list API.
+     */
+    public function paginateCostSheets(array $criteria = [], int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->model->paginateCostSheets($criteria, $perPage);
+    }
+
+    /**
+     * Find one cost sheet for the detail API.
+     */
+    public function findCostSheet(int $id): ?FinanceRecord
+    {
+        return $this->model->findCostSheetById($id);
+    }
+
+    /**
+     * Update editable cost sheet fields.
+     */
+    public function updateRecord(int $id, array $data): ?FinanceRecord
+    {
+        return $this->model->updateCostSheetRecord($id, $data);
+    }
+
+    /**
+     * Soft delete a cost sheet.
+     */
+    public function deleteRecord(int $id): bool
+    {
+        return $this->model->softDeleteRecord($id);
+    }
+
+    /**
+     * Whether another active cost sheet remains for this brief.
+     */
+    public function hasOtherActiveCostSheet(int $briefId, int $exceptId): bool
+    {
+        return $this->model->hasOtherActiveCostSheet($briefId, $exceptId);
+    }
 }
