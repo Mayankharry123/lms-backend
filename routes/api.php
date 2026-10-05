@@ -585,6 +585,11 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('{id:[0-9]+}', 'FinanceRecordController@show');
     });
 
+    // Purchase Orders
+    $router->group(['prefix' => 'purchase-orders'], function () use ($router) {
+        $router->post('/', 'PurchaseOrderController@store');
+    });
+
     // Finance Statuses routes
     $router->group(['prefix' => 'finance-statuses'], function () use ($router) {
         $router->get('/', 'FinanceStatusController@index');

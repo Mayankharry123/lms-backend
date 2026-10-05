@@ -26,6 +26,7 @@ class Brief extends Model
         'assignedUser',
         'createdByUser',
         'briefStatus',
+        'costSheetStatus',
         'priority',
     ];
 
@@ -68,6 +69,7 @@ class Brief extends Model
         'assign_user_id',
         'created_by',
         'brief_status_id',
+        'cost_sheet_status_id',
         'priority_id',
         'comment',
         'attachment',
@@ -108,6 +110,14 @@ class Brief extends Model
     {
         static::creating(function ($brief) {
             $brief->calculateCampaignDuration();
+
+            if (empty($brief->cost_sheet_status_id)) {
+                $pendingId = CostSheetStatus::query()->where('slug', 'pending')->value('id');
+
+                if ($pendingId) {
+                    $brief->cost_sheet_status_id = $pendingId;
+                }
+            }
         });
 
         static::created(function ($brief) {
@@ -542,6 +552,30 @@ class Brief extends Model
     public function briefStatus()
     {
         return $this->belongsTo(BriefStatus::class, 'brief_status_id');
+    }
+
+    /**
+     * Cost sheet status for this brief. Pending until a plan cost sheet is saved.
+     */
+    public function costSheetStatus()
+    {
+        return $this->belongsTo(CostSheetStatus::class, 'cost_sheet_status_id');
+    }
+
+    /**
+     * Mark this brief's cost status as submitted after a plan cost sheet is saved.
+     */
+    public function markCostSheetSubmitted(int $briefId): void
+    {
+        $submittedId = CostSheetStatus::query()->where('slug', 'submitted')->value('id');
+
+        if (!$submittedId) {
+            return;
+        }
+
+        $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $submittedId,
+        ]);
     }
 
     /**

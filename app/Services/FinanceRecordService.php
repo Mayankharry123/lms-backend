@@ -15,6 +15,7 @@ namespace App\Services;
 
 use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
 use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
+use App\Models\Brief;
 use App\Models\FinanceRecord;
 use App\Traits\HandlesFileUploads;
 use DomainException;
@@ -130,19 +131,23 @@ class FinanceRecordService
             $existing = $this->financeRecordRepository->findActiveByBriefAndPlanner($briefId, $plannerId);
 
             if ($existing) {
-                return $this->financeRecordRepository->updateCostSheet((int) $existing->id, $path, $assignBy);
+                $financeRecord = $this->financeRecordRepository->updateCostSheet((int) $existing->id, $path, $assignBy);
+            } else {
+                $financeRecord = $this->financeRecordRepository->create([
+                    'uuid' => (string) Str::uuid(),
+                    'brief_id' => $briefId,
+                    'planner_id' => $plannerId,
+                    'finance_status_id' => $financeStatusId,
+                    'cost_sheet' => $path,
+                    'assign_by' => $assignBy,
+                    'assign_to' => null,
+                    'status' => '1',
+                ]);
             }
 
-            return $this->financeRecordRepository->create([
-                'uuid' => (string) Str::uuid(),
-                'brief_id' => $briefId,
-                'planner_id' => $plannerId,
-                'finance_status_id' => $financeStatusId,
-                'cost_sheet' => $path,
-                'assign_by' => $assignBy,
-                'assign_to' => null,
-                'status' => '1',
-            ]);
+            (new Brief())->markCostSheetSubmitted($briefId);
+
+            return $financeRecord;
         } catch (Throwable $e) {
             Log::error('Error saving cost sheet', [
                 'brief_id' => $briefId,

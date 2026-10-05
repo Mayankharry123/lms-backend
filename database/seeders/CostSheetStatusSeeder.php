@@ -4,6 +4,7 @@
  * CostSheetStatus Seeder
  * -----------------------------------------
  * Seeds the cost_sheet_statuses table with Submitted and Pending statuses.
+ * Existing rows are updated so brief foreign keys are not removed.
  *
  * @package Database\Seeders
  * @author Achal Sharma
@@ -25,29 +26,34 @@ class CostSheetStatusSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        DB::table('cost_sheet_statuses')->truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-
         $statuses = [
             'Submitted',
             'Pending',
         ];
 
         $now = Carbon::now();
-        $rows = [];
 
         foreach ($statuses as $name) {
-            $rows[] = [
+            $slug = Str::slug($name);
+            $existing = DB::table('cost_sheet_statuses')->where('slug', $slug)->first();
+
+            if ($existing) {
+                DB::table('cost_sheet_statuses')->where('id', $existing->id)->update([
+                    'name' => $name,
+                    'status' => '1',
+                    'updated_at' => $now,
+                ]);
+                continue;
+            }
+
+            DB::table('cost_sheet_statuses')->insert([
                 'uuid' => (string) Str::uuid(),
                 'name' => $name,
-                'slug' => Str::slug($name),
+                'slug' => $slug,
                 'status' => '1',
                 'created_at' => $now,
                 'updated_at' => $now,
-            ];
+            ]);
         }
-
-        DB::table('cost_sheet_statuses')->insert($rows);
     }
 }
