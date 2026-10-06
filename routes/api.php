@@ -597,6 +597,7 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('/', 'FinanceRecordController@index');
         $router->put('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
         $router->post('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->get('{id:[0-9]+}/histories', 'FinanceRecordController@getHistories');
         $router->get('{id:[0-9]+}', 'FinanceRecordController@show');
     });
 
@@ -606,10 +607,18 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->post('{id:[0-9]+}/update-finance-status', 'FinanceRecordController@updateFinanceStatus');
         $router->put('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
         $router->post('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->get('{id:[0-9]+}/histories', 'FinanceRecordController@getHistories');
         $router->get('{id:[0-9]+}', 'FinanceRecordController@showCostSheet');
         $router->put('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
         $router->post('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
         $router->delete('{id:[0-9]+}', 'FinanceRecordController@deleteCostSheet');
+    });
+
+    // Finance Record Histories routes
+    $router->group(['prefix' => 'finance-record-histories'], function () use ($router) {
+        $router->get('/', 'FinanceRecordHistoryController@index');
+        $router->get('finance-record/{financeRecordId:[0-9]+}', 'FinanceRecordHistoryController@getByFinanceRecord');
+        $router->get('{id:[0-9]+}', 'FinanceRecordHistoryController@show');
     });
 
     // Purchase Orders

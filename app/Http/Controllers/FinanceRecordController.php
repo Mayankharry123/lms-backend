@@ -14,7 +14,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\CostSheetResource;
+use App\Http\Resources\FinanceRecordHistoryResource;
 use App\Http\Resources\FinanceRecordResource;
+use App\Services\FinanceRecordHistoryService;
 use App\Services\FinanceRecordService;
 use App\Services\ResponseService;
 use App\Traits\ValidatesRequests;
@@ -29,14 +31,19 @@ class FinanceRecordController extends Controller
     use ValidatesRequests;
 
     protected FinanceRecordService $financeRecordService;
+    protected FinanceRecordHistoryService $financeRecordHistoryService;
     protected ResponseService $responseService;
 
     /**
-     * Inject the finance record service and response service.
+     * Inject the finance record service, history service, and response service.
      */
-    public function __construct(FinanceRecordService $financeRecordService, ResponseService $responseService)
-    {
+    public function __construct(
+        FinanceRecordService $financeRecordService,
+        FinanceRecordHistoryService $financeRecordHistoryService,
+        ResponseService $responseService
+    ) {
         $this->financeRecordService = $financeRecordService;
+        $this->financeRecordHistoryService = $financeRecordHistoryService;
         $this->responseService = $responseService;
     }
 
@@ -261,11 +268,13 @@ class FinanceRecordController extends Controller
         try {
             $validated = $this->validate($request, [
                 'finance_status_id' => 'required|integer|exists:finance_statuses,id',
+                'comment' => 'nullable|string',
             ]);
 
             $costSheet = $this->financeRecordService->updateFinanceStatus(
                 $id,
-                (int) $validated['finance_status_id']
+                (int) $validated['finance_status_id'],
+                $validated['comment'] ?? null
             );
 
             if (!$costSheet) {
@@ -301,12 +310,14 @@ class FinanceRecordController extends Controller
 
             $validated = $this->validate($request, [
                 'assign_to' => 'required|integer|exists:users,id',
+                'comment' => 'nullable|string',
             ]);
 
             $costSheet = $this->financeRecordService->updateAssignUser(
                 $id,
                 (int) $validated['assign_to'],
-                (int) $assignBy
+                (int) $assignBy,
+                $validated['comment'] ?? null
             );
 
             if (!$costSheet) {
@@ -316,6 +327,39 @@ class FinanceRecordController extends Controller
             return $this->responseService->success(
                 new CostSheetResource($costSheet),
                 'Finance record assigned user updated successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Display history for one finance record / cost sheet.
+     *
+     * GET /finance-records/{id}/histories
+     * GET /cost-sheets/{id}/histories
+     */
+    public function getHistories(Request $request, int $id): JsonResponse
+    {
+        try {
+            $validated = $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1',
+            ]);
+
+            $perPage = (int) ($validated['per_page'] ?? 15);
+
+            $financeRecord = $this->financeRecordService->find($id);
+            if (!$financeRecord) {
+                return $this->responseService->notFound('Finance record not found');
+            }
+
+            $histories = $this->financeRecordHistoryService->getByFinanceRecordId($id, $perPage);
+
+            return $this->responseService->paginated(
+                FinanceRecordHistoryResource::collection($histories),
+                'Finance record histories retrieved successfully'
             );
         } catch (ValidationException $e) {
             return $this->responseService->validationError($e->errors(), 'Validation failed');

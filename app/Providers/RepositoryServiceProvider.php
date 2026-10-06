@@ -132,6 +132,9 @@ use App\Repositories\CostSheetStatusRepository;
 use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
 use App\Repositories\FinanceRecordRepository;
 
+use App\Contracts\Repositories\FinanceRecordHistoryRepositoryInterface;
+use App\Repositories\FinanceRecordHistoryRepository;
+
 use App\Contracts\Repositories\PurchaseOrderRepositoryInterface;
 use App\Repositories\PurchaseOrderRepository;
 
@@ -355,6 +358,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             FinanceRecordRepositoryInterface::class,
             FinanceRecordRepository::class
+        );
+
+        $this->app->bind(
+            FinanceRecordHistoryRepositoryInterface::class,
+            FinanceRecordHistoryRepository::class
         );
 
         $this->app->bind(

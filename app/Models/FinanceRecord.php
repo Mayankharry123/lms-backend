@@ -18,6 +18,8 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class FinanceRecord extends BaseModel
 {
+    public ?string $history_comment = null;
+
     protected $table = 'finance_records';
 
     protected $fillable = [
@@ -73,6 +75,11 @@ class FinanceRecord extends BaseModel
     public function latestPurchaseOrder()
     {
         return $this->hasOne(PurchaseOrder::class, 'finance_record_id')->latestOfMany();
+    }
+
+    public function histories()
+    {
+        return $this->hasMany(FinanceRecordHistory::class, 'finance_record_id')->orderBy('created_at', 'desc');
     }
 
     public function scopeActive($query)
@@ -174,12 +181,16 @@ class FinanceRecord extends BaseModel
     /**
      * Replace the cost sheet path on a finance record.
      */
-    public function replaceCostSheet(int $id, string $path, ?int $assignBy, ?int $assignTo = null): ?self
+    public function replaceCostSheet(int $id, string $path, ?int $assignBy, ?int $assignTo = null, ?string $comment = null): ?self
     {
         $financeRecord = $this->newQuery()->find($id);
 
         if (!$financeRecord) {
             return null;
+        }
+
+        if ($comment !== null) {
+            $financeRecord->history_comment = $comment;
         }
 
         $updates = [
@@ -237,12 +248,16 @@ class FinanceRecord extends BaseModel
     /**
      * Update the editable cost sheet fields.
      */
-    public function updateCostSheetRecord(int $id, array $data): ?self
+    public function updateCostSheetRecord(int $id, array $data, ?string $comment = null): ?self
     {
         $financeRecord = $this->newQuery()->find($id);
 
         if (!$financeRecord) {
             return null;
+        }
+
+        if ($comment !== null) {
+            $financeRecord->history_comment = $comment;
         }
 
         $financeRecord->update($data);

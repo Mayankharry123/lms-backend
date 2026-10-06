@@ -47,7 +47,7 @@ interface FinanceRecordRepositoryInterface
     /**
      * Replace the cost sheet path on a finance record
      */
-    public function updateCostSheet(int $id, string $path, ?int $assignBy, ?int $assignTo = null): ?FinanceRecord;
+    public function updateCostSheet(int $id, string $path, ?int $assignBy, ?int $assignTo = null, ?string $comment = null): ?FinanceRecord;
 
     /**
      * Paginate cost sheets for the list API.
@@ -62,7 +62,7 @@ interface FinanceRecordRepositoryInterface
     /**
      * Update editable cost sheet fields.
      */
-    public function updateRecord(int $id, array $data): ?FinanceRecord;
+    public function updateRecord(int $id, array $data, ?string $comment = null): ?FinanceRecord;
 
     /**
      * Soft delete a cost sheet.

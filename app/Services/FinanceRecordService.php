@@ -344,7 +344,7 @@ class FinanceRecordService
                 return $this->financeRecordRepository->findCostSheet($id);
             }
 
-            return $this->financeRecordRepository->updateRecord($id, $updates);
+            return $this->financeRecordRepository->updateRecord($id, $updates, $comment);
         } catch (Throwable $e) {
             if (!$e instanceof DomainException && !$e instanceof ValidationException) {
                 Log::error('Error updating cost sheet', ['id' => $id, 'exception' => $e]);
@@ -360,7 +360,7 @@ class FinanceRecordService
      * @throws DomainException
      * @throws Throwable
      */
-    public function updateFinanceStatus(int $id, int $financeStatusId): ?FinanceRecord
+    public function updateFinanceStatus(int $id, int $financeStatusId, ?string $comment = null): ?FinanceRecord
     {
         try {
             $financeRecord = $this->financeRecordRepository->findCostSheet($id);
@@ -377,7 +377,7 @@ class FinanceRecordService
 
             return $this->financeRecordRepository->updateRecord($id, [
                 'finance_status_id' => $financeStatusId,
-            ]);
+            ], $comment);
         } catch (Throwable $e) {
             if (!$e instanceof DomainException) {
                 Log::error('Error updating cost sheet finance status', [
@@ -396,7 +396,7 @@ class FinanceRecordService
      *
      * @throws Throwable
      */
-    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?FinanceRecord
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy, ?string $comment = null): ?FinanceRecord
     {
         try {
             $financeRecord = $this->financeRecordRepository->findCostSheet($id);
@@ -408,7 +408,7 @@ class FinanceRecordService
             return $this->financeRecordRepository->updateRecord($id, [
                 'assign_to' => $assignTo,
                 'assign_by' => $assignBy,
-            ]);
+            ], $comment);
         } catch (Throwable $e) {
             Log::error('Error updating finance record assignee', [
                 'id' => $id,

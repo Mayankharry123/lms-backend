@@ -40,36 +40,57 @@ class OperationHistory extends BaseModel
         'deleted_at' => 'datetime',
     ];
 
+    /**
+     * Relationship: An operation history belongs to an operation.
+     */
     public function operation()
     {
         return $this->belongsTo(Operation::class, 'operation_id');
     }
 
+    /**
+     * Relationship: An operation history belongs to a brief.
+     */
     public function brief()
     {
         return $this->belongsTo(Brief::class, 'brief_id');
     }
 
+    /**
+     * Relationship: An operation history belongs to a planner.
+     */
     public function planner()
     {
         return $this->belongsTo(Planner::class, 'planner_id');
     }
 
+    /**
+     * Relationship: An operation history has an operation status.
+     */
     public function operationStatus()
     {
         return $this->belongsTo(OperationStatus::class, 'operation_status_id');
     }
 
+    /**
+     * Relationship: User who assigned or updated the record.
+     */
     public function assignedBy()
     {
         return $this->belongsTo(User::class, 'assign_by');
     }
 
+    /**
+     * Relationship: User to whom the record is assigned.
+     */
     public function assignedTo()
     {
         return $this->belongsTo(User::class, 'assign_to');
     }
 
+    /**
+     * Scope a query to only include active records.
+     */
     public function scopeActive($query)
     {
         return $query->where('status', '1');
