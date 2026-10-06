@@ -50,6 +50,15 @@ class PurchaseOrderResource extends JsonResource
                     'name' => $financeRecord->financeStatus->name,
                 ]
                 : null,
+            'subtotal' => (float) $this->subtotal,
+            'sgst_rate' => $this->sgst_rate === null ? null : (float) $this->sgst_rate,
+            'sgst_amount' => $this->sgst_amount === null ? null : (float) $this->sgst_amount,
+            'cgst_rate' => $this->cgst_rate === null ? null : (float) $this->cgst_rate,
+            'cgst_amount' => $this->cgst_amount === null ? null : (float) $this->cgst_amount,
+            'igst_rate' => $this->igst_rate === null ? null : (float) $this->igst_rate,
+            'igst_amount' => $this->igst_amount === null ? null : (float) $this->igst_amount,
+            'tax_amount' => (float) $this->tax_amount,
+            'total_amount' => (float) $this->total_amount,
             'pdf_path' => $this->pdf_path,
             'purchase_order_url' => $this->purchaseOrderUrl($request),
         ];

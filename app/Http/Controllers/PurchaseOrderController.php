@@ -123,11 +123,15 @@ class PurchaseOrderController extends Controller
                 'campaign' => 'nullable|string|max:255',
                 'period' => 'nullable|string|max:255',
                 'orders' => 'required|array|min:1',
-                'orders.*.description' => 'required|string|max:1000',
-                'orders.*.hsn_sac' => 'required|string|max:20',
+                'orders.*.description' => 'nullable|string|max:1000',
+                'orders.*.hsn_sac' => 'nullable|string|max:20',
                 'orders.*.city' => 'nullable|string|max:255',
-                'orders.*.qty' => 'required|numeric|gt:0',
-                'orders.*.rate' => 'required|numeric|gte:0',
+                'orders.*.qty' => 'nullable|numeric|min:0',
+                'orders.*.rate' => 'nullable|numeric|gte:0',
+                'orders.*.amount' => 'nullable|numeric|gte:0',
+                'sgst' => 'nullable|numeric|between:0,100',
+                'cgst' => 'nullable|numeric|between:0,100',
+                'igst' => 'nullable|numeric|between:0,100',
             ]);
 
             $purchaseOrder = $this->purchaseOrderService->create($validated);
