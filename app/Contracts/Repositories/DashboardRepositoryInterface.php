@@ -81,4 +81,44 @@ interface DashboardRepositoryInterface
      * @return array<int, array<int, int>>
      */
     public function getBriefIdsByOrganisation(array $filters, ?User $user): array;
+
+    /**
+     * Operations metrics for one organisation.
+     *
+     * @param array $filters
+     * @return array<string, mixed>
+     */
+    public function getOperationsOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array;
+
+    /**
+     * @param array $filters
+     * @return array<string, int>
+     */
+    public function getOperationsStatusCounts(array $filters, ?User $user): array;
+
+    /**
+     * @param array $filters
+     * @return list<array<string, mixed>>
+     */
+    public function getRecentOperations(array $filters, ?User $user): array;
+
+    /**
+     * Finance metrics for one organisation.
+     *
+     * @param array $filters
+     * @return array<string, mixed>
+     */
+    public function getFinanceOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array;
+
+    /**
+     * @param array $filters
+     * @return array<string, int>
+     */
+    public function getFinanceStatusCounts(array $filters, ?User $user): array;
+
+    /**
+     * @param array $filters
+     * @return list<array<string, mixed>>
+     */
+    public function getRecentFinanceRecords(array $filters, ?User $user): array;
 }

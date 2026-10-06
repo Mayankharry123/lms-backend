@@ -16,6 +16,7 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\PurchaseOrderRepositoryInterface;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class PurchaseOrderRepository implements PurchaseOrderRepositoryInterface
@@ -69,16 +70,16 @@ class PurchaseOrderRepository implements PurchaseOrderRepositoryInterface
     /**
      * Paginate purchase orders for the list API.
      */
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 15, array $filters = [], ?User $user = null): LengthAwarePaginator
     {
-        return $this->model->paginateForList($perPage);
+        return $this->model->paginateForList($perPage, $filters, $user);
     }
 
     /**
      * Find one purchase order for the detail API.
      */
-    public function find(int $id): ?PurchaseOrder
+    public function find(int $id, ?User $user = null): ?PurchaseOrder
     {
-        return $this->model->findForDetail($id);
+        return $this->model->findForDetail($id, $user);
     }
 }

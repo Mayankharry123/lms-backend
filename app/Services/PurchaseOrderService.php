@@ -16,6 +16,7 @@ namespace App\Services;
 use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
 use App\Contracts\Repositories\PurchaseOrderRepositoryInterface;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use App\Support\AmountInWords;
 use Carbon\Carbon;
 use DomainException;
@@ -567,10 +568,10 @@ class PurchaseOrderService
      *
      * @throws Throwable
      */
-    public function list(int $perPage = 15): LengthAwarePaginator
+    public function list(int $perPage = 15, array $filters = [], ?User $user = null): LengthAwarePaginator
     {
         try {
-            return $this->purchaseOrderRepository->paginate($perPage);
+            return $this->purchaseOrderRepository->paginate($perPage, $filters, $user);
         } catch (Throwable $e) {
             Log::error('Error fetching purchase orders', ['exception' => $e]);
             throw $e;
@@ -582,10 +583,10 @@ class PurchaseOrderService
      *
      * @throws Throwable
      */
-    public function find(int $id): ?PurchaseOrder
+    public function find(int $id, ?User $user = null): ?PurchaseOrder
     {
         try {
-            return $this->purchaseOrderRepository->find($id);
+            return $this->purchaseOrderRepository->find($id, $user);
         } catch (Throwable $e) {
             Log::error('Error fetching purchase order by ID', ['id' => $id, 'exception' => $e]);
             throw $e;

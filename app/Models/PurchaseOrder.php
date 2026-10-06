@@ -14,6 +14,7 @@
 namespace App\Models;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 
 class PurchaseOrder extends BaseModel
 {
@@ -86,9 +87,9 @@ class PurchaseOrder extends BaseModel
     /**
      * Paginate purchase orders for the list API.
      */
-    public function paginateForList(int $perPage = 15): LengthAwarePaginator
+    public function paginateForList(int $perPage = 15, array $filters = [], ?User $user = null): LengthAwarePaginator
     {
-        return $this->newQuery()
+        return $this->accessiblePurchaseOrdersQuery($filters, $user)
             ->with(self::LIST_RELATIONS)
             ->orderByDesc('id')
             ->paginate($perPage);
@@ -97,9 +98,77 @@ class PurchaseOrder extends BaseModel
     /**
      * Find one purchase order for the detail API.
      */
-    public function findForDetail(int $id): ?self
+    public function findForDetail(int $id, ?User $user = null): ?self
     {
-        return $this->newQuery()->with(self::LIST_RELATIONS)->find($id);
+        return $this->accessiblePurchaseOrdersQuery([], $user)
+            ->with(self::LIST_RELATIONS)
+            ->find($id);
+    }
+
+    /**
+     * Restrict purchase orders to finance records visible to the current user.
+     *
+     * @param array<string, mixed> $filters
+     */
+    private function accessiblePurchaseOrdersQuery(array $filters, ?User $user): Builder
+    {
+        return $this->newQuery()
+            ->whereHas('financeRecord', function (Builder $financeQuery) use ($filters, $user) {
+                $financeRecord = new FinanceRecord();
+
+                $financeQuery->accessibleToUser($user)
+                    ->whereNull('finance_records.deleted_at');
+                $financeRecord->applyOrganisationValidation($financeQuery, $user, $filters);
+                $financeRecord->applyDepartmentFilter($financeQuery, $filters);
+
+                $userIds = $this->normalizeIds($filters['user_ids'] ?? $filters['user_id'] ?? []);
+                if ($userIds !== []) {
+                    $financeQuery->where(function (Builder $userQuery) use ($userIds) {
+                        $userQuery->whereIn('finance_records.assign_to', $userIds)
+                            ->orWhereIn('finance_records.assign_by', $userIds)
+                            ->orWhereHas('planner', function (Builder $plannerQuery) use ($userIds) {
+                                $plannerQuery->whereIn('created_by', $userIds);
+                            })
+                            ->orWhereHas('brief', function (Builder $briefQuery) use ($userIds) {
+                                $briefQuery->whereIn('created_by', $userIds)
+                                    ->orWhereIn('assign_user_id', $userIds);
+                            });
+                    });
+                }
+
+                foreach (['assign_to', 'assign_by'] as $assignmentColumn) {
+                    if (!empty($filters[$assignmentColumn])) {
+                        $financeQuery->where(
+                            "finance_records.{$assignmentColumn}",
+                            (int) $filters[$assignmentColumn]
+                        );
+                    }
+                }
+            });
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function normalizeIds($values): array
+    {
+        if (!is_array($values)) {
+            $values = explode(',', (string) $values);
+        }
+
+        $ids = [];
+        foreach ($values as $value) {
+            if (!is_scalar($value) || !is_numeric($value)) {
+                continue;
+            }
+
+            $id = (int) $value;
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**

@@ -349,4 +349,124 @@ class DashboardService
 
         return round((array_sum($dayValues) / count($dayValues)) * 24, 1);
     }
+
+    /**
+     * Operations dashboard charts: organisation counts, status mix, and recent rows.
+     *
+     * @param array<string, mixed> $filters
+     * @throws Exception
+     */
+    public function getOperationsChartMetrics(array $filters = []): array
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                throw new Exception('User not authenticated');
+            }
+
+            $rows = $this->buildScopedOrganisationRows(
+                $filters,
+                $user,
+                fn (array $organisationFilter, int $organisationId, string $organisationName) =>
+                    $this->dashboardRepository->getOperationsOrganisationRow(
+                        $organisationFilter,
+                        $user,
+                        $organisationId,
+                        $organisationName
+                    )
+            );
+
+            return [
+                'by_organisation' => $rows,
+                'totals' => [
+                    'operations' => (int) array_sum(array_column($rows, 'operations')),
+                    'pending_operations' => (int) array_sum(array_column($rows, 'pending_operations')),
+                    'live_operations' => (int) array_sum(array_column($rows, 'live_operations')),
+                    'assigned_operations' => (int) array_sum(array_column($rows, 'assigned_operations')),
+                ],
+                'operation_status' => $this->dashboardRepository->getOperationsStatusCounts($filters, $user),
+                'recent' => $this->dashboardRepository->getRecentOperations($filters, $user),
+            ];
+        } catch (Exception $e) {
+            Log::error('Error fetching operations dashboard chart metrics', ['exception' => $e]);
+            throw new Exception('Unable to fetch operations dashboard chart metrics');
+        }
+    }
+
+    /**
+     * Finance dashboard charts: cost sheets, decisions, and purchase order amounts.
+     *
+     * @param array<string, mixed> $filters
+     * @throws Exception
+     */
+    public function getFinanceChartMetrics(array $filters = []): array
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                throw new Exception('User not authenticated');
+            }
+
+            $rows = $this->buildScopedOrganisationRows(
+                $filters,
+                $user,
+                fn (array $organisationFilter, int $organisationId, string $organisationName) =>
+                    $this->dashboardRepository->getFinanceOrganisationRow(
+                        $organisationFilter,
+                        $user,
+                        $organisationId,
+                        $organisationName
+                    )
+            );
+
+            return [
+                'by_organisation' => $rows,
+                'totals' => [
+                    'cost_sheets' => (int) array_sum(array_column($rows, 'cost_sheets')),
+                    'approved' => (int) array_sum(array_column($rows, 'approved')),
+                    'denied' => (int) array_sum(array_column($rows, 'denied')),
+                    'pending' => (int) array_sum(array_column($rows, 'pending')),
+                    'purchase_order_amount' => (float) array_sum(array_column($rows, 'purchase_order_amount')),
+                ],
+                'finance_status' => $this->dashboardRepository->getFinanceStatusCounts($filters, $user),
+                'recent' => $this->dashboardRepository->getRecentFinanceRecords($filters, $user),
+            ];
+        } catch (Exception $e) {
+            Log::error('Error fetching finance dashboard chart metrics', ['exception' => $e]);
+            throw new Exception('Unable to fetch finance dashboard chart metrics');
+        }
+    }
+
+    /**
+     * Build one chart row per accessible organisation, or a single aggregate row.
+     *
+     * @param array<string, mixed> $filters
+     * @param callable(array<string, mixed>, int, string): array<string, mixed> $rowBuilder
+     * @return list<array<string, mixed>>
+     */
+    private function buildScopedOrganisationRows(array $filters, $user, callable $rowBuilder): array
+    {
+        if (
+            empty($filters['organisation_ids'])
+            && empty(UserAccessScope::getAccessibleOrganisationIds($user))
+        ) {
+            return [$rowBuilder($filters, 0, 'My Data')];
+        }
+
+        $organisations = $this->dashboardRepository->getAccessibleOrganisations($filters, $user);
+        $rows = [];
+
+        foreach ($organisations as $organisation) {
+            $organisationFilter = array_merge($filters, [
+                'organisation_ids' => [(int) $organisation->id],
+            ]);
+            $rows[] = $rowBuilder($organisationFilter, (int) $organisation->id, (string) $organisation->name);
+        }
+
+        if ($rows === [] && empty(UserAccessScope::getAccessibleOrganisationIds($user))) {
+            return [$rowBuilder($filters, 0, 'My Data')];
+        }
+
+        return $rows;
+    }
 }
