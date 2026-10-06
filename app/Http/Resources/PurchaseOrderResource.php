@@ -50,6 +50,7 @@ class PurchaseOrderResource extends JsonResource
                     'name' => $financeRecord->financeStatus->name,
                 ]
                 : null,
+            'pdf_path' => $this->pdf_path,
             'purchase_order_url' => $this->purchaseOrderUrl($request),
         ];
     }
@@ -76,14 +77,21 @@ class PurchaseOrderResource extends JsonResource
      */
     private function purchaseOrderUrl($request): ?string
     {
-        $poNumber = trim((string) $this->po_number);
+        $path = $this->pdf_path;
 
-        if ($poNumber === '') {
-            return null;
+        if (!$path) {
+            $poNumber = trim((string) $this->po_number);
+
+            if ($poNumber === '') {
+                return null;
+            }
+
+            $filename = preg_replace('/[^A-Za-z0-9._-]+/', '-', $poNumber) . '.pdf';
+            $path = 'purchase-orders/' . $filename;
         }
 
-        $filename = preg_replace('/[^A-Za-z0-9._-]+/', '-', $poNumber) . '.pdf';
+        $baseUrl = rtrim((string) config('app.url', env('APP_URL', $request->root())), '/');
 
-        return rtrim($request->root(), '/') . '/storage/purchase-orders/' . $filename;
+        return $baseUrl . '/storage/' . ltrim($path, '/');
     }
 }

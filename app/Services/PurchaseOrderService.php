@@ -127,6 +127,8 @@ class PurchaseOrderService
                 'period' => trim((string) ($payload['period'] ?? '')),
             ]);
 
+            $purchaseOrder->update(['pdf_path' => $pdfPath]);
+
             return [
                 'id' => (int) $purchaseOrder->id,
                 'finance_record_id' => (int) $purchaseOrder->finance_record_id,

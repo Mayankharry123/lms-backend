@@ -43,6 +43,7 @@ class PurchaseOrder extends BaseModel
         'tax_amount',
         'total_amount',
         'amount_in_words',
+        'pdf_path',
         'status',
     ];
 
