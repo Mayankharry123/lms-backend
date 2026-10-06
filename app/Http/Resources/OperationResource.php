@@ -38,6 +38,7 @@ class OperationResource extends JsonResource
             'sales_user_name' => $brief?->createdByUser?->name,
             'planner_name' => $planner?->creator?->name,
             'assign_user_name' => $this->relationLoaded('assignedTo') ? $this->assignedTo?->name : null,
+            'operation_status_id' => $this->operation_status_id,
             'operation_status' => $this->relationLoaded('operationStatus') ? $this->operationStatus?->name : null,
             'backup_plan' => $planner?->backup_plan,
             'backup_plan_url' => $this->backupPlanUrl($request, $planner?->backup_plan),
