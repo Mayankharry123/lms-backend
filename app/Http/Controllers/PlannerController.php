@@ -85,6 +85,123 @@ class PlannerController extends Controller
         }
     }
 
+    public function getSubmittedPlans(Request $request): JsonResponse
+    {
+        try {
+            $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1',
+                'organisation_id' => 'nullable|integer|exists:organisations,id',
+                'organisation_ids' => 'nullable|array',
+                'organisation_ids.*' => 'integer|exists:organisations,id',
+                'department_id' => 'nullable|integer|exists:departments,id',
+                'department_ids' => 'nullable|array',
+                'department_ids.*' => 'integer|exists:departments,id',
+                'brief_id' => 'nullable|integer|exists:briefs,id',
+                'created_by' => 'nullable|integer|exists:users,id',
+                'planner_status_id' => 'nullable|integer|exists:planner_statuses,id',
+                'status' => 'nullable|in:1,2,15',
+                'date_from' => 'nullable|date_format:Y-m-d',
+                'date_to' => 'nullable|date_format:Y-m-d',
+                'search' => 'nullable|string|max:255',
+            ]);
+
+            $perPage = (int) ($request->input('limit') ?? $request->input('per_page') ?? 5);
+            $filters = array_filter([
+                'organisation_id' => $request->input('organisation_id'),
+                'organisation_ids' => $request->input('organisation_ids'),
+                'department_id' => $request->input('department_id'),
+                'department_ids' => $request->input('department_ids'),
+                'brief_id' => $request->input('brief_id'),
+                'created_by' => $request->input('created_by'),
+                'planner_status_id' => $request->input('planner_status_id'),
+                'status' => $request->input('status'),
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+                'search' => $request->input('search'),
+            ], fn($value) => $value !== null && $value !== '');
+
+            $submittedPlans = $this->plannerService->getSubmittedPlans($filters, $perPage);
+
+            return $this->responseService->paginated(
+                PlannerResource::collection($submittedPlans),
+                'Submitted plans retrieved successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError(
+                $e->errors(),
+                'Validation failed'
+            );
+        } catch (DomainException $e) {
+            return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get latest 5 submitted plans with organisation and department filtering.
+     *
+     * GET /planners/submitted-plans/latest-five
+     *
+     * @author Achal Sharma
+     * @version 1.0.0
+     * @since 2026-10-06
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getLatestFiveSubmittedPlans(Request $request): JsonResponse
+    {
+        try {
+            $this->validate($request, [
+                'limit' => 'nullable|integer|min:1|max:50',
+                'organisation_id' => 'nullable|integer|exists:organisations,id',
+                'organisation_ids' => 'nullable|array',
+                'organisation_ids.*' => 'integer|exists:organisations,id',
+                'department_id' => 'nullable|integer|exists:departments,id',
+                'department_ids' => 'nullable|array',
+                'department_ids.*' => 'integer|exists:departments,id',
+                'brief_id' => 'nullable|integer|exists:briefs,id',
+                'created_by' => 'nullable|integer|exists:users,id',
+                'planner_status_id' => 'nullable|integer|exists:planner_statuses,id',
+                'status' => 'nullable|in:1,2,15',
+                'date_from' => 'nullable|date_format:Y-m-d',
+                'date_to' => 'nullable|date_format:Y-m-d',
+                'search' => 'nullable|string|max:255',
+            ]);
+
+            $limit = (int) $request->input('limit', 5);
+            $filters = array_filter([
+                'organisation_id' => $request->input('organisation_id'),
+                'organisation_ids' => $request->input('organisation_ids'),
+                'department_id' => $request->input('department_id'),
+                'department_ids' => $request->input('department_ids'),
+                'brief_id' => $request->input('brief_id'),
+                'created_by' => $request->input('created_by'),
+                'planner_status_id' => $request->input('planner_status_id'),
+                'status' => $request->input('status'),
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+                'search' => $request->input('search'),
+            ], fn($value) => $value !== null && $value !== '');
+
+            $submittedPlans = $this->plannerService->getLatestSubmittedPlans($limit, $filters);
+
+            return $this->responseService->success(
+                PlannerResource::collection($submittedPlans),
+                'Latest submitted plans retrieved successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError(
+                $e->errors(),
+                'Validation failed'
+            );
+        } catch (DomainException $e) {
+            return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
     /**
      * Create planner for a specific brief.
      *

@@ -524,6 +524,9 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     $router->group(['prefix' => 'planners'], function () use ($router) {
         // List and filter routes first (specific routes before generic {id})
         $router->get('/', 'PlannerController@index');
+        $router->get('submitted-plans/latest-five', 'PlannerController@getLatestFiveSubmittedPlans');
+        $router->get('submitted-plans/latest', 'PlannerController@getLatestFiveSubmittedPlans');
+        $router->get('submitted-plans', 'PlannerController@getSubmittedPlans');
         $router->post('/', 'PlannerController@store');
         
         // Additional Planner routes (specific routes BEFORE generic CRUD)
@@ -538,6 +541,11 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->patch('{id:[0-9]+}', 'PlannerController@update');
         $router->delete('{id:[0-9]+}', 'PlannerController@destroy');
     });
+
+    // Standalone aliases: /api/v1/submitted-plans
+    $router->get('submitted-plans/latest-five', 'PlannerController@getLatestFiveSubmittedPlans');
+    $router->get('submitted-plans/latest', 'PlannerController@getLatestFiveSubmittedPlans');
+    $router->get('submitted-plans', 'PlannerController@getSubmittedPlans');
 
     // Planners by brief (e.g., /api/v1/briefs/1/planners)
     $router->group(['prefix' => 'briefs'], function () use ($router) {

@@ -271,4 +271,16 @@ class PlannerRepository
             }
         }
     }
+
+   
+    public function getSubmittedPlans(int $perPage = 5, array $filters = [], $user = null): LengthAwarePaginator
+    {
+        return $this->model->fetchSubmittedPlans($perPage, $filters, $user ?? Auth::user());
+    }
+
+   
+    public function getLatestSubmittedPlans(int $limit = 5, array $filters = [], $user = null): Collection
+    {
+        return $this->model->fetchLatestSubmittedPlans($limit, $filters, $user ?? Auth::user());
+    }
 }

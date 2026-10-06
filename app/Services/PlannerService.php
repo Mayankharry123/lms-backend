@@ -9,6 +9,7 @@ use App\Traits\HandlesFileUploads;
 use DomainException;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -56,6 +57,54 @@ class PlannerService
         } catch (Exception $e) {
             Log::error('Unexpected error fetching planners by filters', ['exception' => $e, 'filters' => $filters]);
             throw new DomainException('Unexpected error while fetching planners.');
+        }
+    }
+    
+    /**
+     * Get submitted plans with organisation, department, and custom filters.
+     *
+     * @author Achal Sharma
+     * @version 1.0.0
+     * @since 2026-10-06
+     * @param array $filters
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     * @throws DomainException
+     */
+    public function getSubmittedPlans(array $filters = [], int $perPage = 5): LengthAwarePaginator
+    {
+        try {
+            return $this->plannerRepository->getSubmittedPlans($perPage, $filters);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Database error while fetching submitted plans.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Unexpected error while fetching submitted plans.');
+        }
+    }
+
+    /**
+     * Get latest N submitted plans with organisation, department, and custom filters.
+     *
+     * @author Achal Sharma
+     * @version 1.0.0
+     * @since 2026-10-06
+     * @param int $limit
+     * @param array $filters
+     * @return Collection
+     * @throws DomainException
+     */
+    public function getLatestSubmittedPlans(int $limit = 5, array $filters = []): Collection
+    {
+        try {
+            return $this->plannerRepository->getLatestSubmittedPlans($limit, $filters);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching latest submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Database error while fetching latest submitted plans.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching latest submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Unexpected error while fetching latest submitted plans.');
         }
     }
 
@@ -420,6 +469,10 @@ class PlannerService
         try {
             return DB::transaction(function () use ($id, $plannerStatusId) {
                 $planner = $this->plannerRepository->getPlannerById($id);
+
+                if (!$planner) {
+                    $planner = Planner::with(['brief.contactPerson', 'creator', 'plannerStatus'])->find($id);
+                }
 
                 if (!$planner) {
                     Log::warning('Planner not found for status update', ['id' => $id]);
