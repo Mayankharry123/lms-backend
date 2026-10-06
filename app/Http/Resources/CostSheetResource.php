@@ -28,6 +28,34 @@ class CostSheetResource extends JsonResource
         $brief = $this->relationLoaded('brief') ? $this->brief : null;
         $planner = $this->relationLoaded('planner') ? $this->planner : null;
         $purchaseOrder = $this->relationLoaded('latestPurchaseOrder') ? $this->latestPurchaseOrder : null;
+        $assignedTo = $this->relationLoaded('assignedTo') ? $this->assignedTo : null;
+
+        $organisation = null;
+        if ($brief && $brief->relationLoaded('contactPerson') && $brief->contactPerson?->relationLoaded('organisation') && $brief->contactPerson?->organisation) {
+            $organisation = [
+                'id' => $brief->contactPerson->organisation->id,
+                'name' => $brief->contactPerson->organisation->name,
+            ];
+        } elseif ($assignedTo && $assignedTo->relationLoaded('organisation') && $assignedTo->organisation) {
+            $organisation = [
+                'id' => $assignedTo->organisation->id,
+                'name' => $assignedTo->organisation->name,
+            ];
+        }
+
+        $department = null;
+        if ($brief && $brief->relationLoaded('contactPerson') && $brief->contactPerson?->relationLoaded('department') && $brief->contactPerson?->department) {
+            $department = [
+                'id' => $brief->contactPerson->department->id,
+                'name' => $brief->contactPerson->department->name,
+            ];
+        } elseif ($assignedTo && $assignedTo->relationLoaded('departments') && $assignedTo->departments->isNotEmpty()) {
+            $firstDept = $assignedTo->departments->first();
+            $department = [
+                'id' => $firstDept->id,
+                'name' => $firstDept->name,
+            ];
+        }
 
         return [
             'id' => $this->id,
@@ -52,6 +80,8 @@ class CostSheetResource extends JsonResource
                 ]
                 : null,
             'cost_sheet' => $this->costSheetUrl($request),
+            'organisation' => $organisation,
+            'department' => $department,
         ];
     }
 

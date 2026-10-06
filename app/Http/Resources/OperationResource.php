@@ -28,6 +28,33 @@ class OperationResource extends JsonResource
         $brief = $this->relationLoaded('brief') ? $this->brief : null;
         $planner = $this->relationLoaded('planner') ? $this->planner : null;
 
+        $organisation = null;
+        if ($brief && $brief->relationLoaded('contactPerson') && $brief->contactPerson?->relationLoaded('organisation') && $brief->contactPerson?->organisation) {
+            $organisation = [
+                'id' => $brief->contactPerson->organisation->id,
+                'name' => $brief->contactPerson->organisation->name,
+            ];
+        } elseif ($this->relationLoaded('assignedTo') && $this->assignedTo?->relationLoaded('organisation') && $this->assignedTo?->organisation) {
+            $organisation = [
+                'id' => $this->assignedTo->organisation->id,
+                'name' => $this->assignedTo->organisation->name,
+            ];
+        }
+
+        $department = null;
+        if ($brief && $brief->relationLoaded('contactPerson') && $brief->contactPerson?->relationLoaded('department') && $brief->contactPerson?->department) {
+            $department = [
+                'id' => $brief->contactPerson->department->id,
+                'name' => $brief->contactPerson->department->name,
+            ];
+        } elseif ($this->relationLoaded('assignedTo') && $this->assignedTo && $this->assignedTo->relationLoaded('departments') && $this->assignedTo->departments->isNotEmpty()) {
+            $firstDept = $this->assignedTo->departments->first();
+            $department = [
+                'id' => $firstDept->id,
+                'name' => $firstDept->name,
+            ];
+        }
+
         return [
             'id' => $this->id,
             'brief_id' => $this->brief_id,
@@ -42,6 +69,8 @@ class OperationResource extends JsonResource
             'operation_status' => $this->relationLoaded('operationStatus') ? $this->operationStatus?->name : null,
             'backup_plan' => $planner?->backup_plan,
             'backup_plan_url' => $this->backupPlanUrl($request, $planner?->backup_plan),
+            'organisation' => $organisation,
+            'department' => $department,
         ];
     }
 

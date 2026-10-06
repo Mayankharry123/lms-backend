@@ -37,7 +37,7 @@ class FinanceRecordRepository implements FinanceRecordRepositoryInterface
      */
     public function paginate(array $criteria = [], int $perPage = 15): LengthAwarePaginator
     {
-        return $this->model->paginateRecords($criteria, $perPage);
+        return $this->model->paginateRecords($criteria, $perPage, auth()->user());
     }
 
     /**
@@ -45,7 +45,7 @@ class FinanceRecordRepository implements FinanceRecordRepositoryInterface
      */
     public function find(int $id): ?FinanceRecord
     {
-        return $this->model->findRecordById($id);
+        return $this->model->findRecordById($id, auth()->user());
     }
 
     /**
@@ -85,7 +85,7 @@ class FinanceRecordRepository implements FinanceRecordRepositoryInterface
      */
     public function paginateCostSheets(array $criteria = [], int $perPage = 15): LengthAwarePaginator
     {
-        return $this->model->paginateCostSheets($criteria, $perPage);
+        return $this->model->paginateCostSheets($criteria, $perPage, auth()->user());
     }
 
     /**
@@ -93,7 +93,7 @@ class FinanceRecordRepository implements FinanceRecordRepositoryInterface
      */
     public function findCostSheet(int $id): ?FinanceRecord
     {
-        return $this->model->findCostSheetById($id);
+        return $this->model->findCostSheetById($id, auth()->user());
     }
 
     /**

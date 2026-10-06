@@ -63,6 +63,13 @@ class FinanceRecordController extends Controller
                 'assign_by' => 'nullable|integer|exists:users,id',
                 'assign_to' => 'nullable|integer|exists:users,id',
                 'status' => 'nullable|in:1,2,15',
+                'organisation_id' => 'nullable|integer|exists:organisations,id',
+                'organisation_ids' => 'nullable',
+                'department_id' => 'nullable|integer|exists:departments,id',
+                'department_ids' => 'nullable',
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date',
+                'search' => 'nullable|string',
             ]);
 
             $perPage = (int) ($validated['per_page'] ?? 15);
@@ -73,6 +80,13 @@ class FinanceRecordController extends Controller
                 'assign_by' => $validated['assign_by'] ?? null,
                 'assign_to' => $validated['assign_to'] ?? null,
                 'status' => $validated['status'] ?? null,
+                'organisation_id' => $validated['organisation_id'] ?? null,
+                'organisation_ids' => $validated['organisation_ids'] ?? null,
+                'department_id' => $validated['department_id'] ?? null,
+                'department_ids' => $validated['department_ids'] ?? null,
+                'date_from' => $validated['date_from'] ?? null,
+                'date_to' => $validated['date_to'] ?? null,
+                'search' => $validated['search'] ?? null,
             ], fn ($value) => $value !== null && $value !== '');
 
             $financeRecords = $this->financeRecordService->list($criteria, $perPage);
@@ -166,6 +180,13 @@ class FinanceRecordController extends Controller
                 'finance_status_id' => 'nullable|integer|exists:finance_statuses,id',
                 'assign_by' => 'nullable|integer|exists:users,id',
                 'assign_to' => 'nullable|integer|exists:users,id',
+                'organisation_id' => 'nullable|integer|exists:organisations,id',
+                'organisation_ids' => 'nullable',
+                'department_id' => 'nullable|integer|exists:departments,id',
+                'department_ids' => 'nullable',
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date',
+                'search' => 'nullable|string',
             ]);
 
             $perPage = (int) ($validated['per_page'] ?? 15);
@@ -175,6 +196,13 @@ class FinanceRecordController extends Controller
                 'finance_status_id' => $validated['finance_status_id'] ?? null,
                 'assign_by' => $validated['assign_by'] ?? null,
                 'assign_to' => $validated['assign_to'] ?? null,
+                'organisation_id' => $validated['organisation_id'] ?? null,
+                'organisation_ids' => $validated['organisation_ids'] ?? null,
+                'department_id' => $validated['department_id'] ?? null,
+                'department_ids' => $validated['department_ids'] ?? null,
+                'date_from' => $validated['date_from'] ?? null,
+                'date_to' => $validated['date_to'] ?? null,
+                'search' => $validated['search'] ?? null,
             ], fn ($value) => $value !== null && $value !== '');
 
             $costSheets = $this->financeRecordService->listCostSheets($criteria, $perPage);
