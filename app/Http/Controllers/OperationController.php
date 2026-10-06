@@ -13,7 +13,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\OperationHistoryResource;
 use App\Http\Resources\OperationResource;
+use App\Services\OperationHistoryService;
 use App\Services\OperationService;
 use App\Services\ResponseService;
 use App\Traits\ValidatesRequests;
@@ -28,11 +30,16 @@ class OperationController extends Controller
     use ValidatesRequests;
 
     protected OperationService $operationService;
+    protected OperationHistoryService $operationHistoryService;
     protected ResponseService $responseService;
 
-    public function __construct(OperationService $operationService, ResponseService $responseService)
-    {
+    public function __construct(
+        OperationService $operationService,
+        OperationHistoryService $operationHistoryService,
+        ResponseService $responseService
+    ) {
         $this->operationService = $operationService;
+        $this->operationHistoryService = $operationHistoryService;
         $this->responseService = $responseService;
     }
 
@@ -111,11 +118,13 @@ class OperationController extends Controller
         try {
             $validated = $this->validate($request, [
                 'status' => 'required|integer|exists:operation_statuses,id',
+                'comment' => 'nullable|string',
             ]);
 
             $operation = $this->operationService->updateStatus(
                 $id,
-                (int) $validated['status']
+                (int) $validated['status'],
+                $validated['comment'] ?? null
             );
 
             if (!$operation) {
@@ -150,12 +159,14 @@ class OperationController extends Controller
 
             $validated = $this->validate($request, [
                 'assign_to' => 'required|integer|exists:users,id',
+                'comment' => 'nullable|string',
             ]);
 
             $operation = $this->operationService->updateAssignUser(
                 $id,
                 (int) $validated['assign_to'],
-                (int) $assignBy
+                (int) $assignBy,
+                $validated['comment'] ?? null
             );
 
             if (!$operation) {
@@ -165,6 +176,38 @@ class OperationController extends Controller
             return $this->responseService->success(
                 new OperationResource($operation),
                 'Operation assigned user updated successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Display history for one operation.
+     *
+     * GET /operations/{id}/histories
+     */
+    public function getHistories(Request $request, int $id): JsonResponse
+    {
+        try {
+            $validated = $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1',
+            ]);
+
+            $perPage = (int) ($validated['per_page'] ?? 15);
+
+            $operation = $this->operationService->find($id);
+            if (!$operation) {
+                return $this->responseService->notFound('Operation not found');
+            }
+
+            $histories = $this->operationHistoryService->getByOperationId($id, $perPage);
+
+            return $this->responseService->paginated(
+                OperationHistoryResource::collection($histories),
+                'Operation histories retrieved successfully'
             );
         } catch (ValidationException $e) {
             return $this->responseService->validationError($e->errors(), 'Validation failed');

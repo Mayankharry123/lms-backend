@@ -5,6 +5,7 @@ namespace App\Providers;
 use Laravel\Lumen\Providers\EventServiceProvider as ServiceProvider;
 use App\Observers\ActivityLogObserver;
 use App\Observers\PlannerObserver;
+use App\Observers\OperationObserver;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -75,6 +76,9 @@ class EventServiceProvider extends ServiceProvider
 
         // Register the PlannerObserver to save planner history
         \App\Models\Planner::observe(PlannerObserver::class);
+
+        // Register the OperationObserver to save operation history
+        \App\Models\Operation::observe(OperationObserver::class);
     }
 
     /**

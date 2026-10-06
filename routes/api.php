@@ -568,10 +568,18 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('{id:[0-9]+}/backup-plan', 'OperationController@downloadBackupPlan');
         $router->put('{id:[0-9]+}/update-assign-user', 'OperationController@updateAssignUser');
         $router->post('{id:[0-9]+}/update-assign-user', 'OperationController@updateAssignUser');
+        $router->get('{id:[0-9]+}/histories', 'OperationController@getHistories');
         $router->get('{id:[0-9]+}', 'OperationController@show');
         $router->post('{id:[0-9]+}', 'OperationController@updateStatus');
         $router->put('{id:[0-9]+}', 'OperationController@updateStatus');
         $router->delete('{id:[0-9]+}', 'OperationController@destroy');
+    });
+
+    // Operation Histories routes
+    $router->group(['prefix' => 'operation-histories'], function () use ($router) {
+        $router->get('/', 'OperationHistoryController@index');
+        $router->get('operation/{operationId:[0-9]+}', 'OperationHistoryController@getOperationHistories');
+        $router->get('{id:[0-9]+}', 'OperationHistoryController@show');
     });
 
     // Operation Statuses routes

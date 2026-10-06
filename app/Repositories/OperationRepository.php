@@ -93,7 +93,7 @@ class OperationRepository implements OperationRepositoryInterface
         return $this->model->create($data);
     }
 
-    public function updateStatus(int $id, int $operationStatusId): ?Operation
+    public function updateStatus(int $id, int $operationStatusId, ?string $comment = null): ?Operation
     {
         $operation = $this->model->newQuery()->find($id);
 
@@ -101,17 +101,25 @@ class OperationRepository implements OperationRepositoryInterface
             return null;
         }
 
+        if ($comment !== null) {
+            $operation->history_comment = $comment;
+        }
+
         $operation->update(['operation_status_id' => $operationStatusId]);
 
         return $operation->refresh()->load($this->listRelations());
     }
 
-    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?Operation
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy, ?string $comment = null): ?Operation
     {
         $operation = $this->model->newQuery()->find($id);
 
         if (!$operation) {
             return null;
+        }
+
+        if ($comment !== null) {
+            $operation->history_comment = $comment;
         }
 
         $operation->update([

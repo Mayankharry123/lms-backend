@@ -77,7 +77,7 @@ class OperationService
      * @throws DomainException
      * @throws Throwable
      */
-    public function updateStatus(int $id, int $operationStatusId): ?Operation
+    public function updateStatus(int $id, int $operationStatusId, ?string $comment = null): ?Operation
     {
         try {
             $operation = $this->operationRepository->find($id);
@@ -92,7 +92,7 @@ class OperationService
                 throw new DomainException('Operation status not found');
             }
 
-            return $this->operationRepository->updateStatus($id, $operationStatusId);
+            return $this->operationRepository->updateStatus($id, $operationStatusId, $comment);
         } catch (Throwable $e) {
             if (!$e instanceof DomainException) {
                 Log::error('Error updating operation status', [
@@ -111,7 +111,7 @@ class OperationService
      *
      * @throws Throwable
      */
-    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?Operation
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy, ?string $comment = null): ?Operation
     {
         try {
             $operation = $this->operationRepository->find($id);
@@ -120,7 +120,7 @@ class OperationService
                 return null;
             }
 
-            return $this->operationRepository->updateAssignUser($id, $assignTo, $assignBy);
+            return $this->operationRepository->updateAssignUser($id, $assignTo, $assignBy, $comment);
         } catch (Throwable $e) {
             Log::error('Error updating operation assignee', [
                 'id' => $id,

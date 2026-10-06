@@ -120,6 +120,9 @@ use App\Repositories\OperationStatusRepository;
 use App\Contracts\Repositories\OperationRepositoryInterface;
 use App\Repositories\OperationRepository;
 
+use App\Contracts\Repositories\OperationHistoryRepositoryInterface;
+use App\Repositories\OperationHistoryRepository;
+
 use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
 use App\Repositories\FinanceStatusRepository;
 
@@ -332,6 +335,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             OperationRepositoryInterface::class,
             OperationRepository::class
+        );
+
+        $this->app->bind(
+            OperationHistoryRepositoryInterface::class,
+            OperationHistoryRepository::class
         );
 
         $this->app->bind(

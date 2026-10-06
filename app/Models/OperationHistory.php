@@ -1,32 +1,31 @@
 <?php
 
 /**
- * Operation Model
+ * Operation History Model
  * -----------------------------------------
- * Represents the operations table, which links a brief and planner
- * to an operation status and the users who assigned and received it.
+ * Tracks status transitions, assignments, and audit logs for operations.
  *
  * @package App\Models
  * @author Achal Sharma
  * @version 1.0.0
- * @since 2026-10-04
+ * @since 2026-10-06
  */
 
 namespace App\Models;
 
-class Operation extends BaseModel
+class OperationHistory extends BaseModel
 {
-    public ?string $history_comment = null;
-
-    protected $table = 'operations';
+    protected $table = 'operation_histories';
 
     protected $fillable = [
         'uuid',
+        'operation_id',
         'brief_id',
         'planner_id',
         'operation_status_id',
         'assign_by',
         'assign_to',
+        'comment',
         'status',
     ];
 
@@ -40,6 +39,11 @@ class Operation extends BaseModel
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+
+    public function operation()
+    {
+        return $this->belongsTo(Operation::class, 'operation_id');
+    }
 
     public function brief()
     {
@@ -64,11 +68,6 @@ class Operation extends BaseModel
     public function assignedTo()
     {
         return $this->belongsTo(User::class, 'assign_to');
-    }
-
-    public function histories()
-    {
-        return $this->hasMany(OperationHistory::class, 'operation_id')->orderBy('created_at', 'desc');
     }
 
     public function scopeActive($query)

@@ -45,12 +45,12 @@ interface OperationRepositoryInterface
     /**
      * Update the operation status for an operation.
      */
-    public function updateStatus(int $id, int $operationStatusId): ?Operation;
+    public function updateStatus(int $id, int $operationStatusId, ?string $comment = null): ?Operation;
 
     /**
      * Reassign an operation to a user.
      */
-    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?Operation;
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy, ?string $comment = null): ?Operation;
 
     /**
      * Soft delete an operation and mark its status as 15.
