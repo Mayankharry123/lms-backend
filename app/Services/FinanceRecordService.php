@@ -355,6 +355,73 @@ class FinanceRecordService
     }
 
     /**
+     * Change the finance status of one cost sheet.
+     *
+     * @throws DomainException
+     * @throws Throwable
+     */
+    public function updateFinanceStatus(int $id, int $financeStatusId): ?FinanceRecord
+    {
+        try {
+            $financeRecord = $this->financeRecordRepository->findCostSheet($id);
+
+            if (!$financeRecord) {
+                return null;
+            }
+
+            $financeStatus = $this->financeStatusRepository->find($financeStatusId);
+
+            if (!$financeStatus || (string) $financeStatus->status !== '1') {
+                throw new DomainException('Finance status not found');
+            }
+
+            return $this->financeRecordRepository->updateRecord($id, [
+                'finance_status_id' => $financeStatusId,
+            ]);
+        } catch (Throwable $e) {
+            if (!$e instanceof DomainException) {
+                Log::error('Error updating cost sheet finance status', [
+                    'id' => $id,
+                    'finance_status_id' => $financeStatusId,
+                    'exception' => $e,
+                ]);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Assign or reassign a finance record. assign_by is the authenticated user.
+     *
+     * @throws Throwable
+     */
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?FinanceRecord
+    {
+        try {
+            $financeRecord = $this->financeRecordRepository->findCostSheet($id);
+
+            if (!$financeRecord) {
+                return null;
+            }
+
+            return $this->financeRecordRepository->updateRecord($id, [
+                'assign_to' => $assignTo,
+                'assign_by' => $assignBy,
+            ]);
+        } catch (Throwable $e) {
+            Log::error('Error updating finance record assignee', [
+                'id' => $id,
+                'assign_to' => $assignTo,
+                'assign_by' => $assignBy,
+                'exception' => $e,
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
      * Soft delete a cost sheet. The brief returns to pending when no sheet remains.
      *
      * @throws Throwable

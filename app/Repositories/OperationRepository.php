@@ -106,6 +106,22 @@ class OperationRepository implements OperationRepositoryInterface
         return $operation->refresh()->load($this->listRelations());
     }
 
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?Operation
+    {
+        $operation = $this->model->newQuery()->find($id);
+
+        if (!$operation) {
+            return null;
+        }
+
+        $operation->update([
+            'assign_to' => $assignTo,
+            'assign_by' => $assignBy,
+        ]);
+
+        return $operation->refresh()->load($this->listRelations());
+    }
+
     public function delete(int $id): bool
     {
         $operation = $this->model->newQuery()->find($id);

@@ -48,6 +48,11 @@ interface OperationRepositoryInterface
     public function updateStatus(int $id, int $operationStatusId): ?Operation;
 
     /**
+     * Reassign an operation to a user.
+     */
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?Operation;
+
+    /**
      * Soft delete an operation and mark its status as 15.
      */
     public function delete(int $id): bool;

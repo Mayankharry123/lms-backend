@@ -103,7 +103,8 @@ class OperationController extends Controller
     /**
      * Update the operation status for one operation.
      *
-     * PUT /operations/{id}?status=1
+     * POST /operations/{id}
+     * PUT /operations/{id}
      */
     public function updateStatus(Request $request, int $id): JsonResponse
     {
@@ -129,6 +130,44 @@ class OperationController extends Controller
             return $this->responseService->validationError($e->errors(), 'Validation failed');
         } catch (DomainException $e) {
             return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Assign or reassign an operation to a user.
+     *
+     * PUT /operations/{id}/update-assign-user
+     */
+    public function updateAssignUser(Request $request, int $id): JsonResponse
+    {
+        try {
+            $assignBy = auth()->id();
+            if (!$assignBy) {
+                return $this->responseService->unauthorized('User not authenticated');
+            }
+
+            $validated = $this->validate($request, [
+                'assign_to' => 'required|integer|exists:users,id',
+            ]);
+
+            $operation = $this->operationService->updateAssignUser(
+                $id,
+                (int) $validated['assign_to'],
+                (int) $assignBy
+            );
+
+            if (!$operation) {
+                return $this->responseService->notFound('Operation not found');
+            }
+
+            return $this->responseService->success(
+                new OperationResource($operation),
+                'Operation assigned user updated successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }

@@ -107,6 +107,33 @@ class OperationService
     }
 
     /**
+     * Assign or reassign an operation. assign_by is the authenticated user.
+     *
+     * @throws Throwable
+     */
+    public function updateAssignUser(int $id, int $assignTo, int $assignBy): ?Operation
+    {
+        try {
+            $operation = $this->operationRepository->find($id);
+
+            if (!$operation) {
+                return null;
+            }
+
+            return $this->operationRepository->updateAssignUser($id, $assignTo, $assignBy);
+        } catch (Throwable $e) {
+            Log::error('Error updating operation assignee', [
+                'id' => $id,
+                'assign_to' => $assignTo,
+                'assign_by' => $assignBy,
+                'exception' => $e,
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
      * Soft delete an operation.
      *
      * @throws Throwable

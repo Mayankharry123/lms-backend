@@ -252,6 +252,79 @@ class FinanceRecordController extends Controller
     }
 
     /**
+     * Update the finance status for one cost sheet.
+     *
+     * POST /cost-sheets/{id}/update-finance-status
+     */
+    public function updateFinanceStatus(Request $request, int $id): JsonResponse
+    {
+        try {
+            $validated = $this->validate($request, [
+                'finance_status_id' => 'required|integer|exists:finance_statuses,id',
+            ]);
+
+            $costSheet = $this->financeRecordService->updateFinanceStatus(
+                $id,
+                (int) $validated['finance_status_id']
+            );
+
+            if (!$costSheet) {
+                return $this->responseService->notFound('Cost sheet not found');
+            }
+
+            return $this->responseService->updated(
+                new CostSheetResource($costSheet),
+                'Finance status updated successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (DomainException $e) {
+            return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Assign or reassign a finance record / cost sheet.
+     *
+     * PUT /cost-sheets/{id}/update-assign-user
+     * PUT /finance-records/{id}/update-assign-user
+     */
+    public function updateAssignUser(Request $request, int $id): JsonResponse
+    {
+        try {
+            $assignBy = auth()->id();
+            if (!$assignBy) {
+                return $this->responseService->unauthorized('User not authenticated');
+            }
+
+            $validated = $this->validate($request, [
+                'assign_to' => 'required|integer|exists:users,id',
+            ]);
+
+            $costSheet = $this->financeRecordService->updateAssignUser(
+                $id,
+                (int) $validated['assign_to'],
+                (int) $assignBy
+            );
+
+            if (!$costSheet) {
+                return $this->responseService->notFound('Finance record not found');
+            }
+
+            return $this->responseService->success(
+                new CostSheetResource($costSheet),
+                'Finance record assigned user updated successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
      * Soft delete a cost sheet.
      *
      * DELETE /cost-sheets/{id}

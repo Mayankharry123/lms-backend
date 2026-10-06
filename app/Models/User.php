@@ -252,6 +252,8 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      */
     public function getChildTreeByOrganisationAndDepartmentSlug($organisationId, $departmentSlug = 'planner'): array
     {
+        $departmentSlugs = array_values(array_filter((array) $departmentSlug, fn ($slug) => is_string($slug) && $slug !== ''));
+
         $children = $this->children()
             ->where(function ($query) use ($organisationId) {
                 $query->where('users.organisation_id', $organisationId)
@@ -259,22 +261,23 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
                         $organisationQuery->where('organisations.id', $organisationId);
                     });
             })
-            ->whereHas('departments', function($query) use ($departmentSlug) {
-                $query->where('departments.slug', $departmentSlug);
+            ->whereHas('departments', function ($query) use ($departmentSlugs) {
+                $query->whereIn('departments.slug', $departmentSlugs)
+                    ->whereNull('user_department.deleted_at');
             })
             ->select('users.id', 'users.name')
             ->orderBy('users.name', 'asc')
             ->get();
-        
+
         $tree = [];
         foreach ($children as $child) {
             $tree[] = [
                 'id' => $child->id,
                 'name' => $child->name,
-                'children' => $child->getChildTreeByOrganisationAndDepartmentSlug($organisationId, $departmentSlug)
+                'children' => $child->getChildTreeByOrganisationAndDepartmentSlug($organisationId, $departmentSlugs)
             ];
         }
-        
+
         return $tree;
     }
 

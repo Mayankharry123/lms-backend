@@ -90,6 +90,8 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('child-users-by-miss-campaign/{campaignId:[0-9]+}', 'Api\UserController@getChildUsersByMissCampaign');
         $router->get('child-users-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildUsersByBrief');
         $router->get('child-planners-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildPlannersByBrief');
+        $router->get('child-ops-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildOpsByBrief');
+        $router->get('child-finance-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildFinanceByBrief');
         $router->get('child-planners-by-lead/{leadId:[0-9]+}', 'Api\UserController@getChildPlannersByLead');
     });
 
@@ -564,7 +566,10 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     $router->group(['prefix' => 'operations'], function () use ($router) {
         $router->get('/', 'OperationController@index');
         $router->get('{id:[0-9]+}/backup-plan', 'OperationController@downloadBackupPlan');
+        $router->put('{id:[0-9]+}/update-assign-user', 'OperationController@updateAssignUser');
+        $router->post('{id:[0-9]+}/update-assign-user', 'OperationController@updateAssignUser');
         $router->get('{id:[0-9]+}', 'OperationController@show');
+        $router->post('{id:[0-9]+}', 'OperationController@updateStatus');
         $router->put('{id:[0-9]+}', 'OperationController@updateStatus');
         $router->delete('{id:[0-9]+}', 'OperationController@destroy');
     });
@@ -582,12 +587,17 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     // Finance Records routes
     $router->group(['prefix' => 'finance-records'], function () use ($router) {
         $router->get('/', 'FinanceRecordController@index');
+        $router->put('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->post('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
         $router->get('{id:[0-9]+}', 'FinanceRecordController@show');
     });
 
     // Cost Sheets routes
     $router->group(['prefix' => 'cost-sheets'], function () use ($router) {
         $router->get('/', 'FinanceRecordController@costSheets');
+        $router->post('{id:[0-9]+}/update-finance-status', 'FinanceRecordController@updateFinanceStatus');
+        $router->put('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->post('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
         $router->get('{id:[0-9]+}', 'FinanceRecordController@showCostSheet');
         $router->put('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
         $router->post('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
