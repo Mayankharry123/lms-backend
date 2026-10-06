@@ -30,6 +30,7 @@ class OperationResource extends JsonResource
 
         return [
             'id' => $this->id,
+            'brief_id' => $this->brief_id,
             'brief_name' => $brief?->name,
             'product_name' => $brief?->product_name,
             'campaign_start_date' => $brief?->campaign_start_date?->format('Y-m-d'),
