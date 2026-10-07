@@ -16,6 +16,7 @@ namespace App\Services;
 use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
 use App\Contracts\Repositories\PurchaseOrderRepositoryInterface;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use App\Support\AmountInWords;
 use Carbon\Carbon;
 use DomainException;
@@ -90,7 +91,11 @@ class PurchaseOrderService
             );
             $publisher['address'] = (string) ($selectedAddress['line'] ?? '');
 
-            $calculated = $this->calculate($payload['orders'], (string) $publisher['gst_number']);
+            $calculated = $this->calculate(
+                $payload['orders'],
+                (string) $publisher['gst_number'],
+                $payload
+            );
             $poNumber = $this->nextPoNumber();
             $amountInWords = AmountInWords::rupees($calculated['total_amount']);
 
@@ -114,6 +119,12 @@ class PurchaseOrderService
                 'country' => $this->blankToNull($selectedAddress['country'] ?? null),
                 'pincode' => $this->blankToNull($selectedAddress['pincode'] ?? null),
                 'subtotal' => $calculated['subtotal'],
+                'sgst_rate' => $calculated['sgst_rate'],
+                'sgst_amount' => $calculated['sgst_amount'],
+                'cgst_rate' => $calculated['cgst_rate'],
+                'cgst_amount' => $calculated['cgst_amount'],
+                'igst_rate' => $calculated['igst_rate'],
+                'igst_amount' => $calculated['igst_amount'],
                 'tax_amount' => $calculated['tax_amount'],
                 'total_amount' => $calculated['total_amount'],
                 'amount_in_words' => $amountInWords,
@@ -134,6 +145,12 @@ class PurchaseOrderService
                 'finance_record_id' => (int) $purchaseOrder->finance_record_id,
                 'po_number' => $purchaseOrder->po_number,
                 'subtotal' => (float) $purchaseOrder->subtotal,
+                'sgst_rate' => (float) $purchaseOrder->sgst_rate,
+                'sgst_amount' => (float) $purchaseOrder->sgst_amount,
+                'cgst_rate' => (float) $purchaseOrder->cgst_rate,
+                'cgst_amount' => (float) $purchaseOrder->cgst_amount,
+                'igst_rate' => (float) $purchaseOrder->igst_rate,
+                'igst_amount' => (float) $purchaseOrder->igst_amount,
                 'tax_amount' => (float) $purchaseOrder->tax_amount,
                 'total_amount' => (float) $purchaseOrder->total_amount,
                 'amount_in_words' => $purchaseOrder->amount_in_words,
@@ -197,12 +214,42 @@ class PurchaseOrderService
                 'campaign' => 'nullable|string|max:255',
                 'period' => 'nullable|string|max:255',
                 'orders' => 'required|array|min:1',
-                'orders.*.description' => 'required|string|max:1000',
-                'orders.*.hsn_sac' => 'required|string|max:20',
+                'orders.*.description' => 'nullable|string|max:1000',
+                'orders.*.hsn_sac' => 'nullable|string|max:20',
                 'orders.*.city' => 'nullable|string|max:255',
-                'orders.*.qty' => 'required|numeric|gt:0',
-                'orders.*.rate' => 'required|numeric|gte:0',
+                'orders.*.qty' => 'nullable|numeric|min:0',
+                'orders.*.rate' => 'nullable|numeric|gte:0',
+                'orders.*.amount' => 'nullable|numeric|gte:0',
+                'sgst' => 'nullable|numeric|between:0,100',
+                'cgst' => 'nullable|numeric|between:0,100',
+                'igst' => 'nullable|numeric|between:0,100',
             ]);
+
+            $validator->after(function ($validator) use ($payload) {
+                foreach (($payload['orders'] ?? []) as $index => $order) {
+                    if (!is_array($order)) {
+                        continue;
+                    }
+
+                    $hasDirectAmount = array_key_exists('amount', $order)
+                        && $order['amount'] !== null
+                        && $order['amount'] !== '';
+
+                    if ($hasDirectAmount) {
+                        continue;
+                    }
+
+                    if (!isset($order['qty']) || $order['qty'] === '') {
+                        $validator->errors()->add("orders.{$index}.qty", 'Quantity is required when amount is not provided.');
+                    } elseif (is_numeric($order['qty']) && (float) $order['qty'] <= 0) {
+                        $validator->errors()->add("orders.{$index}.qty", 'The quantity must be greater than 0 when amount is not provided.');
+                    }
+
+                    if (!isset($order['rate']) || $order['rate'] === '') {
+                        $validator->errors()->add("orders.{$index}.rate", 'Rate is required when amount is not provided.');
+                    }
+                }
+            });
 
             if ($validator->fails()) {
                 throw new ValidationException($validator);
@@ -273,25 +320,35 @@ class PurchaseOrderService
      * @param array<int, array<string, mixed>> $orders
      * @return array<string, mixed>
      */
-    protected function calculate(array $orders, string $gstNumber): array
+    protected function calculate(array $orders, string $gstNumber, array $taxRates = []): array
     {
         try {
             $items = [];
             $subtotal = 0.0;
 
             foreach ($orders as $order) {
-                $qty = round((float) $order['qty'], 2);
-                $rate = round((float) $order['rate'], 2);
-                $amount = round($qty * $rate, 2);
+                $directAmount = array_key_exists('amount', $order)
+                    && $order['amount'] !== null
+                    && $order['amount'] !== '';
+                $qty = isset($order['qty']) && $order['qty'] !== ''
+                    ? round((float) $order['qty'], 2)
+                    : 0.0;
+                $rate = isset($order['rate']) && $order['rate'] !== ''
+                    ? round((float) $order['rate'], 2)
+                    : 0.0;
+                $amount = $directAmount
+                    ? round((float) $order['amount'], 2)
+                    : round($qty * $rate, 2);
                 $subtotal += $amount;
 
                 $items[] = [
-                    'description' => trim((string) $order['description']),
-                    'hsn_sac' => trim((string) $order['hsn_sac']),
+                    'description' => trim((string) ($order['description'] ?? '')),
+                    'hsn_sac' => trim((string) ($order['hsn_sac'] ?? '')),
                     'city' => trim((string) ($order['city'] ?? '')),
                     'qty' => $qty,
                     'rate' => $rate,
                     'amount' => $amount,
+                    'direct_amount' => $directAmount,
                 ];
             }
 
@@ -299,20 +356,76 @@ class PurchaseOrderService
             $publisherState = substr(preg_replace('/\s+/', '', $gstNumber) ?? '', 0, 2);
             $sameState = $publisherState !== '' && $publisherState === substr(self::ISSUER_GSTIN, 0, 2);
             $taxes = [];
+            $hasProvidedTaxRates = false;
+            foreach (['sgst', 'cgst', 'igst'] as $taxKey) {
+                if (
+                    array_key_exists($taxKey, $taxRates)
+                    && $taxRates[$taxKey] !== null
+                    && $taxRates[$taxKey] !== ''
+                ) {
+                    $hasProvidedTaxRates = true;
+                    break;
+                }
+            }
 
-            if ($sameState) {
-                $half = round($subtotal * 9 / 100, 2);
-                $taxAmount = round($half * 2, 2);
-                $taxes[] = ['label' => 'CGST @ 9%', 'amount' => $half];
-                $taxes[] = ['label' => 'SGST @ 9%', 'amount' => $half];
+            if ($hasProvidedTaxRates) {
+                $sgstRate = (float) ($taxRates['sgst'] ?? 0);
+                $cgstRate = (float) ($taxRates['cgst'] ?? 0);
+                $igstRate = (float) ($taxRates['igst'] ?? 0);
+                $sgstAmount = round($subtotal * $sgstRate / 100, 2);
+                $cgstAmount = round($subtotal * $cgstRate / 100, 2);
+                $igstAmount = round($subtotal * $igstRate / 100, 2);
+
+                foreach ([
+                    ['SGST', $sgstRate, $sgstAmount],
+                    ['CGST', $cgstRate, $cgstAmount],
+                    ['IGST', $igstRate, $igstAmount],
+                ] as [$label, $rate, $amount]) {
+                    if ($rate > 0) {
+                        $taxes[] = [
+                            'label' => sprintf(
+                                '%s @ %s%%',
+                                $label,
+                                rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.')
+                            ),
+                            'amount' => $amount,
+                        ];
+                    }
+                }
+
+                $taxAmount = round($sgstAmount + $cgstAmount + $igstAmount, 2);
             } else {
-                $taxAmount = round($subtotal * 18 / 100, 2);
-                $taxes[] = ['label' => 'IGST @ 18%', 'amount' => $taxAmount];
+                if ($sameState) {
+                    $sgstRate = 9.0;
+                    $cgstRate = 9.0;
+                    $igstRate = 0.0;
+                    $sgstAmount = round($subtotal * $sgstRate / 100, 2);
+                    $cgstAmount = round($subtotal * $cgstRate / 100, 2);
+                    $igstAmount = 0.0;
+                    $taxes[] = ['label' => 'CGST @ 9%', 'amount' => $cgstAmount];
+                    $taxes[] = ['label' => 'SGST @ 9%', 'amount' => $sgstAmount];
+                } else {
+                    $sgstRate = 0.0;
+                    $cgstRate = 0.0;
+                    $igstRate = 18.0;
+                    $sgstAmount = 0.0;
+                    $cgstAmount = 0.0;
+                    $igstAmount = round($subtotal * $igstRate / 100, 2);
+                    $taxes[] = ['label' => 'IGST @ 18%', 'amount' => $igstAmount];
+                }
+
+                $taxAmount = round($sgstAmount + $cgstAmount + $igstAmount, 2);
             }
 
             return [
                 'items' => $items,
                 'subtotal' => $subtotal,
+                'sgst_rate' => $sgstRate,
+                'sgst_amount' => $sgstAmount,
+                'cgst_rate' => $cgstRate,
+                'cgst_amount' => $cgstAmount,
+                'igst_rate' => $igstRate,
+                'igst_amount' => $igstAmount,
                 'tax_amount' => $taxAmount,
                 'total_amount' => round($subtotal + $taxAmount, 2),
                 'taxes' => $taxes,
@@ -388,8 +501,8 @@ class PurchaseOrderService
                     'hsn_sac' => $item['hsn_sac'],
                     'city' => $item['city'],
                     'description' => $item['description'],
-                    'qty' => $this->formatQty($item['qty']),
-                    'rate' => AmountInWords::format($item['rate']),
+                    'qty' => $item['direct_amount'] ? '' : $this->formatQty($item['qty']),
+                    'rate' => $item['direct_amount'] ? '' : AmountInWords::format($item['rate']),
                     'amount' => AmountInWords::format($item['amount']),
                 ];
             }, $calculated['items']),
@@ -567,10 +680,10 @@ class PurchaseOrderService
      *
      * @throws Throwable
      */
-    public function list(int $perPage = 15): LengthAwarePaginator
+    public function list(int $perPage = 15, array $filters = [], ?User $user = null): LengthAwarePaginator
     {
         try {
-            return $this->purchaseOrderRepository->paginate($perPage);
+            return $this->purchaseOrderRepository->paginate($perPage, $filters, $user);
         } catch (Throwable $e) {
             Log::error('Error fetching purchase orders', ['exception' => $e]);
             throw $e;
@@ -582,10 +695,10 @@ class PurchaseOrderService
      *
      * @throws Throwable
      */
-    public function find(int $id): ?PurchaseOrder
+    public function find(int $id, ?User $user = null): ?PurchaseOrder
     {
         try {
-            return $this->purchaseOrderRepository->find($id);
+            return $this->purchaseOrderRepository->find($id, $user);
         } catch (Throwable $e) {
             Log::error('Error fetching purchase order by ID', ['id' => $id, 'exception' => $e]);
             throw $e;

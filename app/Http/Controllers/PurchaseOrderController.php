@@ -17,6 +17,7 @@ use App\Http\Resources\PurchaseOrderResource;
 use App\Services\PurchaseOrderService;
 use App\Services\ResponseService;
 use App\Traits\ValidatesRequests;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -48,10 +49,28 @@ class PurchaseOrderController extends Controller
         try {
             $validated = $this->validate($request, [
                 'per_page' => 'nullable|integer|min:1',
+                'organisation_id' => 'nullable|integer|min:1',
+                'organisation_ids' => 'nullable',
+                'department_id' => 'nullable|integer|min:1',
+                'department_ids' => 'nullable',
+                'user_id' => 'nullable|integer|min:1',
+                'user_ids' => 'nullable',
+                'assign_to' => 'nullable|integer|min:1',
+                'assign_by' => 'nullable|integer|min:1',
             ]);
 
             $perPage = (int) ($validated['per_page'] ?? 15);
-            $purchaseOrders = $this->purchaseOrderService->list($perPage);
+            $filters = array_filter([
+                'organisation_id' => $validated['organisation_id'] ?? null,
+                'organisation_ids' => $validated['organisation_ids'] ?? null,
+                'department_id' => $validated['department_id'] ?? null,
+                'department_ids' => $validated['department_ids'] ?? null,
+                'user_id' => $validated['user_id'] ?? null,
+                'user_ids' => $validated['user_ids'] ?? null,
+                'assign_to' => $validated['assign_to'] ?? null,
+                'assign_by' => $validated['assign_by'] ?? null,
+            ], fn ($value) => $value !== null && $value !== '');
+            $purchaseOrders = $this->purchaseOrderService->list($perPage, $filters, Auth::user());
 
             return $this->responseService->paginated(
                 PurchaseOrderResource::collection($purchaseOrders),
@@ -74,7 +93,7 @@ class PurchaseOrderController extends Controller
     public function show(int $id): JsonResponse
     {
         try {
-            $purchaseOrder = $this->purchaseOrderService->find($id);
+            $purchaseOrder = $this->purchaseOrderService->find($id, Auth::user());
 
             if (!$purchaseOrder) {
                 return $this->responseService->notFound('Purchase order not found');
@@ -104,11 +123,15 @@ class PurchaseOrderController extends Controller
                 'campaign' => 'nullable|string|max:255',
                 'period' => 'nullable|string|max:255',
                 'orders' => 'required|array|min:1',
-                'orders.*.description' => 'required|string|max:1000',
-                'orders.*.hsn_sac' => 'required|string|max:20',
+                'orders.*.description' => 'nullable|string|max:1000',
+                'orders.*.hsn_sac' => 'nullable|string|max:20',
                 'orders.*.city' => 'nullable|string|max:255',
-                'orders.*.qty' => 'required|numeric|gt:0',
-                'orders.*.rate' => 'required|numeric|gte:0',
+                'orders.*.qty' => 'nullable|numeric|min:0',
+                'orders.*.rate' => 'nullable|numeric|gte:0',
+                'orders.*.amount' => 'nullable|numeric|gte:0',
+                'sgst' => 'nullable|numeric|between:0,100',
+                'cgst' => 'nullable|numeric|between:0,100',
+                'igst' => 'nullable|numeric|between:0,100',
             ]);
 
             $purchaseOrder = $this->purchaseOrderService->create($validated);

@@ -14,6 +14,7 @@
 namespace App\Contracts\Repositories;
 
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface PurchaseOrderRepositoryInterface
@@ -44,11 +45,13 @@ interface PurchaseOrderRepositoryInterface
 
     /**
      * Paginate purchase orders for the list API.
+     *
+     * @param array<string, mixed> $filters
      */
-    public function paginate(int $perPage = 15): LengthAwarePaginator;
+    public function paginate(int $perPage = 15, array $filters = [], ?User $user = null): LengthAwarePaginator;
 
     /**
      * Find one purchase order for the detail API.
      */
-    public function find(int $id): ?PurchaseOrder;
+    public function find(int $id, ?User $user = null): ?PurchaseOrder;
 }

@@ -50,4 +50,34 @@ class DashboardRepository implements DashboardRepositoryInterface
     {
         return $this->model->fetchBriefIdsByOrganisation($filters, $user);
     }
+
+    public function getOperationsOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array
+    {
+        return $this->model->fetchOperationsOrganisationRow($filters, $user, $organisationId, $organisationName);
+    }
+
+    public function getOperationsStatusCounts(array $filters, ?User $user): array
+    {
+        return $this->model->fetchOperationsStatusCounts($filters, $user);
+    }
+
+    public function getRecentOperations(array $filters, ?User $user): array
+    {
+        return $this->model->fetchRecentOperations($filters, $user);
+    }
+
+    public function getFinanceOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array
+    {
+        return $this->model->fetchFinanceOrganisationRow($filters, $user, $organisationId, $organisationName);
+    }
+
+    public function getFinanceStatusCounts(array $filters, ?User $user): array
+    {
+        return $this->model->fetchFinanceStatusCounts($filters, $user);
+    }
+
+    public function getRecentFinanceRecords(array $filters, ?User $user): array
+    {
+        return $this->model->fetchRecentFinanceRecords($filters, $user);
+    }
 }

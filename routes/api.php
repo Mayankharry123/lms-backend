@@ -723,6 +723,8 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('/charts', 'Api\DashboardController@getCharts');
         $router->get('/sales-charts', 'Api\DashboardController@getSalesCharts');
         $router->get('/planner-charts', 'Api\DashboardController@getPlannerCharts');
+        $router->get('/operations-charts', 'Api\DashboardController@getOperationsCharts');
+        $router->get('/finance-charts', 'Api\DashboardController@getFinanceCharts');
     });
 
     // Activity Log routes

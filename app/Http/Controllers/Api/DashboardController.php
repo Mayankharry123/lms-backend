@@ -138,4 +138,48 @@ class DashboardController extends Controller
             );
         }
     }
+
+    public function getOperationsCharts(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            if (!$user || !DashboardPermissionSupport::canViewOperations($user)) {
+                return $this->responseService->forbidden('Insufficient permissions to view operations dashboard charts.');
+            }
+
+            $filters = DashboardFilters::fromRequest($request);
+            $chartData = $this->dashboardService->getOperationsChartMetrics($filters);
+
+            return $this->responseService->success(
+                $chartData,
+                'Operations dashboard chart data retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return $this->responseService->serverError(
+                'Failed to retrieve operations dashboard chart data: ' . $e->getMessage()
+            );
+        }
+    }
+
+    public function getFinanceCharts(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            if (!$user || !DashboardPermissionSupport::canViewFinance($user)) {
+                return $this->responseService->forbidden('Insufficient permissions to view finance dashboard charts.');
+            }
+
+            $filters = DashboardFilters::fromRequest($request);
+            $chartData = $this->dashboardService->getFinanceChartMetrics($filters);
+
+            return $this->responseService->success(
+                $chartData,
+                'Finance dashboard chart data retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return $this->responseService->serverError(
+                'Failed to retrieve finance dashboard chart data: ' . $e->getMessage()
+            );
+        }
+    }
 }
