@@ -529,6 +529,9 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('submitted-plans', 'PlannerController@getSubmittedPlans');
         $router->post('/', 'PlannerController@store');
         
+        $router->get('approved-backup-plan/brief/{briefId:[0-9]+}', 'PlannerController@getApprovedBackupPlanByBrief');
+        $router->get('approved-backup-plan/brief/{briefId:[0-9]+}/download', 'PlannerController@downloadApprovedBackupPlanByBrief');
+
         // Additional Planner routes (specific routes BEFORE generic CRUD)
         $router->post('{id:[0-9]+}/upload-submitted-plans', 'PlannerController@uploadSubmittedPlans');
         $router->post('{id:[0-9]+}/upload-backup-plan', 'PlannerController@uploadBackupPlan');
@@ -549,6 +552,8 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
 
     // Planners by brief (e.g., /api/v1/briefs/1/planners)
     $router->group(['prefix' => 'briefs'], function () use ($router) {
+        $router->get('{briefId:[0-9]+}/approved-backup-plan', 'PlannerController@getApprovedBackupPlanByBrief');
+        $router->get('{briefId:[0-9]+}/approved-backup-plan/download', 'PlannerController@downloadApprovedBackupPlanByBrief');
         $router->post('{briefId:[0-9]+}/planners', 'PlannerController@createForBrief');
         $router->get('{briefId:[0-9]+}/planners', 'PlannerController@getPlannersByBrief');
         $router->get('{briefId:[0-9]+}/planners/{id:[0-9]+}', 'PlannerController@showForBrief');
@@ -634,6 +639,18 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('/', 'PurchaseOrderController@index');
         $router->get('{id:[0-9]+}', 'PurchaseOrderController@show');
         $router->post('/', 'PurchaseOrderController@store');
+    });
+
+    // Proforma Invoices
+    $router->group(['prefix' => 'proforma-invoices'], function () use ($router) {
+        $router->get('/', 'ProformaInvoiceController@index');
+        $router->post('/', 'ProformaInvoiceController@store');
+        $router->get('{id:[0-9]+}', 'ProformaInvoiceController@show');
+        $router->put('{id:[0-9]+}', 'ProformaInvoiceController@update');
+        $router->post('{id:[0-9]+}', 'ProformaInvoiceController@update');
+        $router->delete('{id:[0-9]+}', 'ProformaInvoiceController@destroy');
+        $router->post('{id:[0-9]+}/upload-file', 'ProformaInvoiceController@uploadFile');
+        $router->get('{id:[0-9]+}/download', 'ProformaInvoiceController@download');
     });
 
     // Finance Statuses routes

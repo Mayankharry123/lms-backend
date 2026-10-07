@@ -99,4 +99,13 @@ interface PlannerRepositoryInterface extends BaseRepositoryInterface
      * @return Planner|null
      */
     public function getPlannerByUuid(string $uuid): ?Planner;
+
+    /**
+     * Get approved backup plan for a brief.
+     *
+     * @param int $briefId
+     * @param mixed $user
+     * @return Planner|null
+     */
+    public function getApprovedBackupPlanByBriefId(int $briefId, $user = null): ?Planner;
 }

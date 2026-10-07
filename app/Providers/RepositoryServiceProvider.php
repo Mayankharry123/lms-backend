@@ -138,6 +138,9 @@ use App\Repositories\FinanceRecordHistoryRepository;
 use App\Contracts\Repositories\PurchaseOrderRepositoryInterface;
 use App\Repositories\PurchaseOrderRepository;
 
+use App\Contracts\Repositories\ProformaInvoiceRepositoryInterface;
+use App\Repositories\ProformaInvoiceRepository;
+
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use App\Repositories\UserParentRepository;
 
@@ -368,6 +371,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             PurchaseOrderRepositoryInterface::class,
             PurchaseOrderRepository::class
+        );
+
+        $this->app->bind(
+            ProformaInvoiceRepositoryInterface::class,
+            ProformaInvoiceRepository::class
         );
 
         $this->app->bind(

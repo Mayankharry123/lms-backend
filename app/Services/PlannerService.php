@@ -63,9 +63,6 @@ class PlannerService
     /**
      * Get submitted plans with organisation, department, and custom filters.
      *
-     * @author Achal Sharma
-     * @version 1.0.0
-     * @since 2026-10-06
      * @param array $filters
      * @param int $perPage
      * @return LengthAwarePaginator
@@ -87,9 +84,6 @@ class PlannerService
     /**
      * Get latest N submitted plans with organisation, department, and custom filters.
      *
-     * @author Achal Sharma
-     * @version 1.0.0
-     * @since 2026-10-06
      * @param int $limit
      * @param array $filters
      * @return Collection
@@ -499,6 +493,22 @@ class PlannerService
         } catch (Throwable $e) {
             Log::error('Unexpected error updating planner status', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while updating planner status.');
+        }
+    }
+
+    /**
+     * Get the approved backup plan for a given brief ID.
+     */
+    public function getApprovedBackupPlanByBriefId(int $briefId, $user = null): ?Planner
+    {
+        try {
+            return $this->plannerRepository->getApprovedBackupPlanByBriefId($briefId, $user ?? auth()->user());
+        } catch (Throwable $e) {
+            Log::error('Error fetching approved backup plan by brief ID', [
+                'brief_id' => $briefId,
+                'exception' => $e,
+            ]);
+            throw $e;
         }
     }
 }

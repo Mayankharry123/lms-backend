@@ -143,9 +143,6 @@ class PlannerController extends Controller
      *
      * GET /planners/submitted-plans/latest-five
      *
-     * @author Achal Sharma
-     * @version 1.0.0
-     * @since 2026-10-06
      * @param Request $request
      * @return JsonResponse
      */
@@ -661,6 +658,119 @@ class PlannerController extends Controller
             );
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get the approved backup plan for a given brief.
+     *
+     * GET /briefs/{briefId}/approved-backup-plan
+     */
+    public function getApprovedBackupPlanByBrief(Request $request, int $briefId): JsonResponse
+    {
+        try {
+            $planner = $this->plannerService->getApprovedBackupPlanByBriefId($briefId, auth()->user());
+
+            if (!$planner || empty($planner->backup_plan)) {
+                return $this->responseService->notFound('Approved backup plan not found for this brief');
+            }
+
+            $storedPath = $planner->backup_plan;
+            $downloadUrl = rtrim($request->root(), '/') . '/api/v1/briefs/' . $briefId . '/approved-backup-plan/download';
+            $fileUrl = $this->resolvePublicFileUrl($request, $storedPath);
+
+            return $this->responseService->success([
+                'planner_id' => $planner->id,
+                'brief_id' => $planner->brief_id,
+                'brief_name' => $planner->brief?->name,
+                'product_name' => $planner->brief?->product_name,
+                'planner_status_id' => $planner->planner_status_id,
+                'planner_status' => $planner->plannerStatus?->name,
+                'backup_plan' => $storedPath,
+                'backup_plan_url' => $fileUrl,
+                'download_url' => $downloadUrl,
+                'creator' => $planner->creator ? [
+                    'id' => $planner->creator->id,
+                    'name' => $planner->creator->name,
+                ] : null,
+                'created_at' => $planner->created_at?->format('Y-m-d H:i:s A'),
+                'updated_at' => $planner->updated_at?->format('Y-m-d H:i:s A'),
+            ], 'Approved backup plan retrieved successfully');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Download the approved backup plan file for a brief.
+     *
+     * GET /briefs/{briefId}/approved-backup-plan/download
+     */
+    public function downloadApprovedBackupPlanByBrief(int $briefId)
+    {
+        try {
+            $planner = $this->plannerService->getApprovedBackupPlanByBriefId($briefId, auth()->user());
+
+            if (!$planner || empty($planner->backup_plan)) {
+                return $this->responseService->notFound('Approved backup plan not found for this brief');
+            }
+
+            $storedPath = $planner->backup_plan;
+            $fullPath = $this->resolveBackupPlanFilePath($storedPath);
+
+            if (!$fullPath || !file_exists($fullPath)) {
+                return $this->responseService->notFound('Backup plan file not found on server');
+            }
+
+            return response()->download($fullPath, basename($fullPath));
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    protected function resolveBackupPlanFilePath(string $storedPath): ?string
+    {
+        try {
+            $storedPath = ltrim(str_replace('\\', '/', $storedPath), '/');
+            $candidates = [
+                storage_path('app/' . $storedPath),
+                storage_path('app/public/' . $storedPath),
+            ];
+
+            if (str_starts_with($storedPath, 'public/')) {
+                $candidates[] = storage_path('app/public/' . substr($storedPath, strlen('public/')));
+            }
+
+            $storageRoot = realpath(storage_path('app'));
+
+            foreach ($candidates as $candidate) {
+                if (!is_file($candidate)) {
+                    continue;
+                }
+
+                $realFile = realpath($candidate);
+
+                if ($storageRoot && $realFile && str_starts_with($realFile, $storageRoot)) {
+                    return $realFile;
+                }
+            }
+
+            return null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    protected function resolvePublicFileUrl(Request $request, string $path): ?string
+    {
+        try {
+            $path = ltrim(str_replace('\\', '/', $path), '/');
+            if (str_starts_with($path, 'public/')) {
+                $path = substr($path, strlen('public/'));
+            }
+            return rtrim($request->root(), '/') . '/storage/' . $path;
+        } catch (Throwable $e) {
+            return null;
         }
     }
 }
