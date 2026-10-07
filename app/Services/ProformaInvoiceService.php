@@ -12,11 +12,25 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 use Throwable;
 
 class ProformaInvoiceService
 {
-    private const PI_SERIES = 'PI';
+    private const PI_SERIES = 'MOBI';
+
+    private const ISSUER = [
+        'name' => 'MOBIYOUNG DIGITAL AD AGENCY PRIVATE LIMITED',
+        'registered_office' => 'Regd. Off: NO 106 1ST FLOOR DVL RESIDENCY JAYARAM REDDY,Bangalore KA 560037 IN',
+        'billing_address' => '2nd FLOOR, PLOT NO.H-4178, ANSAL VERSALIA,NEAR AIP MALL,SECTOR-67, GURUGRAM, HARYANA-121001',
+        'email' => 'finance@mobiyoung.com',
+        'contact' => '8882055536',
+        'cin' => 'U74999KA2018PTC117156',
+        'pan' => 'AAMCM1308E',
+        'gst' => '06AAMCM1308E1ZT',
+        'signatory' => 'For MOBIYOUNG DIGITAL AD AGENCY PVT. LTD.',
+    ];
 
     protected ProformaInvoiceRepositoryInterface $proformaInvoiceRepository;
 
@@ -52,7 +66,7 @@ class ProformaInvoiceService
     }
 
     /**
-     * Create a proforma invoice and its items.
+     * Create a proforma invoice, its items, and render the official PDF.
      */
     public function create(array $payload, $uploadedFile = null, $user = null): ProformaInvoice
     {
@@ -65,12 +79,27 @@ class ProformaInvoiceService
             }
 
             $brandName = trim((string) ($payload['brand_name'] ?? $brand->name));
+            $clientName = trim((string) ($payload['client_name'] ?? $brandName));
             $gstNo = !empty($payload['gst_no'])
                 ? trim((string) $payload['gst_no'])
                 : (!empty($payload['gst_number']) ? trim((string) $payload['gst_number']) : $brand->gst_no);
             $address = !empty($payload['address'])
                 ? trim((string) $payload['address'])
                 : $brand->address;
+
+            $stateCode = !empty($payload['state_code'])
+                ? trim((string) $payload['state_code'])
+                : ($gstNo ? substr($gstNo, 0, 2) : '');
+
+            $invoiceDate = !empty($payload['invoice_date'])
+                ? Carbon::parse($payload['invoice_date'])->format('Y-m-d')
+                : Carbon::now('Asia/Kolkata')->format('Y-m-d');
+
+            $poNo = isset($payload['po_no']) ? trim((string) $payload['po_no']) : null;
+            $poDate = isset($payload['po_date']) ? trim((string) $payload['po_date']) : null;
+            $period = isset($payload['period']) ? trim((string) $payload['period']) : null;
+            $campaign = isset($payload['campaign']) ? trim((string) $payload['campaign']) : null;
+            $kindAttn = isset($payload['kind_attn']) ? trim((string) $payload['kind_attn']) : null;
 
             $sgstRate = (float) ($payload['sgst_rate'] ?? $payload['sgst'] ?? 0);
             $cgstRate = (float) ($payload['cgst_rate'] ?? $payload['cgst'] ?? 0);
@@ -98,10 +127,18 @@ class ProformaInvoiceService
 
             $headerData = [
                 'pi_number' => $piNumber,
+                'invoice_date' => $invoiceDate,
                 'brand_id' => $brand->id,
                 'brand_name' => $brandName,
+                'client_name' => $clientName,
                 'gst_no' => $gstNo,
+                'state_code' => $stateCode,
                 'address' => $address,
+                'po_no' => $poNo,
+                'po_date' => $poDate,
+                'period' => $period,
+                'campaign' => $campaign,
+                'kind_attn' => $kindAttn,
                 'subtotal' => $calculated['subtotal'],
                 'sgst_rate' => $calculated['sgst_rate'],
                 'sgst_amount' => $calculated['sgst_amount'],
@@ -119,6 +156,11 @@ class ProformaInvoiceService
 
             $invoice = $this->proformaInvoiceRepository->create($headerData);
             $this->proformaInvoiceRepository->createItems($invoice, $calculated['items']);
+
+            // If no custom file was explicitly uploaded, generate the official PDF automatically
+            if (!$piPath) {
+                $piPath = $this->generatePdf($invoice);
+            }
 
             return $invoice->fresh(['brand', 'creator', 'items']);
         } catch (Throwable $e) {
@@ -150,12 +192,46 @@ class ProformaInvoiceService
                 $updateData['brand_name'] = trim((string) $payload['brand_name']);
             }
 
+            if (isset($payload['client_name'])) {
+                $updateData['client_name'] = trim((string) $payload['client_name']);
+            }
+
             if (isset($payload['gst_no']) || isset($payload['gst_number'])) {
                 $updateData['gst_no'] = trim((string) ($payload['gst_no'] ?? $payload['gst_number']));
             }
 
+            if (isset($payload['state_code'])) {
+                $updateData['state_code'] = trim((string) $payload['state_code']);
+            } elseif (isset($updateData['gst_no']) && !empty($updateData['gst_no'])) {
+                $updateData['state_code'] = substr($updateData['gst_no'], 0, 2);
+            }
+
             if (isset($payload['address'])) {
                 $updateData['address'] = trim((string) $payload['address']);
+            }
+
+            if (isset($payload['invoice_date'])) {
+                $updateData['invoice_date'] = Carbon::parse($payload['invoice_date'])->format('Y-m-d');
+            }
+
+            if (isset($payload['po_no'])) {
+                $updateData['po_no'] = trim((string) $payload['po_no']);
+            }
+
+            if (isset($payload['po_date'])) {
+                $updateData['po_date'] = trim((string) $payload['po_date']);
+            }
+
+            if (isset($payload['period'])) {
+                $updateData['period'] = trim((string) $payload['period']);
+            }
+
+            if (isset($payload['campaign'])) {
+                $updateData['campaign'] = trim((string) $payload['campaign']);
+            }
+
+            if (isset($payload['kind_attn'])) {
+                $updateData['kind_attn'] = trim((string) $payload['kind_attn']);
             }
 
             if (isset($payload['status'])) {
@@ -225,7 +301,14 @@ class ProformaInvoiceService
                 $updateData['amount_in_words'] = AmountInWords::rupees($totalAmount);
             }
 
-            return $this->proformaInvoiceRepository->update($id, $updateData);
+            $updated = $this->proformaInvoiceRepository->update($id, $updateData);
+
+            // Re-render PDF if no custom file was uploaded and invoice was modified
+            if (!$uploadedFile && $updated) {
+                $this->generatePdf($updated);
+            }
+
+            return $updated->fresh(['brand', 'creator', 'items']);
         } catch (Throwable $e) {
             Log::error('Error updating proforma invoice', ['id' => $id, 'payload' => $payload, 'exception' => $e]);
             throw $e;
@@ -265,6 +348,98 @@ class ProformaInvoiceService
     }
 
     /**
+     * Generate official Proforma Invoice PDF matching the exact template.
+     */
+    public function generatePdf(ProformaInvoice $invoice): string
+    {
+        $invoice->loadMissing(['brand', 'creator', 'items']);
+
+        $taxes = [];
+        if ((float) $invoice->igst_amount > 0) {
+            $taxes[] = [
+                'label' => 'IGST @ ' . ((float) $invoice->igst_rate) . ' %',
+                'amount' => (float) $invoice->igst_amount,
+            ];
+        }
+        if ((float) $invoice->cgst_amount > 0) {
+            $taxes[] = [
+                'label' => 'CGST @ ' . ((float) $invoice->cgst_rate) . ' %',
+                'amount' => (float) $invoice->cgst_amount,
+            ];
+        }
+        if ((float) $invoice->sgst_amount > 0) {
+            $taxes[] = [
+                'label' => 'SGST @ ' . ((float) $invoice->sgst_rate) . ' %',
+                'amount' => (float) $invoice->sgst_amount,
+            ];
+        }
+
+        $stampPath = base_path('public/images/mobiyoung-stamp.jpg');
+
+        $document = [
+            'issuer' => self::ISSUER,
+            'client' => [
+                'name' => $invoice->client_name ?: ($invoice->brand_name ?: $invoice->brand?->name),
+                'address' => $invoice->address,
+                'state_code' => $invoice->state_code ?: ($invoice->gst_no ? substr($invoice->gst_no, 0, 2) : ''),
+                'gst_no' => $invoice->gst_no,
+                'kind_attn' => $invoice->kind_attn,
+            ],
+            'pi_number' => $invoice->pi_number,
+            'date' => $invoice->invoice_date ? Carbon::parse($invoice->invoice_date)->format('d/m/Y') : $invoice->created_at?->format('d/m/Y'),
+            'po_no' => $invoice->po_no,
+            'po_date' => $invoice->po_date,
+            'period' => $invoice->period,
+            'brand_name' => $invoice->brand_name ?: $invoice->brand?->name,
+            'campaign' => $invoice->campaign,
+            'items' => $invoice->items->toArray(),
+            'subtotal' => (float) $invoice->subtotal,
+            'taxes' => $taxes,
+            'total_amount' => (float) $invoice->total_amount,
+            'amount_in_words' => $invoice->amount_in_words,
+            'stamp_path' => file_exists($stampPath) ? $stampPath : null,
+        ];
+
+        ob_start();
+        include base_path('resources/views/pdf/proforma-invoice.php');
+        $html = (string) ob_get_clean();
+
+        $tempDir = storage_path('framework/mpdf');
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $mpdf = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'margin_left' => 7,
+            'margin_right' => 7,
+            'margin_top' => 6,
+            'margin_bottom' => 6,
+            'tempDir' => $tempDir,
+        ]);
+
+        $mpdf->WriteHTML($html);
+
+        $safeNumber = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $invoice->pi_number);
+        $filename = 'PI_' . $safeNumber . '_' . time() . '.pdf';
+        $relativeFolder = 'proforma-invoices';
+        $fullDir = storage_path('app/public/' . $relativeFolder);
+
+        if (!is_dir($fullDir)) {
+            mkdir($fullDir, 0755, true);
+        }
+
+        $fullPath = $fullDir . '/' . $filename;
+        $mpdf->Output($fullPath, Destination::FILE);
+
+        $storedRelativePath = 'public/' . $relativeFolder . '/' . $filename;
+        $invoice->update(['pi_path' => $storedRelativePath]);
+
+        return $storedRelativePath;
+    }
+
+    /**
      * Calculate line items and taxes.
      */
     public function calculate(array $items, float $sgstRate = 0, float $cgstRate = 0, float $igstRate = 0): array
@@ -282,8 +457,8 @@ class ProformaInvoiceService
             $subtotal += $amount;
 
             $processedItems[] = [
-                'order_name' => trim((string) ($item['order_name'] ?? $item['order'] ?? $item['description'] ?? 'Media Display')),
-                'hsn_sac' => isset($item['hsn_sac']) ? trim((string) $item['hsn_sac']) : null,
+                'order_name' => trim((string) ($item['order_name'] ?? $item['order'] ?? $item['description'] ?? 'Towards the Cost of Display Charges')),
+                'hsn_sac' => isset($item['hsn_sac']) ? trim((string) $item['hsn_sac']) : (isset($item['hsn_code']) ? trim((string) $item['hsn_code']) : '998361'),
                 'city' => isset($item['city']) ? trim((string) $item['city']) : null,
                 'slot' => $slot,
                 'rate' => $rate,
@@ -329,24 +504,24 @@ class ProformaInvoiceService
     }
 
     /**
-     * Generate the next Proforma Invoice number.
+     * Generate the next Proforma Invoice number matching MOBI series (e.g. MOBI/26-27/001).
      */
     public function nextPiNumber(): string
     {
         try {
             $suffix = $this->financialYearSuffix();
-            $prefix = self::PI_SERIES . '/';
-            $latest = $this->proformaInvoiceRepository->latestByNumberPrefix($prefix . '%/' . $suffix);
+            $prefix = self::PI_SERIES . '/' . $suffix . '/';
+            $latest = $this->proformaInvoiceRepository->latestByNumberPrefix($prefix . '%');
             $sequence = 1;
 
-            if ($latest && preg_match('/\/(\d+)\//', (string) $latest->pi_number, $matches)) {
+            if ($latest && preg_match('/\/(\d+)$/', (string) $latest->pi_number, $matches)) {
                 $sequence = ((int) $matches[1]) + 1;
             }
 
-            return sprintf('%s/%04d/%s', self::PI_SERIES, $sequence, $suffix);
+            return sprintf('%s%03d', $prefix, $sequence);
         } catch (Throwable $e) {
             Log::error('Error generating PI number', ['exception' => $e]);
-            return sprintf('PI/%04d/%s', 1, $this->financialYearSuffix());
+            return sprintf('MOBI/%s/%03d', $this->financialYearSuffix(), 1);
         }
     }
 
@@ -363,9 +538,9 @@ class ProformaInvoiceService
     }
 
     /**
-     * Resolve server file path.
+     * Resolve server file path, regenerating PDF if missing.
      */
-    public function resolveFilePath(string $storedPath): ?string
+    public function resolveFilePath(string $storedPath, ?ProformaInvoice $invoice = null): ?string
     {
         try {
             $storedPath = ltrim(str_replace('\\', '/', $storedPath), '/');
@@ -390,6 +565,12 @@ class ProformaInvoiceService
                 if ($storageRoot && $realFile && str_starts_with($realFile, $storageRoot)) {
                     return $realFile;
                 }
+            }
+
+            // If file missing on disk but invoice available, regenerate the PDF
+            if ($invoice) {
+                $newPath = $this->generatePdf($invoice);
+                return storage_path('app/' . $newPath);
             }
 
             return null;

@@ -92,9 +92,17 @@ class ProformaInvoiceController extends Controller
             $validated = $this->validate($request, [
                 'brand_id' => 'required|integer|exists:brands,id',
                 'brand_name' => 'nullable|string|max:255',
+                'client_name' => 'nullable|string|max:255',
                 'gst_no' => 'nullable|string|max:50',
                 'gst_number' => 'nullable|string|max:50',
+                'state_code' => 'nullable|string|max:10',
                 'address' => 'nullable|string|max:1000',
+                'invoice_date' => 'nullable|date',
+                'po_no' => 'nullable|string|max:100',
+                'po_date' => 'nullable|string|max:50',
+                'period' => 'nullable|string|max:100',
+                'campaign' => 'nullable|string|max:255',
+                'kind_attn' => 'nullable|string|max:255',
                 'pi_number' => 'nullable|string|max:100|unique:proforma_invoices,pi_number',
                 'orders' => 'nullable|array|min:1',
                 'items' => 'nullable|array|min:1',
@@ -156,9 +164,17 @@ class ProformaInvoiceController extends Controller
             $validated = $this->validate($request, [
                 'brand_id' => 'nullable|integer|exists:brands,id',
                 'brand_name' => 'nullable|string|max:255',
+                'client_name' => 'nullable|string|max:255',
                 'gst_no' => 'nullable|string|max:50',
                 'gst_number' => 'nullable|string|max:50',
+                'state_code' => 'nullable|string|max:10',
                 'address' => 'nullable|string|max:1000',
+                'invoice_date' => 'nullable|date',
+                'po_no' => 'nullable|string|max:100',
+                'po_date' => 'nullable|string|max:50',
+                'period' => 'nullable|string|max:100',
+                'campaign' => 'nullable|string|max:255',
+                'kind_attn' => 'nullable|string|max:255',
                 'pi_number' => "nullable|string|max:100|unique:proforma_invoices,pi_number,{$id}",
                 'orders' => 'nullable|array',
                 'items' => 'nullable|array',
@@ -270,11 +286,12 @@ class ProformaInvoiceController extends Controller
         try {
             $invoice = $this->proformaInvoiceService->find($id);
 
-            if (!$invoice || empty($invoice->pi_path)) {
-                return $this->responseService->notFound('Proforma invoice file not found');
+            if (!$invoice) {
+                return $this->responseService->notFound('Proforma invoice not found');
             }
 
-            $fullPath = $this->proformaInvoiceService->resolveFilePath($invoice->pi_path);
+            $storedPath = (string) ($invoice->pi_path ?: '');
+            $fullPath = $this->proformaInvoiceService->resolveFilePath($storedPath, $invoice);
 
             if (!$fullPath || !file_exists($fullPath)) {
                 return $this->responseService->notFound('Proforma invoice file not found on server');
