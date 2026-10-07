@@ -150,7 +150,9 @@ class PlannerController extends Controller
     {
         try {
             $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1|max:50',
                 'limit' => 'nullable|integer|min:1|max:50',
+                'page' => 'nullable|integer|min:1',
                 'organisation_id' => 'nullable|integer|exists:organisations,id',
                 'organisation_ids' => 'nullable|array',
                 'organisation_ids.*' => 'integer|exists:organisations,id',
@@ -166,7 +168,7 @@ class PlannerController extends Controller
                 'search' => 'nullable|string|max:255',
             ]);
 
-            $limit = (int) $request->input('limit', 5);
+            $perPage = (int) ($request->input('per_page') ?? $request->input('limit') ?? 5);
             $filters = array_filter([
                 'organisation_id' => $request->input('organisation_id'),
                 'organisation_ids' => $request->input('organisation_ids'),
@@ -181,9 +183,9 @@ class PlannerController extends Controller
                 'search' => $request->input('search'),
             ], fn($value) => $value !== null && $value !== '');
 
-            $submittedPlans = $this->plannerService->getLatestSubmittedPlans($limit, $filters);
+            $submittedPlans = $this->plannerService->getSubmittedPlans($filters, $perPage);
 
-            return $this->responseService->success(
+            return $this->responseService->paginated(
                 PlannerResource::collection($submittedPlans),
                 'Latest submitted plans retrieved successfully'
             );

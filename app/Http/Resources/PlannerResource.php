@@ -19,6 +19,15 @@ class PlannerResource extends JsonResource
         return [
             // Basic Information
             'id' => $this->id,
+            'planner_id' => $this->id,
+            'planner_name' => $this->creator?->name ?? $this->brief?->assignedUser?->name ?? null,
+            'planner_user_id' => $this->creator?->id ?? $this->brief?->assign_user_id ?? null,
+            'planner' => [
+                'id' => $this->id,
+                'user_id' => $this->creator?->id ?? $this->brief?->assign_user_id ?? null,
+                'name' => $this->creator?->name ?? $this->brief?->assignedUser?->name ?? null,
+                'email' => $this->creator?->email ?? $this->brief?->assignedUser?->email ?? null,
+            ],
            // 'uuid' => $this->uuid,
             'status' => $this->status,
             'status_label' => $this->getStatusLabel(),
@@ -30,6 +39,11 @@ class PlannerResource extends JsonResource
                     'uuid' => $this->brief->uuid,
                     'name' => $this->brief->name,
                     'product_name' => $this->brief->product_name,
+                    'assigned_user' => $this->brief->assignedUser ? [
+                        'id' => $this->brief->assignedUser->id,
+                        'name' => $this->brief->assignedUser->name,
+                        'email' => $this->brief->assignedUser->email,
+                    ] : null,
                     'organisation' => $this->brief->contactPerson?->organisation ? [
                         'id' => $this->brief->contactPerson->organisation->id,
                         'name' => $this->brief->contactPerson->organisation->name,

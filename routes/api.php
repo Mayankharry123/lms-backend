@@ -223,6 +223,7 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->post('/', 'BrandController@store');
         $router->get('/list', 'BrandController@list');
         $router->get('/{id:[0-9]+}/agencies', 'BrandController@agencies');
+        $router->get('/{id:[0-9]+}/gst-address', 'BrandController@getGstAndAddress');
         $router->get('/{id:[0-9]+}', 'BrandController@show');      
         $router->put('/{id:[0-9]+}', 'BrandController@update');     
         $router->patch('/{id:[0-9]+}', 'BrandController@update'); 

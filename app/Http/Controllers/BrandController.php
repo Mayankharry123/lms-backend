@@ -521,4 +521,30 @@ class BrandController extends Controller
             return $this->responseService->handleException($e);
         }
     }
+
+    /**
+     * Get GST number and address details by Brand ID.
+     *
+     * GET /brands/{id}/gst-address
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function getGstAndAddress(int $id): JsonResponse
+    {
+        try {
+            $details = $this->brandService->getBrandBillingDetails($id);
+
+            if (!$details) {
+                return $this->responseService->notFound('Brand not found');
+            }
+
+            return $this->responseService->success(
+                $details,
+                'Brand GST and address details retrieved successfully'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
 }
