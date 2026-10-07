@@ -15,6 +15,7 @@ class VoucherItem extends BaseModel
         'particular',
         'purpose',
         'mode',
+        'payment_mode_type_id',
         'amount',
         'status',
     ];
@@ -25,6 +26,7 @@ class VoucherItem extends BaseModel
      * @var array<string, string>
      */
     protected $casts = [
+        'payment_mode_type_id' => 'integer',
         'date' => 'date',
         'amount' => 'float',
         'created_at' => 'datetime',
@@ -38,5 +40,13 @@ class VoucherItem extends BaseModel
     public function voucher(): BelongsTo
     {
         return $this->belongsTo(Voucher::class, 'voucher_id');
+    }
+
+    /**
+     * Get the payment mode type for this item.
+     */
+    public function paymentModeType(): BelongsTo
+    {
+        return $this->belongsTo(PaymentModeType::class, 'payment_mode_type_id');
     }
 }

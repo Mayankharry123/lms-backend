@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\Repositories\PaymentModeTypeRepositoryInterface;
 use App\Contracts\Repositories\VoucherRepositoryInterface;
 use App\Contracts\Repositories\VoucherTypeRepositoryInterface;
 use App\Models\Voucher;
@@ -21,13 +22,16 @@ class VoucherService
 
     protected VoucherRepositoryInterface $voucherRepository;
     protected VoucherTypeRepositoryInterface $voucherTypeRepository;
+    protected PaymentModeTypeRepositoryInterface $paymentModeTypeRepository;
 
     public function __construct(
         VoucherRepositoryInterface $voucherRepository,
-        VoucherTypeRepositoryInterface $voucherTypeRepository
+        VoucherTypeRepositoryInterface $voucherTypeRepository,
+        PaymentModeTypeRepositoryInterface $paymentModeTypeRepository
     ) {
         $this->voucherRepository = $voucherRepository;
         $this->voucherTypeRepository = $voucherTypeRepository;
+        $this->paymentModeTypeRepository = $paymentModeTypeRepository;
     }
 
     /**
@@ -134,7 +138,7 @@ class VoucherService
             $voucher = $this->voucherRepository->create($headerData);
             $this->voucherRepository->createItems($voucher, $calculated['items']);
 
-            return $voucher->fresh(['voucherType', 'creator', 'items']);
+            return $voucher->fresh(['voucherType', 'creator', 'items.paymentModeType']);
         } catch (DomainException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -213,6 +217,7 @@ class VoucherService
                             'particular' => $it->particular,
                             'purpose' => $it->purpose,
                             'mode' => $it->mode,
+                            'payment_mode_type_id' => $it->payment_mode_type_id,
                             'amount' => $it->amount,
                         ];
                     })->toArray();
@@ -241,7 +246,7 @@ class VoucherService
             }
 
             $updated = $this->voucherRepository->update($id, $updateData);
-            return $updated ?: $voucher->fresh(['voucherType', 'creator', 'items']);
+            return $updated ?: $voucher->fresh(['voucherType', 'creator', 'items.paymentModeType']);
         } catch (DomainException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -314,11 +319,31 @@ class VoucherService
             $amount = (float) ($item['amount'] ?? 0);
             $subtotal += $amount;
 
+            $paymentModeTypeId = !empty($item['payment_mode_type_id']) ? (int) $item['payment_mode_type_id'] : null;
+            $mode = null;
+
+            if ($paymentModeTypeId) {
+                $pm = $this->paymentModeTypeRepository->getById($paymentModeTypeId);
+                if ($pm) {
+                    $mode = $pm->name;
+                }
+            } elseif (!empty($item['mode'])) {
+                $rawMode = trim((string) $item['mode']);
+                $pm = $this->paymentModeTypeRepository->getBySlug(Str::slug($rawMode));
+                if ($pm) {
+                    $paymentModeTypeId = $pm->id;
+                    $mode = $pm->name;
+                } else {
+                    $mode = $rawMode;
+                }
+            }
+
             $processedItems[] = [
                 'date' => !empty($item['date']) ? Carbon::parse($item['date'])->format('Y-m-d') : null,
                 'particular' => trim((string) ($item['particular'] ?? $item['order'] ?? $item['description'] ?? '')),
                 'purpose' => isset($item['purpose']) ? trim((string) $item['purpose']) : null,
-                'mode' => isset($item['mode']) ? trim((string) $item['mode']) : null,
+                'mode' => $mode,
+                'payment_mode_type_id' => $paymentModeTypeId,
                 'amount' => $amount,
                 'status' => '1',
             ];

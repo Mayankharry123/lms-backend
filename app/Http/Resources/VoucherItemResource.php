@@ -23,6 +23,11 @@ class VoucherItemResource extends JsonResource
             'particular' => $this->particular,
             'purpose' => $this->purpose,
             'mode' => $this->mode,
+            'payment_mode_type_id' => $this->payment_mode_type_id ? (int) $this->payment_mode_type_id : null,
+            'payment_mode_type' => $this->relationLoaded('paymentModeType') && $this->paymentModeType ? [
+                'id' => (int) $this->paymentModeType->id,
+                'name' => (string) $this->paymentModeType->name,
+            ] : null,
             'amount' => (float) $this->amount,
             'status' => $this->status,
             'created_at' => $this->created_at instanceof \DateTimeInterface ? $this->created_at->format('Y-m-d H:i:s A') : ($this->created_at ? (string) $this->created_at : null),

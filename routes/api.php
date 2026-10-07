@@ -692,6 +692,13 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('{id:[0-9]+}/download', 'VoucherController@download');
     });
 
+    // Payment Mode Types routes
+    $router->group(['prefix' => 'payment-mode-types'], function () use ($router) {
+        $router->get('/', 'PaymentModeTypeController@index');
+        $router->get('list', 'PaymentModeTypeController@list');
+        $router->get('{id:[0-9]+}', 'PaymentModeTypeController@show');
+    });
+
     // Planner Statuses routes
     $router->group(['prefix' => 'planner-statuses'], function () use ($router) {
         // List and filter routes first (specific routes before generic {id})

@@ -48,6 +48,7 @@ class DatabaseSeeder extends Seeder
             FinanceStatusSeeder::class,
             CostSheetStatusSeeder::class,
             VoucherTypeSeeder::class,
+            PaymentModeTypeSeeder::class,
         ]);
         
         // Re-enable foreign key checks

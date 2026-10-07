@@ -147,6 +147,9 @@ use App\Repositories\VoucherTypeRepository;
 use App\Contracts\Repositories\VoucherRepositoryInterface;
 use App\Repositories\VoucherRepository;
 
+use App\Contracts\Repositories\PaymentModeTypeRepositoryInterface;
+use App\Repositories\PaymentModeTypeRepository;
+
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use App\Repositories\UserParentRepository;
 
@@ -417,6 +420,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             VoucherRepositoryInterface::class,
             VoucherRepository::class
+        );
+
+        $this->app->bind(
+            PaymentModeTypeRepositoryInterface::class,
+            PaymentModeTypeRepository::class
         );
     }
     /**

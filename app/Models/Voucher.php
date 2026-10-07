@@ -83,7 +83,7 @@ class Voucher extends BaseModel
     public function paginateForList(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         $query = $this->newQuery()
-            ->with(['voucherType', 'creator', 'items'])
+            ->with(['voucherType', 'creator', 'items.paymentModeType'])
             ->whereNull('vouchers.deleted_at')
             ->where('vouchers.status', '!=', '15');
 
@@ -140,7 +140,7 @@ class Voucher extends BaseModel
     public function findForDetail(int $id): ?self
     {
         return $this->newQuery()
-            ->with(['voucherType', 'creator', 'items'])
+            ->with(['voucherType', 'creator', 'items.paymentModeType'])
             ->whereNull('deleted_at')
             ->find($id);
     }
@@ -209,6 +209,7 @@ class Voucher extends BaseModel
                 'particular' => (string) ($item['particular'] ?? ''),
                 'purpose' => isset($item['purpose']) ? (string) $item['purpose'] : null,
                 'mode' => isset($item['mode']) ? (string) $item['mode'] : null,
+                'payment_mode_type_id' => !empty($item['payment_mode_type_id']) ? (int) $item['payment_mode_type_id'] : null,
                 'amount' => (float) ($item['amount'] ?? 0),
                 'status' => '1',
             ]);
