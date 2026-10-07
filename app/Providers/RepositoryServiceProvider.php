@@ -141,6 +141,12 @@ use App\Repositories\PurchaseOrderRepository;
 use App\Contracts\Repositories\ProformaInvoiceRepositoryInterface;
 use App\Repositories\ProformaInvoiceRepository;
 
+use App\Contracts\Repositories\VoucherTypeRepositoryInterface;
+use App\Repositories\VoucherTypeRepository;
+
+use App\Contracts\Repositories\VoucherRepositoryInterface;
+use App\Repositories\VoucherRepository;
+
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use App\Repositories\UserParentRepository;
 
@@ -401,6 +407,16 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             LeadTypeRepositoryInterface::class,
             LeadTypeRepository::class
+        );
+
+        $this->app->bind(
+            VoucherTypeRepositoryInterface::class,
+            VoucherTypeRepository::class
+        );
+
+        $this->app->bind(
+            VoucherRepositoryInterface::class,
+            VoucherRepository::class
         );
     }
     /**

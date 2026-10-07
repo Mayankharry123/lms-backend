@@ -672,6 +672,26 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->delete('{id:[0-9]+}', 'CostSheetStatusController@destroy');
     });
 
+    // Voucher Types routes
+    $router->group(['prefix' => 'voucher-types'], function () use ($router) {
+        $router->get('/', 'VoucherTypeController@index');
+        $router->get('list', 'VoucherTypeController@list');
+        $router->get('{id:[0-9]+}', 'VoucherTypeController@show');
+        $router->get('{id:[0-9]+}/download-sample', 'VoucherTypeController@downloadSampleExcel');
+    });
+
+    // Vouchers routes
+    $router->group(['prefix' => 'vouchers'], function () use ($router) {
+        $router->get('/', 'VoucherController@index');
+        $router->post('/', 'VoucherController@store');
+        $router->get('{id:[0-9]+}', 'VoucherController@show');
+        $router->put('{id:[0-9]+}', 'VoucherController@update');
+        $router->post('{id:[0-9]+}', 'VoucherController@update');
+        $router->delete('{id:[0-9]+}', 'VoucherController@destroy');
+        $router->post('{id:[0-9]+}/upload-file', 'VoucherController@uploadFile');
+        $router->get('{id:[0-9]+}/download', 'VoucherController@download');
+    });
+
     // Planner Statuses routes
     $router->group(['prefix' => 'planner-statuses'], function () use ($router) {
         // List and filter routes first (specific routes before generic {id})
