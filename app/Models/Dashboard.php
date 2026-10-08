@@ -104,11 +104,20 @@ class Dashboard extends Model
         DashboardFilters::applyBriefDashboardFilters($briefQuery, $filters, 'briefs');
 
         return [
+            'total_brief' => (int) (clone $briefQuery)->count(),
             'active_briefs' => (int) (clone $briefQuery)->whereDate('submission_date', '>=', now())->count(),
             'closed_briefs' => (int) (clone $briefQuery)->whereHas('briefStatus', function ($query) {
                 $query->where('slug', 'closed');
             })->count(),
-            'overdue_briefs' => (int) (clone $briefQuery)->where('submission_date', '<', now())->count(),
+            'overdue_briefs' => (int) (clone $briefQuery)
+                ->whereNotNull('submission_date')
+                ->where('submission_date', '<', now())
+                ->whereDoesntHave('planners', function ($query) {
+                    $query->whereNull('deleted_at')
+                        ->where('status', '!=', '15')
+                        ->whereNotNull('planner_status_id');
+                })
+                ->count(),
         ];
     }
 

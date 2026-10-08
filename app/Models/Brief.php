@@ -385,11 +385,20 @@ class Brief extends Model
         $this->applyOrganisationValidation($baseQuery, Auth::user());
         \App\Support\DashboardFilters::applyBriefDashboardFilters($baseQuery, $filters, 'briefs');
 
+        $totalBriefs = (clone $baseQuery)->count();
         $activeBriefs = (clone $baseQuery)->whereDate('submission_date', '>=', now())->count();
         $closedBriefs = (clone $baseQuery)->whereHas('briefStatus', function ($query) {
             $query->where('slug', 'closed');
         })->count();
-        $overdueTime = (clone $baseQuery)->where('submission_date', '<', now())->count();
+        $overdueTime = (clone $baseQuery)
+            ->whereNotNull('submission_date')
+            ->where('submission_date', '<', now())
+            ->whereDoesntHave('planners', function ($query) {
+                $query->whereNull('deleted_at')
+                    ->where('status', '!=', '15')
+                    ->whereNotNull('planner_status_id');
+            })
+            ->count();
         $averagePlanningTime = (clone $baseQuery)
             ->selectRaw('AVG(DATEDIFF(submission_date, created_at)) as avg_days')
             ->value('avg_days');
@@ -398,6 +407,7 @@ class Brief extends Model
         $plannerSummary = Planner::getSummaryForBriefIds($briefIds);
 
         return [
+            'total_brief' => $totalBriefs,
             'active_briefs' => $activeBriefs,
             'closed_briefs' => $closedBriefs,
             'overdue_briefs' => $overdueTime ?? 0,
