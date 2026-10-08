@@ -23,4 +23,14 @@ class PlannerStatus extends BaseModel
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+
+    /**
+     * Find the Plan Approved status by slug or name.
+     */
+    public static function findPlanApproved(): ?self
+    {
+        return static::where('slug', 'plan-approved')
+            ->orWhere('name', 'Plan Approved')
+            ->first();
+    }
 }

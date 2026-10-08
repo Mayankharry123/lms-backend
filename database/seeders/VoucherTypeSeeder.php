@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * VoucherTypeSeeder
+ * ------------------
+ * 
+ * @package Database\Seeders
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-03
+ */
+
 namespace Database\Seeders;
 
 use Carbon\Carbon;

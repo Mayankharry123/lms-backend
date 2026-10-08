@@ -649,6 +649,18 @@ class Brief extends Model
         return $this->hasMany(Planner::class, 'brief_id');
     }
 
+    /**
+     * Get active planners for this brief (excluding deleted/status 15).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getActivePlanners()
+    {
+        return $this->planners()
+            ->where('status', '!=', '15')
+            ->get();
+    }
+
     public function isApproved(): bool
     {
         $status = $this->relationLoaded('briefStatus')

@@ -17,10 +17,8 @@ use App\Http\Resources\OperationHistoryResource;
 use App\Services\OperationHistoryService;
 use App\Services\ResponseService;
 use App\Traits\ValidatesRequests;
-use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class OperationHistoryController extends Controller
@@ -75,10 +73,6 @@ class OperationHistoryController extends Controller
                 OperationHistoryResource::collection($histories),
                 'Operation histories retrieved successfully'
             );
-        } catch (ValidationException $e) {
-            return $this->responseService->validationError($e->errors(), 'Validation failed');
-        } catch (DomainException $e) {
-            return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }
@@ -104,10 +98,6 @@ class OperationHistoryController extends Controller
                 OperationHistoryResource::collection($histories),
                 'Operation histories retrieved successfully'
             );
-        } catch (ValidationException $e) {
-            return $this->responseService->validationError($e->errors(), 'Validation failed');
-        } catch (DomainException $e) {
-            return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }

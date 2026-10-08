@@ -17,6 +17,7 @@ use App\Models\Operation;
 use App\Models\OperationHistory;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class OperationObserver
 {
@@ -26,7 +27,7 @@ class OperationObserver
     public function created(Operation $operation): void
     {
         try {
-            $this->saveHistory($operation, 'created');
+        $this->saveHistory($operation, 'created');
         } catch (\Throwable $e) {
             Log::error('Failed to save operation history on created: ' . $e->getMessage());
         }
@@ -38,9 +39,9 @@ class OperationObserver
     public function updated(Operation $operation): void
     {
         try {
-            if ($operation->wasChanged(['operation_status_id', 'assign_to', 'assign_by', 'status']) || !empty($operation->history_comment)) {
-                $this->saveHistory($operation, 'updated');
-            }
+        if ($operation->wasChanged(['operation_status_id', 'assign_to', 'assign_by', 'status']) || !empty($operation->history_comment)) {
+            $this->saveHistory($operation, 'updated');
+        }
         } catch (\Throwable $e) {
             Log::error('Failed to save operation history on updated: ' . $e->getMessage());
         }
@@ -52,7 +53,7 @@ class OperationObserver
     public function deleted(Operation $operation): void
     {
         try {
-            $this->saveHistory($operation, 'deleted');
+        $this->saveHistory($operation, 'deleted');
         } catch (\Throwable $e) {
             Log::error('Failed to save operation history on deleted: ' . $e->getMessage());
         }
@@ -63,29 +64,37 @@ class OperationObserver
      */
     private function saveHistory(Operation $operation, string $action): void
     {
-        $comment = $operation->history_comment ?? null;
-        if (!$comment) {
-            if ($action === 'created') {
-                $comment = 'Operation created';
-            } elseif ($action === 'deleted') {
-                $comment = 'Operation deleted';
+        try {
+            $comment = $operation->history_comment ?? null;
+            if (!$comment) {
+                if ($action === 'created') {
+                    $comment = 'Operation created';
+                } elseif ($action === 'deleted') {
+                    $comment = 'Operation deleted';
+                }
             }
+
+            OperationHistory::create([
+                'operation_id' => $operation->id,
+                'brief_id' => $operation->brief_id,
+                'planner_id' => $operation->planner_id,
+                'operation_status_id' => $operation->operation_status_id,
+                'assign_by' => $operation->assign_by ?? (Auth::id() ? (int) Auth::id() : null),
+                'assign_to' => $operation->assign_to,
+                'comment' => $comment,
+                'status' => $action === 'deleted' ? '15' : ($operation->status ?? '1'),
+            ]);
+
+            Log::info("Operation history saved for action: {$action}", [
+                'operation_id' => $operation->id,
+                'action' => $action,
+            ]);
+        } catch (Throwable $e) {
+            Log::error("Failed to save operation history for action {$action}: " . $e->getMessage(), [
+                'operation_id' => $operation->id,
+                'action' => $action,
+                'exception' => $e,
+            ]);
         }
-
-        OperationHistory::create([
-            'operation_id' => $operation->id,
-            'brief_id' => $operation->brief_id,
-            'planner_id' => $operation->planner_id,
-            'operation_status_id' => $operation->operation_status_id,
-            'assign_by' => $operation->assign_by ?? (Auth::id() ? (int) Auth::id() : null),
-            'assign_to' => $operation->assign_to,
-            'comment' => $comment,
-            'status' => $action === 'deleted' ? '15' : ($operation->status ?? '1'),
-        ]);
-
-        Log::info("Operation history saved for action: {$action}", [
-            'operation_id' => $operation->id,
-            'action' => $action,
-        ]);
     }
 }

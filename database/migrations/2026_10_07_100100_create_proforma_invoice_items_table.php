@@ -1,5 +1,14 @@
 <?php
 
+/**
+ * CreateProformaInvoiceItemsTable
+ * 
+ * @package Database\Migrations
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-08
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

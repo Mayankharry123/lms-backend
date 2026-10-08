@@ -607,9 +607,7 @@ class BriefService
                 return;
             }
 
-            $planApprovedStatus = PlannerStatus::where('slug', 'plan-approved')
-                ->orWhere('name', 'Plan Approved')
-                ->first();
+            $planApprovedStatus = PlannerStatus::findPlanApproved();
 
             if (!$planApprovedStatus) {
                 Log::warning('PlannerStatus "Plan Approved" not found during brief approval sync.', [
@@ -618,9 +616,7 @@ class BriefService
                 return;
             }
 
-            $planners = Planner::where('brief_id', $brief->id)
-                ->where('status', '!=', '15')
-                ->get();
+            $planners = $brief->getActivePlanners();
 
             if ($planners->isEmpty()) {
                 Log::info('No active planner found to auto-approve for brief: ' . $brief->id);

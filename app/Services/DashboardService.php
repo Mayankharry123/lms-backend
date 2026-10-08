@@ -453,27 +453,35 @@ class DashboardService
      */
     private function buildScopedOrganisationRows(array $filters, $user, callable $rowBuilder): array
     {
-        if (
-            empty($filters['organisation_ids'])
-            && empty(UserAccessScope::getAccessibleOrganisationIds($user))
-        ) {
-            return [$rowBuilder($filters, 0, 'My Data')];
-        }
+        try {
+            if (
+                empty($filters['organisation_ids'])
+                && empty(UserAccessScope::getAccessibleOrganisationIds($user))
+            ) {
+                return [$rowBuilder($filters, 0, 'My Data')];
+            }
 
-        $organisations = $this->dashboardRepository->getAccessibleOrganisations($filters, $user);
-        $rows = [];
+            $organisations = $this->dashboardRepository->getAccessibleOrganisations($filters, $user);
+            $rows = [];
 
-        foreach ($organisations as $organisation) {
-            $organisationFilter = array_merge($filters, [
-                'organisation_ids' => [(int) $organisation->id],
+            foreach ($organisations as $organisation) {
+                $organisationFilter = array_merge($filters, [
+                    'organisation_ids' => [(int) $organisation->id],
+                ]);
+                $rows[] = $rowBuilder($organisationFilter, (int) $organisation->id, (string) $organisation->name);
+            }
+
+            if ($rows === [] && empty(UserAccessScope::getAccessibleOrganisationIds($user))) {
+                return [$rowBuilder($filters, 0, 'My Data')];
+            }
+
+            return $rows;
+        } catch (Exception $e) {
+            Log::error('Error building scoped organisation rows', [
+                'exception' => $e,
+                'filters' => $filters,
             ]);
-            $rows[] = $rowBuilder($organisationFilter, (int) $organisation->id, (string) $organisation->name);
+            throw new Exception('Unable to build scoped organisation rows: ' . $e->getMessage());
         }
-
-        if ($rows === [] && empty(UserAccessScope::getAccessibleOrganisationIds($user))) {
-            return [$rowBuilder($filters, 0, 'My Data')];
-        }
-
-        return $rows;
     }
 }

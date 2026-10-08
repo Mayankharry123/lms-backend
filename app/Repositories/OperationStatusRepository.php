@@ -3,10 +3,9 @@
 /**
  * OperationStatus Repository
  * -----------------------------------------
- * Implements the OperationStatus repository interface, providing data access for operation statuses.
+ * Implements the OperationStatus repository interface, delegating data access to OperationStatus model.
  *
  * @package App\Repositories
- * @author Achal Sharma
  * @version 1.0.0
  * @since 2026-10-03
  */
@@ -28,83 +27,46 @@ class OperationStatusRepository implements OperationStatusRepositoryInterface
 
     public function all(int $perPage = 15): LengthAwarePaginator
     {
-        return $this->model->latest()->paginate($perPage);
+        return $this->model->paginateAll($perPage);
     }
 
     public function find(int $id): ?OperationStatus
     {
-        return $this->model->find($id);
+        return $this->model->findById($id);
     }
 
     public function findByUuid(string $uuid): ?OperationStatus
     {
-        return $this->model->where('uuid', $uuid)->first();
+        return $this->model->findByUuid($uuid);
     }
 
     public function findByName(string $name): ?OperationStatus
     {
-        return $this->model->where('name', $name)->first();
+        return $this->model->findByName($name);
     }
 
     public function findBySlug(string $slug): ?OperationStatus
     {
-        return $this->model->where('slug', $slug)->first();
+        return $this->model->findBySlug($slug);
     }
 
     public function create(array $data): OperationStatus
     {
-        return $this->model->create($data);
+        return $this->model->storeRecord($data);
     }
 
     public function update(int $id, array $data): bool
     {
-        $operationStatus = $this->model->find($id);
-
-        if (!$operationStatus) {
-            return false;
-        }
-
-        return (bool) $operationStatus->update($data);
+        return $this->model->updateById($id, $data);
     }
 
     public function delete(int $id): bool
     {
-        $operationStatus = $this->model->find($id);
-
-        if (!$operationStatus) {
-            return false;
-        }
-
-        $operationStatus->status = '15';
-        $operationStatus->save();
-
-        return (bool) $operationStatus->delete();
+        return $this->model->softDeleteById($id);
     }
 
     public function search(array $criteria, int $perPage = 15): LengthAwarePaginator
     {
-        $query = $this->model->newQuery();
-
-        if (!empty($criteria['q'])) {
-            $q = $criteria['q'];
-            $query->where(function ($sub) use ($q) {
-                $sub->where('name', 'like', "%{$q}%")
-                    ->orWhere('slug', 'like', "%{$q}%");
-            });
-        }
-
-        if (!empty($criteria['name'])) {
-            $query->where('name', 'like', "%{$criteria['name']}%");
-        }
-
-        if (!empty($criteria['slug'])) {
-            $query->where('slug', $criteria['slug']);
-        }
-
-        if (isset($criteria['status'])) {
-            $query->where('status', $criteria['status']);
-        }
-
-        return $query->orderBy('id', 'asc')->paginate($perPage);
+        return $this->model->searchRecords($criteria, $perPage);
     }
 }
