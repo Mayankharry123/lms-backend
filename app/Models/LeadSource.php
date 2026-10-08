@@ -27,4 +27,9 @@ class LeadSource extends Model
     protected $casts = [
         'deleted_at' => 'datetime',
     ];
+
+    public function leads()
+    {
+        return $this->hasMany(Lead::class, 'source_id');
+    }
 }

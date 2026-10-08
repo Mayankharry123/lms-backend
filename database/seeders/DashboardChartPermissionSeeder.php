@@ -72,6 +72,8 @@ class DashboardChartPermissionSeeder extends Seeder
             ['name' => 'dashboard.charts.brief-budget', 'display_name' => 'Dashboard – Brief Budget Chart', 'description' => 'View brief budget chart', 'order' => 24],
             ['name' => 'dashboard.charts.pipeline', 'display_name' => 'Dashboard – Sales Pipeline Chart', 'description' => 'View sales pipeline chart', 'order' => 25],
             ['name' => 'dashboard.charts.brief-status', 'display_name' => 'Dashboard – Brief Status Chart', 'description' => 'View brief status chart', 'order' => 26],
+            ['name' => 'dashboard.operations', 'display_name' => 'Dashboard – Operations Tab', 'description' => 'View operations dashboard tab', 'order' => 27],
+            ['name' => 'dashboard.finance', 'display_name' => 'Dashboard – Finance Tab', 'description' => 'View finance dashboard tab', 'order' => 28],
         ];
 
         $permissionIds = [];
@@ -120,6 +122,30 @@ class DashboardChartPermissionSeeder extends Seeder
             }
 
             foreach ($permissionIds as $permissionId) {
+                DB::table('permission_role')->updateOrInsert(
+                    ['permission_id' => $permissionId, 'role_id' => $roleId],
+                    ['created_at' => $now, 'updated_at' => $now]
+                );
+            }
+        }
+
+        $overviewPermissionId = DB::table('permissions')->where('name', 'dashboard.overview')->value('id');
+        $dashboardRoleIds = $overviewPermissionId
+            ? DB::table('permission_role')->where('permission_id', $overviewPermissionId)->pluck('role_id')
+            : collect();
+
+        foreach (['Super Admin', 'admin', 'manager'] as $roleName) {
+            if (!empty($roleIds[$roleName])) {
+                $dashboardRoleIds->push($roleIds[$roleName]);
+            }
+        }
+
+        $operationsFinanceIds = DB::table('permissions')
+            ->whereIn('name', ['dashboard.operations', 'dashboard.finance'])
+            ->pluck('id');
+
+        foreach ($dashboardRoleIds->unique() as $roleId) {
+            foreach ($operationsFinanceIds as $permissionId) {
                 DB::table('permission_role')->updateOrInsert(
                     ['permission_id' => $permissionId, 'role_id' => $roleId],
                     ['created_at' => $now, 'updated_at' => $now]

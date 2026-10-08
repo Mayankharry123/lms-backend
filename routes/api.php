@@ -90,6 +90,8 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('child-users-by-miss-campaign/{campaignId:[0-9]+}', 'Api\UserController@getChildUsersByMissCampaign');
         $router->get('child-users-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildUsersByBrief');
         $router->get('child-planners-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildPlannersByBrief');
+        $router->get('child-ops-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildOpsByBrief');
+        $router->get('child-finance-by-brief/{briefId:[0-9]+}', 'Api\UserController@getChildFinanceByBrief');
         $router->get('child-planners-by-lead/{leadId:[0-9]+}', 'Api\UserController@getChildPlannersByLead');
     });
 
@@ -522,11 +524,15 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
     $router->group(['prefix' => 'planners'], function () use ($router) {
         // List and filter routes first (specific routes before generic {id})
         $router->get('/', 'PlannerController@index');
+        $router->get('submitted-plans/latest-five', 'PlannerController@getLatestFiveSubmittedPlans');
+        $router->get('submitted-plans/latest', 'PlannerController@getLatestFiveSubmittedPlans');
+        $router->get('submitted-plans', 'PlannerController@getSubmittedPlans');
         $router->post('/', 'PlannerController@store');
         
         // Additional Planner routes (specific routes BEFORE generic CRUD)
         $router->post('{id:[0-9]+}/upload-submitted-plans', 'PlannerController@uploadSubmittedPlans');
         $router->post('{id:[0-9]+}/upload-backup-plan', 'PlannerController@uploadBackupPlan');
+        $router->post('{plannerId:[0-9]+}/upload-cost-sheet', 'FinanceRecordController@uploadCostSheet');
         $router->put('{id:[0-9]+}/update-status', 'PlannerController@updateStatus');
         
         // Generic CRUD operations
@@ -535,6 +541,11 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->patch('{id:[0-9]+}', 'PlannerController@update');
         $router->delete('{id:[0-9]+}', 'PlannerController@destroy');
     });
+
+    // Standalone aliases: /api/v1/submitted-plans
+    $router->get('submitted-plans/latest-five', 'PlannerController@getLatestFiveSubmittedPlans');
+    $router->get('submitted-plans/latest', 'PlannerController@getLatestFiveSubmittedPlans');
+    $router->get('submitted-plans', 'PlannerController@getSubmittedPlans');
 
     // Planners by brief (e.g., /api/v1/briefs/1/planners)
     $router->group(['prefix' => 'briefs'], function () use ($router) {
@@ -557,6 +568,90 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         
         // Get histories by status
         $router->get('status/{status}', 'PlannerHistoryController@getByStatus');
+    });
+
+    // Operations routes
+    $router->group(['prefix' => 'operations'], function () use ($router) {
+        $router->get('/', 'OperationController@index');
+        $router->get('{id:[0-9]+}/backup-plan', 'OperationController@downloadBackupPlan');
+        $router->put('{id:[0-9]+}/update-assign-user', 'OperationController@updateAssignUser');
+        $router->post('{id:[0-9]+}/update-assign-user', 'OperationController@updateAssignUser');
+        $router->get('{id:[0-9]+}/histories', 'OperationController@getHistories');
+        $router->get('{id:[0-9]+}', 'OperationController@show');
+        $router->post('{id:[0-9]+}', 'OperationController@updateStatus');
+        $router->put('{id:[0-9]+}', 'OperationController@updateStatus');
+        $router->delete('{id:[0-9]+}', 'OperationController@destroy');
+    });
+
+    // Operation Histories routes
+    $router->group(['prefix' => 'operation-histories'], function () use ($router) {
+        $router->get('/', 'OperationHistoryController@index');
+        $router->get('operation/{operationId:[0-9]+}', 'OperationHistoryController@getOperationHistories');
+        $router->get('{id:[0-9]+}', 'OperationHistoryController@show');
+    });
+
+    // Operation Statuses routes
+    $router->group(['prefix' => 'operation-statuses'], function () use ($router) {
+        $router->get('/', 'OperationStatusController@index');
+        $router->post('/', 'OperationStatusController@store');
+        $router->get('{id:[0-9]+}', 'OperationStatusController@show');
+        $router->put('{id:[0-9]+}', 'OperationStatusController@update');
+        $router->patch('{id:[0-9]+}', 'OperationStatusController@update');
+        $router->delete('{id:[0-9]+}', 'OperationStatusController@destroy');
+    });
+
+    // Finance Records routes
+    $router->group(['prefix' => 'finance-records'], function () use ($router) {
+        $router->get('/', 'FinanceRecordController@index');
+        $router->put('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->post('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->get('{id:[0-9]+}/histories', 'FinanceRecordController@getHistories');
+        $router->get('{id:[0-9]+}', 'FinanceRecordController@show');
+    });
+
+    // Cost Sheets routes
+    $router->group(['prefix' => 'cost-sheets'], function () use ($router) {
+        $router->get('/', 'FinanceRecordController@costSheets');
+        $router->post('{id:[0-9]+}/update-finance-status', 'FinanceRecordController@updateFinanceStatus');
+        $router->put('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->post('{id:[0-9]+}/update-assign-user', 'FinanceRecordController@updateAssignUser');
+        $router->get('{id:[0-9]+}/histories', 'FinanceRecordController@getHistories');
+        $router->get('{id:[0-9]+}', 'FinanceRecordController@showCostSheet');
+        $router->put('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
+        $router->post('{id:[0-9]+}', 'FinanceRecordController@updateCostSheet');
+        $router->delete('{id:[0-9]+}', 'FinanceRecordController@deleteCostSheet');
+    });
+
+    // Finance Record Histories routes
+    $router->group(['prefix' => 'finance-record-histories'], function () use ($router) {
+        $router->get('/', 'FinanceRecordHistoryController@index');
+        $router->get('finance-record/{financeRecordId:[0-9]+}', 'FinanceRecordHistoryController@getByFinanceRecord');
+        $router->get('{id:[0-9]+}', 'FinanceRecordHistoryController@show');
+    });
+
+    // Purchase Orders
+    $router->group(['prefix' => 'purchase-orders'], function () use ($router) {
+        $router->get('/', 'PurchaseOrderController@index');
+        $router->get('{id:[0-9]+}', 'PurchaseOrderController@show');
+        $router->post('/', 'PurchaseOrderController@store');
+    });
+
+    // Finance Statuses routes
+    $router->group(['prefix' => 'finance-statuses'], function () use ($router) {
+        $router->get('/', 'FinanceStatusController@index');
+        $router->post('/', 'FinanceStatusController@store');
+        $router->get('{id:[0-9]+}', 'FinanceStatusController@show');
+        $router->put('{id:[0-9]+}', 'FinanceStatusController@update');
+        $router->delete('{id:[0-9]+}', 'FinanceStatusController@destroy');
+    });
+
+    // Cost Sheet Statuses routes
+    $router->group(['prefix' => 'cost-sheet-statuses'], function () use ($router) {
+        $router->get('/', 'CostSheetStatusController@index');
+        $router->post('/', 'CostSheetStatusController@store');
+        $router->get('{id:[0-9]+}', 'CostSheetStatusController@show');
+        $router->put('{id:[0-9]+}', 'CostSheetStatusController@update');
+        $router->delete('{id:[0-9]+}', 'CostSheetStatusController@destroy');
     });
 
     // Planner Statuses routes
@@ -583,6 +678,8 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('/charts', 'Api\DashboardController@getCharts');
         $router->get('/sales-charts', 'Api\DashboardController@getSalesCharts');
         $router->get('/planner-charts', 'Api\DashboardController@getPlannerCharts');
+        $router->get('/operations-charts', 'Api\DashboardController@getOperationsCharts');
+        $router->get('/finance-charts', 'Api\DashboardController@getFinanceCharts');
     });
 
     // Activity Log routes

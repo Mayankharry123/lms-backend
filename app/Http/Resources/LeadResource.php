@@ -141,6 +141,13 @@ class LeadResource extends JsonResource
                 ];
             }),
 
+            'source' => $this->whenLoaded('source', function () {
+                return [
+                    'id' => $this->source->id ?? null,
+                    'name' => $this->source->name ?? null,
+                ];
+            }),
+
             'sub_source' => $this->whenLoaded('subSource', function () {
                 return [
                     'id' => $this->subSource->id ?? null,

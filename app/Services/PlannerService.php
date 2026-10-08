@@ -9,6 +9,7 @@ use App\Traits\HandlesFileUploads;
 use DomainException;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -24,15 +25,18 @@ class PlannerService
      * @var PlannerRepository
      */
     protected PlannerRepository $plannerRepository;
+    protected OperationService $operationService;
 
     /**
      * Create a new PlannerService instance.
      *
      * @param PlannerRepository $plannerRepository
+     * @param OperationService $operationService
      */
-    public function __construct(PlannerRepository $plannerRepository)
+    public function __construct(PlannerRepository $plannerRepository, OperationService $operationService)
     {
         $this->plannerRepository = $plannerRepository;
+        $this->operationService = $operationService;
     }
 
     /**
@@ -53,6 +57,54 @@ class PlannerService
         } catch (Exception $e) {
             Log::error('Unexpected error fetching planners by filters', ['exception' => $e, 'filters' => $filters]);
             throw new DomainException('Unexpected error while fetching planners.');
+        }
+    }
+    
+    /**
+     * Get submitted plans with organisation, department, and custom filters.
+     *
+     * @author Achal Sharma
+     * @version 1.0.0
+     * @since 2026-10-06
+     * @param array $filters
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     * @throws DomainException
+     */
+    public function getSubmittedPlans(array $filters = [], int $perPage = 5): LengthAwarePaginator
+    {
+        try {
+            return $this->plannerRepository->getSubmittedPlans($perPage, $filters);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Database error while fetching submitted plans.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Unexpected error while fetching submitted plans.');
+        }
+    }
+
+    /**
+     * Get latest N submitted plans with organisation, department, and custom filters.
+     *
+     * @author Achal Sharma
+     * @version 1.0.0
+     * @since 2026-10-06
+     * @param int $limit
+     * @param array $filters
+     * @return Collection
+     * @throws DomainException
+     */
+    public function getLatestSubmittedPlans(int $limit = 5, array $filters = []): Collection
+    {
+        try {
+            return $this->plannerRepository->getLatestSubmittedPlans($limit, $filters);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching latest submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Database error while fetching latest submitted plans.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching latest submitted plans', ['exception' => $e, 'filters' => $filters]);
+            throw new DomainException('Unexpected error while fetching latest submitted plans.');
         }
     }
 
@@ -110,67 +162,53 @@ class PlannerService
     {
         try {
             return DB::transaction(function () use ($data, $createdBy) {
-                try {
-                    $data['created_by'] = $createdBy;
-                    $data['status'] = $data['status'] ?? '1';
-                    $data['uuid'] = Str::uuid();
+                $data['created_by'] = $createdBy;
+                $data['status'] = $data['status'] ?? '1';
+                $data['uuid'] = Str::uuid();
 
-                    if (empty($data['planner_status_id'])) {
-                        $data['planner_status_id'] = $this->resolveDefaultPlannerStatusId();
-                    }
-
-                    // Handle submitted plan files
-                    if (isset($data['submitted_plan']) && is_array($data['submitted_plan'])) {
-                        try {
-                            $uploadedFiles = [];
-                            foreach ($data['submitted_plan'] as $file) {
-                                if ($file instanceof UploadedFile) {
-                                    $fileData = $this->uploadFile(
-                                        $file,
-                                        'document',
-                                        'public/planners/submitted-plans'
-                                    );
-                                    // Store only the path in database
-                                    $uploadedFiles[] = $fileData['path'];
-                                }
-                            }
-                            $data['submitted_plan'] = !empty($uploadedFiles) ? $uploadedFiles : null;
-                        } catch (Exception $e) {
-                            Log::error('Error uploading submitted plan files', ['exception' => $e]);
-                            throw new DomainException('Failed to upload submitted plan files.');
-                        }
-                    } else {
-                        $data['submitted_plan'] = null;
-                    }
-
-                    // Handle backup plan file
-                    if (isset($data['backup_plan']) && $data['backup_plan'] instanceof UploadedFile) {
-                        try {
-                            $uploadedFile = $this->uploadFile(
-                                $data['backup_plan'],
-                                'document',
-                                'public/planners/backup-plans'
-                            );
-                            // Store only the path in database
-                            $data['backup_plan'] = $uploadedFile['path'];
-                        } catch (Exception $e) {
-                            Log::error('Error uploading backup plan file', ['exception' => $e]);
-                            throw new DomainException('Failed to upload backup plan file.');
-                        }
-                    } else {
-                        $data['backup_plan'] = null;
-                    }
-
-                    $planner = $this->plannerRepository->createPlanner($data);
-
-                    return $planner->load(['brief', 'creator', 'plannerStatus']);
-                } catch (QueryException $e) {
-                    Log::error('Database error creating planner', ['exception' => $e, 'data' => $data]);
-                    throw new DomainException('Database error while creating planner.');
+                if (empty($data['planner_status_id'])) {
+                    $data['planner_status_id'] = $this->resolveDefaultPlannerStatusId();
                 }
+
+                // Handle submitted plan files
+                if (isset($data['submitted_plan']) && is_array($data['submitted_plan'])) {
+                    $uploadedFiles = [];
+                    foreach ($data['submitted_plan'] as $file) {
+                        if ($file instanceof UploadedFile) {
+                            $fileData = $this->uploadFile(
+                                $file,
+                                'document',
+                                'public/planners/submitted-plans'
+                            );
+                            $uploadedFiles[] = $fileData['path'];
+                        }
+                    }
+                    $data['submitted_plan'] = !empty($uploadedFiles) ? $uploadedFiles : null;
+                } else {
+                    $data['submitted_plan'] = null;
+                }
+
+                // Handle backup plan file
+                if (isset($data['backup_plan']) && $data['backup_plan'] instanceof UploadedFile) {
+                    $uploadedFile = $this->uploadFile(
+                        $data['backup_plan'],
+                        'document',
+                        'public/planners/backup-plans'
+                    );
+                    $data['backup_plan'] = $uploadedFile['path'];
+                } else {
+                    $data['backup_plan'] = null;
+                }
+
+                $planner = $this->plannerRepository->createPlanner($data);
+
+                return $planner->load(['brief', 'creator', 'plannerStatus']);
             });
         } catch (DomainException $e) {
             throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error creating planner', ['exception' => $e, 'data' => $data]);
+            throw new DomainException('Database error while creating planner.');
         } catch (Throwable $e) {
             Log::error('Unexpected error creating planner', ['exception' => $e]);
             throw new DomainException('Unexpected error while creating planner.');
@@ -199,65 +237,52 @@ class PlannerService
     {
         try {
             return DB::transaction(function () use ($id, $data) {
-                try {
-                    $planner = $this->plannerRepository->getPlannerById($id);
+                $planner = $this->plannerRepository->getPlannerById($id);
 
-                    if (!$planner) {
-                        Log::warning('Planner not found for update', ['id' => $id]);
-                        return null;
-                    }
-
-                    // Handle submitted plan files
-                    if (isset($data['submitted_plan']) && is_array($data['submitted_plan'])) {
-                        try {
-                            $uploadedFiles = [];
-                            foreach ($data['submitted_plan'] as $file) {
-                                if ($file instanceof UploadedFile) {
-                                    $fileData = $this->uploadFile(
-                                        $file,
-                                        'document',
-                                        'public/planners/submitted-plans'
-                                    );
-                                    // Store only the path in database
-                                    $uploadedFiles[] = $fileData['path'];
-                                }
-                            }
-                            $data['submitted_plan'] = !empty($uploadedFiles) ? $uploadedFiles : null;
-                        } catch (Exception $e) {
-                            Log::error('Error uploading submitted plan files during update', ['id' => $id, 'exception' => $e]);
-                            throw new DomainException('Failed to upload submitted plan files.');
-                        }
-                    } elseif (!isset($data['submitted_plan'])) {
-                        unset($data['submitted_plan']);
-                    }
-
-                    // Handle backup plan file
-                    if (isset($data['backup_plan'])) {
-                        if ($data['backup_plan'] instanceof UploadedFile) {
-                            try {
-                                $uploadedFile = $this->uploadFile(
-                                    $data['backup_plan'],
-                                    'document',
-                                    'public/planners/backup-plans'
-                                );
-                                $data['backup_plan'] = $uploadedFile['path'];
-                            } catch (Exception $e) {
-                                Log::error('Error uploading backup plan file during update', ['id' => $id, 'exception' => $e]);
-                                throw new DomainException('Failed to upload backup plan file.');
-                            }
-                        }
-                    } else {
-                        unset($data['backup_plan']);
-                    }
-
-                    return $this->plannerRepository->updatePlanner($id, $data);
-                } catch (QueryException $e) {
-                    Log::error('Database error updating planner', ['id' => $id, 'exception' => $e]);
-                    throw new DomainException('Database error while updating planner.');
+                if (!$planner) {
+                    Log::warning('Planner not found for update', ['id' => $id]);
+                    return null;
                 }
+
+                // Handle submitted plan files
+                if (isset($data['submitted_plan']) && is_array($data['submitted_plan'])) {
+                    $uploadedFiles = [];
+                    foreach ($data['submitted_plan'] as $file) {
+                        if ($file instanceof UploadedFile) {
+                            $fileData = $this->uploadFile(
+                                $file,
+                                'document',
+                                'public/planners/submitted-plans'
+                            );
+                            $uploadedFiles[] = $fileData['path'];
+                        }
+                    }
+                    $data['submitted_plan'] = !empty($uploadedFiles) ? $uploadedFiles : null;
+                } elseif (!isset($data['submitted_plan'])) {
+                    unset($data['submitted_plan']);
+                }
+
+                // Handle backup plan file
+                if (isset($data['backup_plan'])) {
+                    if ($data['backup_plan'] instanceof UploadedFile) {
+                        $uploadedFile = $this->uploadFile(
+                            $data['backup_plan'],
+                            'document',
+                            'public/planners/backup-plans'
+                        );
+                        $data['backup_plan'] = $uploadedFile['path'];
+                    }
+                } else {
+                    unset($data['backup_plan']);
+                }
+
+                return $this->plannerRepository->updatePlanner($id, $data);
             });
         } catch (DomainException $e) {
             throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error updating planner', ['id' => $id, 'exception' => $e]);
+            throw new DomainException('Database error while updating planner.');
         } catch (Throwable $e) {
             Log::error('Unexpected error updating planner', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while updating planner.');
@@ -275,25 +300,20 @@ class PlannerService
     {
         try {
             return DB::transaction(function () use ($id) {
-                try {
-                    $planner = $this->plannerRepository->getPlannerById($id);
+                $planner = $this->plannerRepository->getPlannerById($id);
 
-                    if (!$planner) {
-                        Log::warning('Planner not found for deletion', ['id' => $id]);
-                        return false;
-                    }
-
-                    // Delete files if needed (optional - based on your storage strategy)
-                    // $this->deleteFiles($planner);
-
-                    return $this->plannerRepository->deletePlanner($id);
-                } catch (QueryException $e) {
-                    Log::error('Database error deleting planner', ['id' => $id, 'exception' => $e]);
-                    throw new DomainException('Database error while deleting planner.');
+                if (!$planner) {
+                    Log::warning('Planner not found for deletion', ['id' => $id]);
+                    return false;
                 }
+
+                return $this->plannerRepository->deletePlanner($id);
             });
         } catch (DomainException $e) {
             throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error deleting planner', ['id' => $id, 'exception' => $e]);
+            throw new DomainException('Database error while deleting planner.');
         } catch (Throwable $e) {
             Log::error('Unexpected error deleting planner', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while deleting planner.');
@@ -312,52 +332,44 @@ class PlannerService
     {
         try {
             return DB::transaction(function () use ($id, $files) {
-                try {
-                    $planner = $this->plannerRepository->getPlannerById($id);
+                $planner = $this->plannerRepository->getPlannerById($id);
 
-                    if (!$planner) {
-                        Log::warning('Planner not found for adding files', ['id' => $id]);
-                        return null;
-                    }
-
-                    try {
-                        $uploadedFiles = [];
-                        foreach ($files as $file) {
-                            if ($file instanceof UploadedFile) {
-                                $fileData = $this->uploadFile(
-                                    $file,
-                                    'document',
-                                    'public/planners/submitted-plans'
-                                );
-                                // Store only the path in database
-                                $uploadedFiles[] = $fileData['path'];
-                            }
-                        }
-
-                        // Add to existing submitted plans
-                        $existingPlans = $planner->submitted_plan ?? [];
-                        if (!is_array($existingPlans)) {
-                            $existingPlans = [];
-                        }
-
-                        $allPlans = array_merge($existingPlans, $uploadedFiles);
-                        // Limit to 2 files
-                        $allPlans = array_slice($allPlans, 0, 2);
-
-                        $planner->update(['submitted_plan' => $allPlans]);
-
-                        return $planner->refresh()->load(['brief', 'creator']);
-                    } catch (Exception $e) {
-                        Log::error('Error uploading submitted plan files', ['id' => $id, 'exception' => $e]);
-                        throw new DomainException('Failed to upload submitted plan files.');
-                    }
-                } catch (QueryException $e) {
-                    Log::error('Database error adding submitted plan files', ['id' => $id, 'exception' => $e]);
-                    throw new DomainException('Database error while adding submitted plan files.');
+                if (!$planner) {
+                    Log::warning('Planner not found for adding files', ['id' => $id]);
+                    return null;
                 }
+
+                $uploadedFiles = [];
+                foreach ($files as $file) {
+                    if ($file instanceof UploadedFile) {
+                        $fileData = $this->uploadFile(
+                            $file,
+                            'document',
+                            'public/planners/submitted-plans'
+                        );
+                        $uploadedFiles[] = $fileData['path'];
+                    }
+                }
+
+                // Add to existing submitted plans
+                $existingPlans = $planner->submitted_plan ?? [];
+                if (!is_array($existingPlans)) {
+                    $existingPlans = [];
+                }
+
+                $allPlans = array_merge($existingPlans, $uploadedFiles);
+                // Limit to 2 files
+                $allPlans = array_slice($allPlans, 0, 2);
+
+                $planner->update(['submitted_plan' => $allPlans]);
+
+                return $planner->refresh()->load(['brief', 'creator']);
             });
         } catch (DomainException $e) {
             throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error adding submitted plan files', ['id' => $id, 'exception' => $e]);
+            throw new DomainException('Database error while adding submitted plan files.');
         } catch (Throwable $e) {
             Log::error('Unexpected error adding submitted plan files', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while adding submitted plan files.');
@@ -376,35 +388,28 @@ class PlannerService
     {
         try {
             return DB::transaction(function () use ($id, $file) {
-                try {
-                    $planner = $this->plannerRepository->getPlannerById($id);
+                $planner = $this->plannerRepository->getPlannerById($id);
 
-                    if (!$planner) {
-                        Log::warning('Planner not found for uploading backup plan', ['id' => $id]);
-                        return null;
-                    }
-
-                    try {
-                        $uploadedFile = $this->uploadFile(
-                            $file,
-                            'document',
-                            'public/planners/backup-plans'
-                        );
-
-                        $planner->update(['backup_plan' => $uploadedFile['path']]);
-
-                        return $planner->refresh()->load(['brief', 'creator']);
-                    } catch (Exception $e) {
-                        Log::error('Error uploading backup plan file', ['id' => $id, 'exception' => $e]);
-                        throw new DomainException('Failed to upload backup plan file.');
-                    }
-                } catch (QueryException $e) {
-                    Log::error('Database error uploading backup plan', ['id' => $id, 'exception' => $e]);
-                    throw new DomainException('Database error while uploading backup plan file.');
+                if (!$planner) {
+                    Log::warning('Planner not found for uploading backup plan', ['id' => $id]);
+                    return null;
                 }
+
+                $uploadedFile = $this->uploadFile(
+                    $file,
+                    'document',
+                    'public/planners/backup-plans'
+                );
+
+                $planner->update(['backup_plan' => $uploadedFile['path']]);
+
+                return $planner->refresh()->load(['brief', 'creator']);
             });
         } catch (DomainException $e) {
             throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error uploading backup plan', ['id' => $id, 'exception' => $e]);
+            throw new DomainException('Database error while uploading backup plan file.');
         } catch (Throwable $e) {
             Log::error('Unexpected error uploading backup plan file', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while uploading backup plan file.');
@@ -463,24 +468,34 @@ class PlannerService
     {
         try {
             return DB::transaction(function () use ($id, $plannerStatusId) {
-                try {
-                    $planner = $this->plannerRepository->getPlannerById($id);
+                $planner = $this->plannerRepository->getPlannerById($id);
 
-                    if (!$planner) {
-                        Log::warning('Planner not found for status update', ['id' => $id]);
-                        return null;
-                    }
-
-                    $planner->update(['planner_status_id' => $plannerStatusId]);
-
-                    return $planner->refresh()->load(['brief', 'creator', 'plannerStatus']);
-                } catch (QueryException $e) {
-                    Log::error('Database error updating planner status', ['id' => $id, 'statusId' => $plannerStatusId, 'exception' => $e]);
-                    throw new DomainException('Database error while updating planner status.');
+                if (!$planner) {
+                    $planner = Planner::with(['brief.contactPerson', 'creator', 'plannerStatus'])->find($id);
                 }
+
+                if (!$planner) {
+                    Log::warning('Planner not found for status update', ['id' => $id]);
+                    return null;
+                }
+
+                $planner->loadMissing('plannerStatus');
+                $wasApproved = $planner->isPlanApproved();
+
+                $planner->update(['planner_status_id' => $plannerStatusId]);
+                $planner = $planner->refresh()->load(['brief.contactPerson', 'creator', 'plannerStatus']);
+
+                if (!$wasApproved && $planner->isPlanApproved()) {
+                    $this->operationService->createFromApprovedPlan($planner);
+                }
+
+                return $planner;
             });
         } catch (DomainException $e) {
             throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error updating planner status', ['id' => $id, 'statusId' => $plannerStatusId, 'exception' => $e]);
+            throw new DomainException('Database error while updating planner status.');
         } catch (Throwable $e) {
             Log::error('Unexpected error updating planner status', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while updating planner status.');

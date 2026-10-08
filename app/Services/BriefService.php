@@ -15,6 +15,9 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use App\Events\BriefAssignedEvent;
+use App\Models\Planner;
+use App\Models\PlannerStatus;
+use App\Services\PlannerService;
 
 class BriefService
 {
@@ -415,6 +418,11 @@ class BriefService
                 event(new BriefAssignedEvent($brief->id, $data['assign_user_id']));
             }
 
+            // Auto-update associated plan status to 'Plan Approved' when brief is approved
+            if ($brief && array_key_exists('brief_status_id', $data)) {
+                $this->syncPlanApprovedOnBriefApproval($brief);
+            }
+
             return $brief;
         } catch (QueryException $e) {
             Log::error('Database error updating brief', ['id' => $id, 'exception' => $e]);
@@ -587,6 +595,56 @@ class BriefService
         } catch (Exception $e) {
             Log::error('Unexpected error fetching business forecast', ['exception' => $e]);
             throw new DomainException('Unexpected error while fetching business forecast.');
+        }
+    }
+    
+    public function syncPlanApprovedOnBriefApproval(Brief $brief): void
+    {
+        try {
+            $brief->loadMissing('briefStatus');
+
+            if (!$brief->isApproved()) {
+                return;
+            }
+
+            $planApprovedStatus = PlannerStatus::where('slug', 'plan-approved')
+                ->orWhere('name', 'Plan Approved')
+                ->first();
+
+            if (!$planApprovedStatus) {
+                Log::warning('PlannerStatus "Plan Approved" not found during brief approval sync.', [
+                    'brief_id' => $brief->id,
+                ]);
+                return;
+            }
+
+            $planners = Planner::where('brief_id', $brief->id)
+                ->where('status', '!=', '15')
+                ->get();
+
+            if ($planners->isEmpty()) {
+                Log::info('No active planner found to auto-approve for brief: ' . $brief->id);
+                return;
+            }
+
+            $plannerService = app(PlannerService::class);
+
+            foreach ($planners as $planner) {
+                if (!$planner->isPlanApproved()) {
+                    $plannerService->updatePlannerStatus($planner->id, $planApprovedStatus->id);
+                    Log::info('Auto-approved planner following brief approval', [
+                        'brief_id' => $brief->id,
+                        'planner_id' => $planner->id,
+                        'new_planner_status_id' => $planApprovedStatus->id,
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to sync plan approved status on brief approval', [
+                'brief_id' => $brief->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
     }
 }

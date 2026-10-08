@@ -30,8 +30,19 @@ class PlannerResource extends JsonResource
                     'uuid' => $this->brief->uuid,
                     'name' => $this->brief->name,
                     'product_name' => $this->brief->product_name,
+                    'organisation' => $this->brief->contactPerson?->organisation ? [
+                        'id' => $this->brief->contactPerson->organisation->id,
+                        'name' => $this->brief->contactPerson->organisation->name,
+                    ] : null,
+                    'department' => $this->brief->contactPerson?->department ? [
+                        'id' => $this->brief->contactPerson->department->id,
+                        'name' => $this->brief->contactPerson->department->name,
+                    ] : null,
                 ];
             }),
+
+            'organisation' => $this->getOrganisationData(),
+            'department' => $this->getDepartmentData(),
 
             'created_by' => $this->whenLoaded('creator', function () {
                 return [
@@ -152,5 +163,54 @@ class PlannerResource extends JsonResource
             '15' => 'Deleted',
             default => 'Unknown',
         };
+    }
+
+    /**
+     * Get organisation data for the planner.
+     *
+     * @return array|null
+     */
+    private function getOrganisationData(): ?array
+    {
+        if ($this->relationLoaded('brief') && $this->brief?->contactPerson?->organisation) {
+            return [
+                'id' => $this->brief->contactPerson->organisation->id,
+                'name' => $this->brief->contactPerson->organisation->name,
+            ];
+        }
+
+        if ($this->relationLoaded('creator') && $this->creator?->organisation) {
+            return [
+                'id' => $this->creator->organisation->id,
+                'name' => $this->creator->organisation->name,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get department data for the planner.
+     *
+     * @return array|null
+     */
+    private function getDepartmentData(): ?array
+    {
+        if ($this->relationLoaded('brief') && $this->brief?->contactPerson?->department) {
+            return [
+                'id' => $this->brief->contactPerson->department->id,
+                'name' => $this->brief->contactPerson->department->name,
+            ];
+        }
+
+        if ($this->relationLoaded('creator') && $this->creator?->relationLoaded('departments') && $this->creator?->departments?->isNotEmpty()) {
+            $dept = $this->creator->departments->first();
+            return [
+                'id' => $dept->id,
+                'name' => $dept->name,
+            ];
+        }
+
+        return null;
     }
 }

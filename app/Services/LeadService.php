@@ -473,7 +473,7 @@ class LeadService
                 $previousCallStatusId = $lead ? $lead->call_status : null;
                 $previousLeadStatus = $lead ? $lead->lead_status : null;
 
-                // Restrict update if last call status was updated within 1 hour
+                // Restrict update if last call status was updated within 10 minutes
                 // Use lockForUpdate to prevent concurrent modifications
                 $lastHistory = \App\Models\LeadAssignHistory::where('lead_id', $leadId)
                     ->orderByDesc('last_call_status_date_time')
@@ -481,8 +481,8 @@ class LeadService
                     ->first();
                 if ($lastHistory && $lastHistory->last_call_status_date_time) {
                     $lastUpdate = $lastHistory->last_call_status_date_time;
-                    if (now()->diffInMinutes($lastUpdate) < 60) {
-                        throw new DomainException('Call status can only be updated once every 1 hour.');
+                    if (now()->diffInMinutes($lastUpdate) < 10) {
+                        throw new DomainException('Call status can only be updated once every 10 minutes.');
                     }
                 }
 

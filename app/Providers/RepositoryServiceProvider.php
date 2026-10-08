@@ -114,6 +114,30 @@ use App\Repositories\PlannerRepository;
 use App\Contracts\Repositories\PlannerStatusRepositoryInterface;
 use App\Repositories\PlannerStatusRepository;
 
+use App\Contracts\Repositories\OperationStatusRepositoryInterface;
+use App\Repositories\OperationStatusRepository;
+
+use App\Contracts\Repositories\OperationRepositoryInterface;
+use App\Repositories\OperationRepository;
+
+use App\Contracts\Repositories\OperationHistoryRepositoryInterface;
+use App\Repositories\OperationHistoryRepository;
+
+use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
+use App\Repositories\FinanceStatusRepository;
+
+use App\Contracts\Repositories\CostSheetStatusRepositoryInterface;
+use App\Repositories\CostSheetStatusRepository;
+
+use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
+use App\Repositories\FinanceRecordRepository;
+
+use App\Contracts\Repositories\FinanceRecordHistoryRepositoryInterface;
+use App\Repositories\FinanceRecordHistoryRepository;
+
+use App\Contracts\Repositories\PurchaseOrderRepositoryInterface;
+use App\Repositories\PurchaseOrderRepository;
+
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use App\Repositories\UserParentRepository;
 
@@ -304,6 +328,46 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             PlannerStatusRepositoryInterface::class,
             PlannerStatusRepository::class
+        );
+
+        $this->app->bind(
+            OperationStatusRepositoryInterface::class,
+            OperationStatusRepository::class
+        );
+
+        $this->app->bind(
+            OperationRepositoryInterface::class,
+            OperationRepository::class
+        );
+
+        $this->app->bind(
+            OperationHistoryRepositoryInterface::class,
+            OperationHistoryRepository::class
+        );
+
+        $this->app->bind(
+            FinanceStatusRepositoryInterface::class,
+            FinanceStatusRepository::class
+        );
+
+        $this->app->bind(
+            CostSheetStatusRepositoryInterface::class,
+            CostSheetStatusRepository::class
+        );
+
+        $this->app->bind(
+            FinanceRecordRepositoryInterface::class,
+            FinanceRecordRepository::class
+        );
+
+        $this->app->bind(
+            FinanceRecordHistoryRepositoryInterface::class,
+            FinanceRecordHistoryRepository::class
+        );
+
+        $this->app->bind(
+            PurchaseOrderRepositoryInterface::class,
+            PurchaseOrderRepository::class
         );
 
         $this->app->bind(

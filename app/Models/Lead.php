@@ -51,6 +51,7 @@ class Lead extends Model
         'lead_type_id',
         'designation_id',
         'department_id',
+        'source_id',
         'sub_source_id',
         'country_id',
         'state_id',
@@ -124,6 +125,7 @@ class Lead extends Model
             'priority' => $notTrashed('priorities'),
             'designation' => $notTrashed('designations'),
             'department' => $notTrashed('departments'),
+            'source' => $notTrashed('lead_source'),
             'subSource' => $notTrashed('lead_sub_source'),
             'country',
             'state',
@@ -223,7 +225,7 @@ class Lead extends Model
     {
         $query = $this->getRepositoryLeadQuery();
         foreach ([
-            'brand_id', 'agency_id', 'current_assign_user', 'priority_id', 'created_by', 'sub_source_id',
+            'brand_id', 'agency_id', 'current_assign_user', 'priority_id', 'created_by', 'source_id', 'sub_source_id',
             'call_status', 'lead_type_id', 'country_id', 'state_id', 'city_id',
         ] as $column) {
             $this->applyRepositoryIdFilter($query, $column, $filters[$column] ?? null);
@@ -403,6 +405,11 @@ class Lead extends Model
     public function department()
     {
         return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    public function source()
+    {
+        return $this->belongsTo(LeadSource::class, 'source_id');
     }
 
     public function subSource()

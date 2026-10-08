@@ -18,17 +18,24 @@ class DashboardFilters
      *     date_from: ?string,
      *     date_to: ?string,
      *     organisation_ids: array<int>,
+     *     department_ids: array<int>,
+     *     user_ids: array<int>,
+     *     assign_to: ?int,
+     *     assign_by: ?int,
      *     priority: ?string
      * }
      */
     public static function fromRequest(Request $request): array
     {
-        $organisationIds = $request->input('organisation_ids', []);
-        if (!is_array($organisationIds)) {
-            $organisationIds = [$organisationIds];
-        }
-
-        $organisationIds = array_values(array_filter(array_map('intval', $organisationIds)));
+        $organisationIds = self::normalizeIds(
+            $request->input('organisation_ids', $request->input('organisation_id', []))
+        );
+        $departmentIds = self::normalizeIds(
+            $request->input('department_ids', $request->input('department_id', []))
+        );
+        $userIds = self::normalizeIds(
+            $request->input('user_ids', $request->input('user_id', []))
+        );
 
         $priority = $request->query('priority');
         if (is_string($priority) && strtolower(trim($priority)) === 'all') {
@@ -39,6 +46,10 @@ class DashboardFilters
             'date_from' => $request->query('date_from') ?: null,
             'date_to' => $request->query('date_to') ?: null,
             'organisation_ids' => $organisationIds,
+            'department_ids' => $departmentIds,
+            'user_ids' => $userIds,
+            'assign_to' => self::normalizeIds($request->input('assign_to', []))[0] ?? null,
+            'assign_by' => self::normalizeIds($request->input('assign_by', []))[0] ?? null,
             'priority' => $priority ?: null,
         ];
 
@@ -48,6 +59,30 @@ class DashboardFilters
         }
 
         return $filters;
+    }
+
+    /**
+     * @return array<int>
+     */
+    private static function normalizeIds($values): array
+    {
+        if (!is_array($values)) {
+            $values = explode(',', (string) $values);
+        }
+
+        $ids = [];
+        foreach ($values as $value) {
+            if (!is_scalar($value) || !is_numeric($value)) {
+                continue;
+            }
+
+            $id = (int) $value;
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     public static function applyDateFilter(

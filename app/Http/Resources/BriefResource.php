@@ -87,6 +87,17 @@ class BriefResource extends JsonResource
                     'percentage' => $this->briefStatus->percentage,
                 ];
             }),
+            'cost_status' => $this->whenLoaded('costSheetStatus', function () {
+                if (!$this->costSheetStatus) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->costSheetStatus->id,
+                    'name' => $this->costSheetStatus->name,
+                    'slug' => $this->costSheetStatus->slug,
+                ];
+            }),
             'priority' => $this->whenLoaded('priority', function () {
                 return [
                     'id' => $this->priority->id,

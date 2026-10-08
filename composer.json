@@ -12,6 +12,7 @@
         "illuminate/support": "^10.0",
         "illuminate/validation": "^10.0",
         "laravel/lumen-framework": "^10.0",
+        "mpdf/mpdf": "^8.3",
         "phpoffice/phpspreadsheet": "^5.10",
         "santigarcor/laratrust": "^8.5",
         "tymon/jwt-auth": "^2.0"

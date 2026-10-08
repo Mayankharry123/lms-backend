@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Brief Model
+ * -----------------------------------------
+ * Model for managing brief information.
+ *
+ * @package App\Models
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-06
+ */
 namespace App\Models;
 
 use App\Support\UserAccessScope;
@@ -26,6 +36,7 @@ class Brief extends Model
         'assignedUser',
         'createdByUser',
         'briefStatus',
+        'costSheetStatus',
         'priority',
     ];
 
@@ -68,6 +79,7 @@ class Brief extends Model
         'assign_user_id',
         'created_by',
         'brief_status_id',
+        'cost_sheet_status_id',
         'priority_id',
         'comment',
         'attachment',
@@ -108,6 +120,14 @@ class Brief extends Model
     {
         static::creating(function ($brief) {
             $brief->calculateCampaignDuration();
+
+            if (empty($brief->cost_sheet_status_id)) {
+                $pendingId = CostSheetStatus::query()->where('slug', 'pending')->value('id');
+
+                if ($pendingId) {
+                    $brief->cost_sheet_status_id = $pendingId;
+                }
+            }
         });
 
         static::created(function ($brief) {
@@ -545,6 +565,65 @@ class Brief extends Model
     }
 
     /**
+     * Cost sheet status for this brief. Pending until a plan cost sheet is saved.
+     */
+    public function costSheetStatus()
+    {
+        return $this->belongsTo(CostSheetStatus::class, 'cost_sheet_status_id');
+    }
+
+    /**
+     * Mark this brief's cost status as submitted after a plan cost sheet is saved.
+     */
+    public function markCostSheetSubmitted(int $briefId): void
+    {
+        $submittedId = CostSheetStatus::query()->where('slug', 'submitted')->value('id');
+
+        if (!$submittedId) {
+            return;
+        }
+
+        $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $submittedId,
+        ]);
+    }
+
+    /**
+     * Mark this brief's cost status as pending when its cost sheet is removed.
+     */
+    public function markCostSheetPending(int $briefId): void
+    {
+        $pendingId = CostSheetStatus::query()->where('slug', 'pending')->value('id');
+
+        if (!$pendingId) {
+            return;
+        }
+
+        $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $pendingId,
+        ]);
+    }
+
+    /**
+     * Set a brief's cost sheet status when the status exists.
+     */
+    public function assignCostSheetStatus(int $briefId, int $statusId): bool
+    {
+        $statusExists = CostSheetStatus::query()
+            ->where('id', $statusId)
+            ->where('status', '1')
+            ->exists();
+
+        if (!$statusExists) {
+            return false;
+        }
+
+        return (bool) $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $statusId,
+        ]);
+    }
+
+    /**
      * Get the priority associated with this brief.
      */
     public function priority()
@@ -558,6 +637,32 @@ class Brief extends Model
     public function notifications(): MorphMany
     {
         return $this->morphMany(Notification::class, 'notifiable');
+    }
+
+    /**
+     * Get the planners associated with this brief.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function planners()
+    {
+        return $this->hasMany(Planner::class, 'brief_id');
+    }
+
+    public function isApproved(): bool
+    {
+        $status = $this->relationLoaded('briefStatus')
+            ? $this->briefStatus
+            : $this->briefStatus()->first();
+
+        if (!$status) {
+            return false;
+        }
+
+        return strcasecmp((string) $status->slug, 'approve') === 0
+            || strcasecmp((string) $status->slug, 'approved') === 0
+            || strcasecmp(trim((string) $status->name), 'Approve') === 0
+            || strcasecmp(trim((string) $status->name), 'Approved') === 0;
     }
 
     /**

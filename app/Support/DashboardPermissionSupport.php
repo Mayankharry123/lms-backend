@@ -9,6 +9,8 @@ class DashboardPermissionSupport
     public const OVERVIEW = 'dashboard.overview';
     public const SALES = 'dashboard.sales';
     public const PLANNER = 'dashboard.planner';
+    public const OPERATIONS = 'dashboard.operations';
+    public const FINANCE = 'dashboard.finance';
 
     public const OVERVIEW_STATS = 'dashboard.overview.stats';
     public const OVERVIEW_ASSIGNMENTS = 'dashboard.overview.assignments';
@@ -57,6 +59,16 @@ class DashboardPermissionSupport
     public static function canViewPlanner(User $user): bool
     {
         return self::can($user, self::PLANNER);
+    }
+
+    public static function canViewOperations(User $user): bool
+    {
+        return self::can($user, self::OPERATIONS);
+    }
+
+    public static function canViewFinance(User $user): bool
+    {
+        return self::can($user, self::FINANCE);
     }
 
     public static function canViewChart(User $user, string $permission): bool
