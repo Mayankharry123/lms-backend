@@ -12,6 +12,8 @@ use App\Models\MissCampaign;
 use App\Models\Operation;
 use App\Models\FinanceRecord;
 use App\Models\PurchaseOrder;
+use App\Models\Voucher;
+use App\Models\ProformaInvoice;
 use Illuminate\Database\Eloquent\Builder;
 use App\Support\DashboardFilters;
 use App\Support\UserAccessScope;
@@ -287,6 +289,58 @@ class Dashboard extends Model
             'denied' => $this->countFinanceRecordsByStatusSlug($query, 'denied'),
             'pending' => $this->countPendingFinanceRecords($query),
             'purchase_order_amount' => $this->sumPurchaseOrderAmount($filters, $user),
+        ];
+    }
+
+    /**
+     * Sum of voucher total amounts and proforma invoice total amounts for the selected filters.
+     *
+     * @param array<string, mixed> $filters
+     * @return array{voucher_total_amount: float, proforma_invoice_total_amount: float}
+     */
+    public function fetchFinanceSummary(array $filters, ?User $user): array
+    {
+        $voucherQuery = Voucher::query()
+            ->whereNull('vouchers.deleted_at')
+            ->where('vouchers.status', '!=', '15');
+
+        $piQuery = ProformaInvoice::query()
+            ->whereNull('proforma_invoices.deleted_at')
+            ->where('proforma_invoices.status', '!=', '15');
+
+        $dateFrom = $filters['date_from'] ?? $filters['from_date'] ?? null;
+        $dateTo = $filters['date_to'] ?? $filters['to_date'] ?? null;
+
+        if ($dateFrom) {
+            $voucherQuery->whereDate('vouchers.created_at', '>=', $dateFrom);
+            $piQuery->whereDate('proforma_invoices.created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $voucherQuery->whereDate('vouchers.created_at', '<=', $dateTo);
+            $piQuery->whereDate('proforma_invoices.created_at', '<=', $dateTo);
+        }
+
+        if (!empty($filters['created_by'])) {
+            $voucherQuery->where('vouchers.created_by', (int) $filters['created_by']);
+            $piQuery->where('proforma_invoices.created_by', (int) $filters['created_by']);
+        }
+
+        if (!empty($filters['voucher_type_id'])) {
+            $voucherQuery->where('vouchers.voucher_type_id', (int) $filters['voucher_type_id']);
+        }
+
+        if (!empty($filters['brand_id'])) {
+            $piQuery->where('proforma_invoices.brand_id', (int) $filters['brand_id']);
+        }
+
+        if (!empty($filters['month'])) {
+            $voucherQuery->where('vouchers.month', (string) $filters['month']);
+        }
+
+        return [
+            'voucher_total_amount' => (float) round((float) $voucherQuery->sum('vouchers.total_amount'), 2),
+            'proforma_invoice_total_amount' => (float) round((float) $piQuery->sum('proforma_invoices.total_amount'), 2),
         ];
     }
 

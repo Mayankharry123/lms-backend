@@ -182,4 +182,26 @@ class DashboardController extends Controller
             );
         }
     }
+
+    public function getFinanceSummary(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            if (!$user || !DashboardPermissionSupport::canViewFinance($user)) {
+                return $this->responseService->forbidden('Insufficient permissions to view finance summary.');
+            }
+
+            $filters = DashboardFilters::fromRequest($request);
+            $summaryData = $this->dashboardService->getFinanceSummary($filters);
+
+            return $this->responseService->success(
+                $summaryData,
+                'Finance summary retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return $this->responseService->serverError(
+                'Failed to retrieve finance summary: ' . $e->getMessage()
+            );
+        }
+    }
 }

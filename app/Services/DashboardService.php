@@ -427,6 +427,24 @@ class DashboardService
     }
 
     /**
+     * Get finance summary metrics (voucher total and proforma invoice total).
+     *
+     * @param array<string, mixed> $filters
+     * @return array{voucher_total_amount: float, proforma_invoice_total_amount: float}
+     * @throws Exception
+     */
+    public function getFinanceSummary(array $filters = []): array
+    {
+        try {
+            $user = Auth::user();
+            return $this->dashboardRepository->getFinanceSummary($filters, $user);
+        } catch (Exception $e) {
+            Log::error('Error fetching finance summary', ['exception' => $e]);
+            throw new Exception('Unable to fetch finance summary');
+        }
+    }
+
+    /**
      * Build one chart row per accessible organisation, or a single aggregate row.
      *
      * @param array<string, mixed> $filters

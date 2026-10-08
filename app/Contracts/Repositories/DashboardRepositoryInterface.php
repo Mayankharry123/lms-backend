@@ -129,6 +129,15 @@ interface DashboardRepositoryInterface
     public function getFinanceTotals(array $filters, ?User $user): array;
 
     /**
+     * Financial summary metrics: sum of vouchers total amount and sum of proforma invoices total amount.
+     *
+     * @param array $filters
+     * @param User|null $user
+     * @return array{voucher_total_amount: float, proforma_invoice_total_amount: float}
+     */
+    public function getFinanceSummary(array $filters, ?User $user): array;
+
+    /**
      * @param array $filters
      * @return array<string, int>
      */

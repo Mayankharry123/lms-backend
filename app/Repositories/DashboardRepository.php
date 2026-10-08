@@ -90,4 +90,9 @@ class DashboardRepository implements DashboardRepositoryInterface
     {
         return $this->model->fetchRecentFinanceRecords($filters, $user);
     }
+
+    public function getFinanceSummary(array $filters, ?User $user): array
+    {
+        return $this->model->fetchFinanceSummary($filters, $user);
+    }
 }
