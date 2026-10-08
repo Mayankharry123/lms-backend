@@ -91,6 +91,15 @@ interface DashboardRepositoryInterface
     public function getOperationsOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array;
 
     /**
+     * Total operations metrics directly from the operations table.
+     *
+     * @param array $filters
+     * @param User|null $user
+     * @return array<string, int>
+     */
+    public function getOperationsTotals(array $filters, ?User $user): array;
+
+    /**
      * @param array $filters
      * @return array<string, int>
      */
@@ -109,6 +118,15 @@ interface DashboardRepositoryInterface
      * @return array<string, mixed>
      */
     public function getFinanceOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array;
+
+    /**
+     * Total finance metrics directly from the finance_records table.
+     *
+     * @param array $filters
+     * @param User|null $user
+     * @return array<string, mixed>
+     */
+    public function getFinanceTotals(array $filters, ?User $user): array;
 
     /**
      * @param array $filters

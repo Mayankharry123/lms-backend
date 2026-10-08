@@ -51,6 +51,11 @@ class DashboardFilters
             'assign_to' => self::normalizeIds($request->input('assign_to', []))[0] ?? null,
             'assign_by' => self::normalizeIds($request->input('assign_by', []))[0] ?? null,
             'priority' => $priority ?: null,
+            'operation_status_id' => $request->input('operation_status_id') ? (int) $request->input('operation_status_id') : null,
+            'finance_status_id' => $request->input('finance_status_id') ? (int) $request->input('finance_status_id') : null,
+            'brief_id' => $request->input('brief_id') ? (int) $request->input('brief_id') : null,
+            'planner_id' => $request->input('planner_id') ? (int) $request->input('planner_id') : null,
+            'status' => $request->input('status') !== null && $request->input('status') !== '' ? (string) $request->input('status') : null,
         ];
 
         $user = auth()->user();

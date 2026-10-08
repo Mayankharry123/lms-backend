@@ -56,6 +56,11 @@ class DashboardRepository implements DashboardRepositoryInterface
         return $this->model->fetchOperationsOrganisationRow($filters, $user, $organisationId, $organisationName);
     }
 
+    public function getOperationsTotals(array $filters, ?User $user): array
+    {
+        return $this->model->fetchOperationsTotals($filters, $user);
+    }
+
     public function getOperationsStatusCounts(array $filters, ?User $user): array
     {
         return $this->model->fetchOperationsStatusCounts($filters, $user);
@@ -69,6 +74,11 @@ class DashboardRepository implements DashboardRepositoryInterface
     public function getFinanceOrganisationRow(array $filters, ?User $user, int $organisationId, string $organisationName): array
     {
         return $this->model->fetchFinanceOrganisationRow($filters, $user, $organisationId, $organisationName);
+    }
+
+    public function getFinanceTotals(array $filters, ?User $user): array
+    {
+        return $this->model->fetchFinanceTotals($filters, $user);
     }
 
     public function getFinanceStatusCounts(array $filters, ?User $user): array

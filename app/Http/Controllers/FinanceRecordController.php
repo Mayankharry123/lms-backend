@@ -6,7 +6,6 @@
  * Handles the cost sheet upload for a planner whose plan is approved.
  *
  * @package App\Http\Controllers
- * @author Achal Sharma
  * @version 1.0.0
  * @since 2026-10-04
  */
@@ -62,6 +61,8 @@ class FinanceRecordController extends Controller
                 'finance_status_id' => 'nullable|integer|exists:finance_statuses,id',
                 'assign_by' => 'nullable|integer|exists:users,id',
                 'assign_to' => 'nullable|integer|exists:users,id',
+                'user_id' => 'nullable|integer|exists:users,id',
+                'user_ids' => 'nullable',
                 'status' => 'nullable|in:1,2,15',
                 'organisation_id' => 'nullable|integer|exists:organisations,id',
                 'organisation_ids' => 'nullable',
@@ -79,6 +80,8 @@ class FinanceRecordController extends Controller
                 'finance_status_id' => $validated['finance_status_id'] ?? null,
                 'assign_by' => $validated['assign_by'] ?? null,
                 'assign_to' => $validated['assign_to'] ?? null,
+                'user_id' => $validated['user_id'] ?? null,
+                'user_ids' => $validated['user_ids'] ?? null,
                 'status' => $validated['status'] ?? null,
                 'organisation_id' => $validated['organisation_id'] ?? null,
                 'organisation_ids' => $validated['organisation_ids'] ?? null,

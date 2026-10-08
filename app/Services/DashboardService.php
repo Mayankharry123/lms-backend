@@ -378,12 +378,7 @@ class DashboardService
 
             return [
                 'by_organisation' => $rows,
-                'totals' => [
-                    'operations' => (int) array_sum(array_column($rows, 'operations')),
-                    'pending_operations' => (int) array_sum(array_column($rows, 'pending_operations')),
-                    'live_operations' => (int) array_sum(array_column($rows, 'live_operations')),
-                    'assigned_operations' => (int) array_sum(array_column($rows, 'assigned_operations')),
-                ],
+                'totals' => $this->dashboardRepository->getOperationsTotals($filters, $user),
                 'operation_status' => $this->dashboardRepository->getOperationsStatusCounts($filters, $user),
                 'recent' => $this->dashboardRepository->getRecentOperations($filters, $user),
             ];
@@ -421,13 +416,7 @@ class DashboardService
 
             return [
                 'by_organisation' => $rows,
-                'totals' => [
-                    'cost_sheets' => (int) array_sum(array_column($rows, 'cost_sheets')),
-                    'approved' => (int) array_sum(array_column($rows, 'approved')),
-                    'denied' => (int) array_sum(array_column($rows, 'denied')),
-                    'pending' => (int) array_sum(array_column($rows, 'pending')),
-                    'purchase_order_amount' => (float) array_sum(array_column($rows, 'purchase_order_amount')),
-                ],
+                'totals' => $this->dashboardRepository->getFinanceTotals($filters, $user),
                 'finance_status' => $this->dashboardRepository->getFinanceStatusCounts($filters, $user),
                 'recent' => $this->dashboardRepository->getRecentFinanceRecords($filters, $user),
             ];
