@@ -16,6 +16,8 @@ namespace App\Services;
 use App\Contracts\Repositories\OperationRepositoryInterface;
 use App\Contracts\Repositories\OperationStatusRepositoryInterface;
 use App\Contracts\Repositories\UserRepositoryInterface;
+use App\Events\OperationAssignedEvent;
+use App\Events\OperationStatusChangedEvent;
 use App\Models\Operation;
 use App\Models\Planner;
 use App\Support\UserAccessScope;
@@ -92,7 +94,26 @@ class OperationService
                 throw new DomainException('Operation status not found');
             }
 
-            return $this->operationRepository->updateStatus($id, $operationStatusId, $comment);
+            $previousStatusId = $operation->operation_status_id ? (int) $operation->operation_status_id : null;
+            $previousStatusName = $operation->operationStatus?->name;
+
+            $updatedOperation = $this->operationRepository->updateStatus($id, $operationStatusId, $comment);
+
+            if ($updatedOperation) {
+                $authUser = auth()->user();
+                event(new OperationStatusChangedEvent(
+                    $updatedOperation->id,
+                    $previousStatusId,
+                    $previousStatusName,
+                    $operationStatusId,
+                    $operationStatus->name,
+                    $authUser ? (int) $authUser->id : null,
+                    $authUser?->name,
+                    $comment
+                ));
+            }
+
+            return $updatedOperation;
         } catch (Throwable $e) {
             if (!$e instanceof DomainException) {
                 Log::error('Error updating operation status', [
@@ -120,7 +141,21 @@ class OperationService
                 return null;
             }
 
-            return $this->operationRepository->updateAssignUser($id, $assignTo, $assignBy, $comment);
+            $previousAssignTo = $operation->assign_to ? (int) $operation->assign_to : null;
+
+            $updatedOperation = $this->operationRepository->updateAssignUser($id, $assignTo, $assignBy, $comment);
+
+            if ($updatedOperation) {
+                event(new OperationAssignedEvent(
+                    $updatedOperation->id,
+                    $assignTo,
+                    $assignBy,
+                    $previousAssignTo,
+                    $comment
+                ));
+            }
+
+            return $updatedOperation;
         } catch (Throwable $e) {
             Log::error('Error updating operation assignee', [
                 'id' => $id,
@@ -189,15 +224,29 @@ class OperationService
                 ]);
             }
 
-            return $this->operationRepository->create([
+            $assignerId = $assignedBy ?? (auth()->id() ? (int) auth()->id() : null) ?? $planner->created_by;
+
+            $operation = $this->operationRepository->create([
                 'uuid' => (string) Str::uuid(),
                 'brief_id' => $planner->brief_id,
                 'planner_id' => $planner->id,
                 'operation_status_id' => $pendingStatus->id,
-                'assign_by' => $assignedBy ?? (auth()->id() ? (int) auth()->id() : null) ?? $planner->created_by,
+                'assign_by' => $assignerId,
                 'assign_to' => $opsHeadId,
                 'status' => '1',
             ]);
+
+            if ($operation && $opsHeadId) {
+                event(new OperationAssignedEvent(
+                    $operation->id,
+                    $opsHeadId,
+                    $assignerId,
+                    null,
+                    'Initial assignment from approved plan'
+                ));
+            }
+
+            return $operation;
         } catch (Throwable $e) {
             Log::error('Failed to create operation for approved plan', [
                 'planner_id' => $planner->id,
