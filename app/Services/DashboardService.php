@@ -378,12 +378,7 @@ class DashboardService
 
             return [
                 'by_organisation' => $rows,
-                'totals' => [
-                    'operations' => (int) array_sum(array_column($rows, 'operations')),
-                    'pending_operations' => (int) array_sum(array_column($rows, 'pending_operations')),
-                    'live_operations' => (int) array_sum(array_column($rows, 'live_operations')),
-                    'assigned_operations' => (int) array_sum(array_column($rows, 'assigned_operations')),
-                ],
+                'totals' => $this->dashboardRepository->getOperationsTotals($filters, $user),
                 'operation_status' => $this->dashboardRepository->getOperationsStatusCounts($filters, $user),
                 'recent' => $this->dashboardRepository->getRecentOperations($filters, $user),
             ];
@@ -421,19 +416,31 @@ class DashboardService
 
             return [
                 'by_organisation' => $rows,
-                'totals' => [
-                    'cost_sheets' => (int) array_sum(array_column($rows, 'cost_sheets')),
-                    'approved' => (int) array_sum(array_column($rows, 'approved')),
-                    'denied' => (int) array_sum(array_column($rows, 'denied')),
-                    'pending' => (int) array_sum(array_column($rows, 'pending')),
-                    'purchase_order_amount' => (float) array_sum(array_column($rows, 'purchase_order_amount')),
-                ],
+                'totals' => $this->dashboardRepository->getFinanceTotals($filters, $user),
                 'finance_status' => $this->dashboardRepository->getFinanceStatusCounts($filters, $user),
                 'recent' => $this->dashboardRepository->getRecentFinanceRecords($filters, $user),
             ];
         } catch (Exception $e) {
             Log::error('Error fetching finance dashboard chart metrics', ['exception' => $e]);
             throw new Exception('Unable to fetch finance dashboard chart metrics');
+        }
+    }
+
+    /**
+     * Get finance summary metrics (voucher total and proforma invoice total).
+     *
+     * @param array<string, mixed> $filters
+     * @return array{voucher_total_amount: float, proforma_invoice_total_amount: float}
+     * @throws Exception
+     */
+    public function getFinanceSummary(array $filters = []): array
+    {
+        try {
+            $user = Auth::user();
+            return $this->dashboardRepository->getFinanceSummary($filters, $user);
+        } catch (Exception $e) {
+            Log::error('Error fetching finance summary', ['exception' => $e]);
+            throw new Exception('Unable to fetch finance summary');
         }
     }
 
@@ -446,27 +453,35 @@ class DashboardService
      */
     private function buildScopedOrganisationRows(array $filters, $user, callable $rowBuilder): array
     {
-        if (
-            empty($filters['organisation_ids'])
-            && empty(UserAccessScope::getAccessibleOrganisationIds($user))
-        ) {
-            return [$rowBuilder($filters, 0, 'My Data')];
-        }
+        try {
+            if (
+                empty($filters['organisation_ids'])
+                && empty(UserAccessScope::getAccessibleOrganisationIds($user))
+            ) {
+                return [$rowBuilder($filters, 0, 'My Data')];
+            }
 
-        $organisations = $this->dashboardRepository->getAccessibleOrganisations($filters, $user);
-        $rows = [];
+            $organisations = $this->dashboardRepository->getAccessibleOrganisations($filters, $user);
+            $rows = [];
 
-        foreach ($organisations as $organisation) {
-            $organisationFilter = array_merge($filters, [
-                'organisation_ids' => [(int) $organisation->id],
+            foreach ($organisations as $organisation) {
+                $organisationFilter = array_merge($filters, [
+                    'organisation_ids' => [(int) $organisation->id],
+                ]);
+                $rows[] = $rowBuilder($organisationFilter, (int) $organisation->id, (string) $organisation->name);
+            }
+
+            if ($rows === [] && empty(UserAccessScope::getAccessibleOrganisationIds($user))) {
+                return [$rowBuilder($filters, 0, 'My Data')];
+            }
+
+            return $rows;
+        } catch (Exception $e) {
+            Log::error('Error building scoped organisation rows', [
+                'exception' => $e,
+                'filters' => $filters,
             ]);
-            $rows[] = $rowBuilder($organisationFilter, (int) $organisation->id, (string) $organisation->name);
+            throw new Exception('Unable to build scoped organisation rows: ' . $e->getMessage());
         }
-
-        if ($rows === [] && empty(UserAccessScope::getAccessibleOrganisationIds($user))) {
-            return [$rowBuilder($filters, 0, 'My Data')];
-        }
-
-        return $rows;
     }
 }

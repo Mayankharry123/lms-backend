@@ -12,6 +12,8 @@ use App\Models\MissCampaign;
 use App\Models\Operation;
 use App\Models\FinanceRecord;
 use App\Models\PurchaseOrder;
+use App\Models\Voucher;
+use App\Models\ProformaInvoice;
 use Illuminate\Database\Eloquent\Builder;
 use App\Support\DashboardFilters;
 use App\Support\UserAccessScope;
@@ -182,6 +184,24 @@ class Dashboard extends Model
     }
 
     /**
+     * Total operations counts from the operations table for the selected filters.
+     *
+     * @param array<string, mixed> $filters
+     * @return array<string, int>
+     */
+    public function fetchOperationsTotals(array $filters, ?User $user): array
+    {
+        $query = $this->scopedOperationsQuery($filters, $user);
+
+        return [
+            'operations' => (int) (clone $query)->count(),
+            'pending_operations' => $this->countOperationsByStatusSlug($query, 'pending'),
+            'live_operations' => $this->countOperationsByStatusSlug($query, 'live'),
+            'assigned_operations' => (int) (clone $query)->whereNotNull('operations.assign_to')->count(),
+        ];
+    }
+
+    /**
      * Pending and live operation counts for the selected filters.
      *
      * @param array<string, mixed> $filters
@@ -254,6 +274,77 @@ class Dashboard extends Model
     }
 
     /**
+     * Total finance metrics from the finance_records table for the selected filters.
+     *
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function fetchFinanceTotals(array $filters, ?User $user): array
+    {
+        $query = $this->scopedFinanceRecordsQuery($filters, $user);
+
+        return [
+            'cost_sheets' => (int) (clone $query)->count(),
+            'approved' => $this->countFinanceRecordsByStatusSlug($query, 'approved'),
+            'denied' => $this->countFinanceRecordsByStatusSlug($query, 'denied'),
+            'pending' => $this->countPendingFinanceRecords($query),
+            'purchase_order_amount' => $this->sumPurchaseOrderAmount($filters, $user),
+        ];
+    }
+
+    /**
+     * Sum of voucher total amounts and proforma invoice total amounts for the selected filters.
+     *
+     * @param array<string, mixed> $filters
+     * @return array{voucher_total_amount: float, proforma_invoice_total_amount: float}
+     */
+    public function fetchFinanceSummary(array $filters, ?User $user): array
+    {
+        $voucherQuery = Voucher::query()
+            ->whereNull('vouchers.deleted_at')
+            ->where('vouchers.status', '!=', '15');
+
+        $piQuery = ProformaInvoice::query()
+            ->whereNull('proforma_invoices.deleted_at')
+            ->where('proforma_invoices.status', '!=', '15');
+
+        $dateFrom = $filters['date_from'] ?? $filters['from_date'] ?? null;
+        $dateTo = $filters['date_to'] ?? $filters['to_date'] ?? null;
+
+        if ($dateFrom) {
+            $voucherQuery->whereDate('vouchers.created_at', '>=', $dateFrom);
+            $piQuery->whereDate('proforma_invoices.created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $voucherQuery->whereDate('vouchers.created_at', '<=', $dateTo);
+            $piQuery->whereDate('proforma_invoices.created_at', '<=', $dateTo);
+        }
+
+        if (!empty($filters['created_by'])) {
+            $voucherQuery->where('vouchers.created_by', (int) $filters['created_by']);
+            $piQuery->where('proforma_invoices.created_by', (int) $filters['created_by']);
+        }
+
+        if (!empty($filters['voucher_type_id'])) {
+            $voucherQuery->where('vouchers.voucher_type_id', (int) $filters['voucher_type_id']);
+        }
+
+        if (!empty($filters['brand_id'])) {
+            $piQuery->where('proforma_invoices.brand_id', (int) $filters['brand_id']);
+        }
+
+        if (!empty($filters['month'])) {
+            $voucherQuery->where('vouchers.month', (string) $filters['month']);
+        }
+
+        return [
+            'voucher_total_amount' => (float) round((float) $voucherQuery->sum('vouchers.total_amount'), 2),
+            'proforma_invoice_total_amount' => (float) round((float) $piQuery->sum('proforma_invoices.total_amount'), 2),
+        ];
+    }
+
+    /**
      * Approved, denied, and pending finance counts for the selected filters.
      *
      * @param array<string, mixed> $filters
@@ -310,12 +401,18 @@ class Dashboard extends Model
     {
         $operation = new Operation();
         $query = Operation::query()
-            ->where('operations.status', '1')
+            ->whereNull('operations.deleted_at')
             ->accessibleToUser($user)
             ->whereHas('brief', function (Builder $briefQuery) {
                 $briefQuery->whereNull('briefs.deleted_at')
                     ->whereRaw('briefs.status != 15');
             });
+
+        if (isset($filters['status']) && $filters['status'] !== null && $filters['status'] !== '') {
+            $query->where('operations.status', (string) $filters['status']);
+        } else {
+            $query->where('operations.status', '1');
+        }
 
         $operation->applyOrganisationValidation($query, $user, $filters);
         $operation->applyDepartmentFilter($query, $filters);
@@ -341,6 +438,18 @@ class Dashboard extends Model
             }
         }
 
+        if (!empty($filters['operation_status_id'])) {
+            $query->where('operations.operation_status_id', (int) $filters['operation_status_id']);
+        }
+
+        if (!empty($filters['brief_id'])) {
+            $query->where('operations.brief_id', (int) $filters['brief_id']);
+        }
+
+        if (!empty($filters['planner_id'])) {
+            $query->where('operations.planner_id', (int) $filters['planner_id']);
+        }
+
         return DashboardFilters::applyDateFilter($query, $filters, 'operations.created_at');
     }
 
@@ -351,12 +460,18 @@ class Dashboard extends Model
     {
         $financeRecord = new FinanceRecord();
         $query = FinanceRecord::query()
-            ->where('finance_records.status', '1')
+            ->whereNull('finance_records.deleted_at')
             ->accessibleToUser($user)
             ->whereHas('brief', function (Builder $briefQuery) {
                 $briefQuery->whereNull('briefs.deleted_at')
                     ->whereRaw('briefs.status != 15');
             });
+
+        if (isset($filters['status']) && $filters['status'] !== null && $filters['status'] !== '') {
+            $query->where('finance_records.status', (string) $filters['status']);
+        } else {
+            $query->where('finance_records.status', '1');
+        }
 
         $financeRecord->applyOrganisationValidation($query, $user, $filters);
         $financeRecord->applyDepartmentFilter($query, $filters);
@@ -380,6 +495,18 @@ class Dashboard extends Model
             if (!empty($filters[$assignmentColumn])) {
                 $query->where("finance_records.{$assignmentColumn}", (int) $filters[$assignmentColumn]);
             }
+        }
+
+        if (!empty($filters['finance_status_id'])) {
+            $query->where('finance_records.finance_status_id', (int) $filters['finance_status_id']);
+        }
+
+        if (!empty($filters['brief_id'])) {
+            $query->where('finance_records.brief_id', (int) $filters['brief_id']);
+        }
+
+        if (!empty($filters['planner_id'])) {
+            $query->where('finance_records.planner_id', (int) $filters['planner_id']);
         }
 
         return DashboardFilters::applyDateFilter($query, $filters, 'finance_records.created_at');

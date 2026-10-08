@@ -43,14 +43,23 @@ class DashboardFilters
         }
 
         $filters = [
-            'date_from' => $request->query('date_from') ?: null,
-            'date_to' => $request->query('date_to') ?: null,
+            'date_from' => $request->query('date_from', $request->query('from_date')) ?: null,
+            'date_to' => $request->query('date_to', $request->query('to_date')) ?: null,
             'organisation_ids' => $organisationIds,
             'department_ids' => $departmentIds,
             'user_ids' => $userIds,
             'assign_to' => self::normalizeIds($request->input('assign_to', []))[0] ?? null,
             'assign_by' => self::normalizeIds($request->input('assign_by', []))[0] ?? null,
             'priority' => $priority ?: null,
+            'operation_status_id' => $request->input('operation_status_id') ? (int) $request->input('operation_status_id') : null,
+            'finance_status_id' => $request->input('finance_status_id') ? (int) $request->input('finance_status_id') : null,
+            'brief_id' => $request->input('brief_id') ? (int) $request->input('brief_id') : null,
+            'planner_id' => $request->input('planner_id') ? (int) $request->input('planner_id') : null,
+            'voucher_type_id' => $request->input('voucher_type_id') ? (int) $request->input('voucher_type_id') : null,
+            'brand_id' => $request->input('brand_id') ? (int) $request->input('brand_id') : null,
+            'month' => $request->input('month') ?: null,
+            'created_by' => $request->input('created_by') ? (int) $request->input('created_by') : null,
+            'status' => $request->input('status') !== null && $request->input('status') !== '' ? (string) $request->input('status') : null,
         ];
 
         $user = auth()->user();

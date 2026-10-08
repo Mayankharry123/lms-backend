@@ -144,6 +144,11 @@ class BrandController extends Controller
                 'industry_id' => 'required|integer|exists:industries,id',
                 'country_id' => 'required|integer|exists:countries,id',
                 'website' => 'nullable|url|max:255',
+                'address' => 'nullable|string|max:1000',
+                'gst_no' => 'nullable',
+                'gst_number' => 'nullable|string|max:50',
+                'gst_numbers' => 'nullable|array',
+                'gst_numbers.*' => 'string|max:50',
                 'postal_code' => 'nullable|string|max:20',
                 'state_id' => 'required|integer|exists:states,id',
                 'city_id' => 'required|integer|exists:cities,id',
@@ -157,6 +162,37 @@ class BrandController extends Controller
 
             // Trim whitespace from name
             $validatedData['name'] = trim($validatedData['name']);
+
+            // Normalize GST numbers and Address
+            $gstNumbers = [];
+            $primaryGst = null;
+
+            if ($request->has('gst_numbers') && is_array($request->input('gst_numbers'))) {
+                $gstNumbers = array_values(array_filter(array_map('trim', $request->input('gst_numbers'))));
+                $primaryGst = $gstNumbers[0] ?? null;
+            } elseif ($request->has('gst_no')) {
+                $rawGst = $request->input('gst_no');
+                if (is_array($rawGst)) {
+                    $gstNumbers = array_values(array_filter(array_map('trim', $rawGst)));
+                    $primaryGst = $gstNumbers[0] ?? null;
+                } elseif (is_string($rawGst) && trim($rawGst) !== '') {
+                    $primaryGst = trim($rawGst);
+                    $gstNumbers = [$primaryGst];
+                }
+            } elseif ($request->has('gst_number') && is_string($request->input('gst_number')) && trim($request->input('gst_number')) !== '') {
+                $primaryGst = trim($request->input('gst_number'));
+                $gstNumbers = [$primaryGst];
+            }
+
+            if ($primaryGst !== null) {
+                $validatedData['gst_no'] = $primaryGst;
+            }
+            if (!empty($gstNumbers)) {
+                $validatedData['gst_numbers'] = $gstNumbers;
+            }
+            if ($request->has('address')) {
+                $validatedData['address'] = $request->input('address') ? trim((string) $request->input('address')) : null;
+            }
 
             // Add system-generated fields
             // Generate a temporary unique slug to avoid constraint violations
@@ -235,6 +271,11 @@ class BrandController extends Controller
                 'industry_id' => 'sometimes|required|integer|exists:industries,id',
                 'country_id' => 'sometimes|required|integer|exists:countries,id',
                 'website' => 'sometimes|nullable|url|max:255',
+                'address' => 'sometimes|nullable|string|max:1000',
+                'gst_no' => 'sometimes|nullable',
+                'gst_number' => 'sometimes|nullable|string|max:50',
+                'gst_numbers' => 'sometimes|nullable|array',
+                'gst_numbers.*' => 'string|max:50',
                 'postal_code' => 'sometimes|nullable|string|max:20',
                 'state_id' => 'sometimes|required|integer|exists:states,id',
                 'city_id' => 'sometimes|required|integer|exists:cities,id',
@@ -251,6 +292,37 @@ class BrandController extends Controller
             if ($request->has('name')) {
                 $validatedData['name'] = trim($validatedData['name']);
                 $validatedData['slug'] = Str::slug($validatedData['name']);
+            }
+
+            // Normalize GST numbers and Address
+            if ($request->has('gst_numbers') || $request->has('gst_no') || $request->has('gst_number')) {
+                $gstNumbers = [];
+                $primaryGst = null;
+
+                if ($request->has('gst_numbers') && is_array($request->input('gst_numbers'))) {
+                    $gstNumbers = array_values(array_filter(array_map('trim', $request->input('gst_numbers'))));
+                    $primaryGst = $gstNumbers[0] ?? null;
+                } elseif ($request->has('gst_no')) {
+                    $rawGst = $request->input('gst_no');
+                    if (is_array($rawGst)) {
+                        $gstNumbers = array_values(array_filter(array_map('trim', $rawGst)));
+                        $primaryGst = $gstNumbers[0] ?? null;
+                    } elseif (is_string($rawGst)) {
+                        $primaryGst = trim($rawGst) !== '' ? trim($rawGst) : null;
+                        $gstNumbers = $primaryGst ? [$primaryGst] : [];
+                    }
+                } elseif ($request->has('gst_number')) {
+                    $raw = (string) $request->input('gst_number');
+                    $primaryGst = trim($raw) !== '' ? trim($raw) : null;
+                    $gstNumbers = $primaryGst ? [$primaryGst] : [];
+                }
+
+                $validatedData['gst_no'] = $primaryGst;
+                $validatedData['gst_numbers'] = $gstNumbers;
+            }
+
+            if ($request->has('address')) {
+                $validatedData['address'] = $request->input('address') ? trim((string) $request->input('address')) : null;
             }
 
             $this->brandService->updateBrand($id, $validatedData);
@@ -444,6 +516,32 @@ class BrandController extends Controller
             return $this->responseService->success(
                 $agencies,
                 'Agencies retrieved successfully'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get GST number and address details by Brand ID.
+     *
+     * GET /brands/{id}/gst-address
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function getGstAndAddress(int $id): JsonResponse
+    {
+        try {
+            $details = $this->brandService->getBrandBillingDetails($id);
+
+            if (!$details) {
+                return $this->responseService->notFound('Brand not found');
+            }
+
+            return $this->responseService->success(
+                $details,
+                'Brand GST and address details retrieved successfully'
             );
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);

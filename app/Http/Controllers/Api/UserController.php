@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\UserService;
 use App\Services\BriefService;
 use App\Services\LeadService;
+use App\Services\MissCampaignService;
 use App\Services\OrganisationService;
 use App\Services\ResponseService;
 use App\Http\Resources\UserResource;
@@ -15,7 +16,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
-use App\Models\Lead;
 use App\Models\Zone;
 
 class UserController extends Controller
@@ -50,6 +50,11 @@ class UserController extends Controller
     protected LeadService $leadService;
 
     /**
+     * @var MissCampaignService
+     */
+    protected MissCampaignService $missCampaignService;
+
+    /**
      * Constructor
      *
      * @param UserService $userService
@@ -57,19 +62,22 @@ class UserController extends Controller
      * @param OrganisationService $organisationService
      * @param BriefService $briefService
      * @param LeadService $leadService
+     * @param MissCampaignService $missCampaignService
      */
     public function __construct(
         UserService $userService,
         ResponseService $responseService,
         OrganisationService $organisationService,
         BriefService $briefService,
-        LeadService $leadService
+        LeadService $leadService,
+        MissCampaignService $missCampaignService
     ) {
         $this->userService = $userService;
         $this->responseService = $responseService;
         $this->organisationService = $organisationService;
         $this->briefService = $briefService;
         $this->leadService = $leadService;
+        $this->missCampaignService = $missCampaignService;
     }
 
     /**
@@ -842,16 +850,16 @@ class UserController extends Controller
     public function getChildUsersByLead(Request $request, int $leadId): JsonResponse
     {
         try {
+            $lead = $this->leadService->getLead($leadId);
+            if (!$lead) {
+                return $this->responseService->notFound('Lead not found');
+            }
+
             /** @var \App\Models\User $user */
             $user = $request->user ?? auth()->user();
             
             if (!$user) {
                 return $this->responseService->unauthorized('User not authenticated');
-            }
-
-            $lead = \App\Models\Lead::find($leadId);
-            if (!$lead) {
-                return $this->responseService->notFound('Lead not found');
             }
 
             $organisationId = $lead->organisation_id;
@@ -875,15 +883,15 @@ class UserController extends Controller
     public function getChildUsersForBriefCreation(Request $request, int $leadId): JsonResponse
     {
         try {
+            $lead = $this->leadService->getLead($leadId);
+            if (!$lead) {
+                return $this->responseService->notFound('Lead not found');
+            }
+
             $user = $request->user ?? auth()->user();
             
             if (!$user) {
                 return $this->responseService->unauthorized('User not authenticated');
-            }
-
-            $lead = \App\Models\Lead::find($leadId);
-            if (!$lead) {
-                return $this->responseService->notFound('Lead not found');
             }
 
             $organisationId = $lead->organisation_id;
@@ -906,16 +914,16 @@ class UserController extends Controller
     public function getChildUsersByMissCampaign(Request $request, int $campaignId): JsonResponse
     {
         try {
+            $campaign = $this->missCampaignService->getMissCampaign($campaignId);
+            if (!$campaign) {
+                return $this->responseService->notFound('Miss campaign not found');
+            }
+
             /** @var \App\Models\User $user */
             $user = $request->user ?? auth()->user();
             
             if (!$user) {
                 return $this->responseService->unauthorized('User not authenticated');
-            }
-
-            $campaign = \App\Models\MissCampaign::with('lead')->find($campaignId);
-            if (!$campaign) {
-                return $this->responseService->notFound('Miss campaign not found');
             }
 
             // Miss campaigns store organisation_id in their connected Lead
@@ -941,15 +949,15 @@ class UserController extends Controller
     public function getChildUsersByBrief(Request $request, int $briefId): JsonResponse
     {
         try {
+            $brief = $this->briefService->getBrief($briefId);
+            if (!$brief) {
+                return $this->responseService->notFound('Brief not found');
+            }
+
             $user = $request->user ?? auth()->user();
             
             if (!$user) {
                 return $this->responseService->unauthorized('User not authenticated');
-            }
-
-            $brief = \App\Models\Brief::with('contactPerson')->find($briefId);
-            if (!$brief) {
-                return $this->responseService->notFound('Brief not found');
             }
 
             // The brief is linked to a lead via contact_person_id
@@ -983,15 +991,15 @@ class UserController extends Controller
     public function getChildPlannersByBrief(Request $request, int $briefId): JsonResponse
     {
         try {
+            $brief = $this->briefService->getBrief($briefId);
+            if (!$brief) {
+                return $this->responseService->notFound('Brief not found');
+            }
+
             $user = $request->user ?? auth()->user();
             
             if (!$user) {
                 return $this->responseService->unauthorized('User not authenticated');
-            }
-
-            $brief = \App\Models\Brief::with('contactPerson')->find($briefId);
-            if (!$brief) {
-                return $this->responseService->notFound('Brief not found');
             }
 
             // The brief is linked to a lead via contact_person_id
@@ -1040,15 +1048,15 @@ class UserController extends Controller
     private function childUsersByBriefDepartment(Request $request, int $briefId, array $departmentSlug, string $label): JsonResponse
     {
         try {
+            $brief = $this->briefService->getBrief($briefId);
+            if (!$brief) {
+                return $this->responseService->notFound('Brief not found');
+            }
+
             $user = $request->user ?? auth()->user();
 
             if (!$user) {
                 return $this->responseService->unauthorized('User not authenticated');
-            }
-
-            $brief = \App\Models\Brief::with('contactPerson')->find($briefId);
-            if (!$brief) {
-                return $this->responseService->notFound('Brief not found');
             }
 
             $lead = $brief->contactPerson;
@@ -1077,15 +1085,15 @@ class UserController extends Controller
     public function getChildPlannersByLead(Request $request, int $leadId): JsonResponse
     {
         try {
+            $lead = $this->leadService->getLead($leadId);
+            if (!$lead) {
+                return $this->responseService->notFound('Lead not found');
+            }
+
             $user = $request->user ?? auth()->user();
             
             if (!$user) {
                 return $this->responseService->unauthorized('User not authenticated');
-            }
-
-            $lead = \App\Models\Lead::find($leadId);
-            if (!$lead) {
-                return $this->responseService->notFound('Lead not found');
             }
 
             $organisationId = $lead->organisation_id;

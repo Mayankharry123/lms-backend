@@ -189,6 +189,74 @@ class BrandService
         }
     }
 
+    /**
+     * Get billing details (GST number and address) for a brand by ID.
+     *
+     * @param int $brandId
+     * @return array<string, mixed>|null
+     * @throws DomainException
+     */
+    public function getBrandBillingDetails(int $brandId): ?array
+    {
+        try {
+            $brand = $this->brandRepository->getBrandById($brandId);
+            if (!$brand) {
+                return null;
+            }
+
+            $gstNumbers = $brand->gst_numbers ?? [];
+            if (empty($gstNumbers) && !empty($brand->gst_no)) {
+                $gstNumbers = [$brand->gst_no];
+            }
+
+            $primaryGst = $brand->gst_no ?: ($gstNumbers[0] ?? null);
+
+            // Derive 2-digit state code if GST is available (e.g., 07, 08, 27)
+            $stateCode = null;
+            if (!empty($primaryGst) && strlen((string) $primaryGst) >= 2 && ctype_digit(substr((string) $primaryGst, 0, 2))) {
+                $stateCode = substr((string) $primaryGst, 0, 2);
+            }
+
+            // Build clean formatted address without awkward leading commas
+            $addressParts = array_filter([
+                $brand->address ? trim((string) $brand->address) : null,
+                $brand->city?->name,
+                $brand->state?->name,
+                $brand->country?->name,
+                $brand->postal_code,
+            ], fn($part) => !empty($part));
+
+            $formattedAddress = implode(', ', $addressParts);
+            $finalAddress = $brand->address ? trim((string) $brand->address) : ($formattedAddress ?: null);
+
+            return [
+                'brand_id' => $brand->id,
+                'brand_name' => $brand->name,
+                'client_name' => $brand->name,
+                'gst_no' => $primaryGst,
+                'gst_number' => $primaryGst,
+                'gst_numbers' => array_values($gstNumbers),
+                'address' => $finalAddress,
+                'street_address' => $brand->address,
+                'formatted_address' => $formattedAddress ?: null,
+                'state_code' => $stateCode,
+                'state' => $brand->state?->name,
+                'state_id' => $brand->state_id,
+                'city' => $brand->city?->name,
+                'city_id' => $brand->city_id,
+                'postal_code' => $brand->postal_code,
+                'country' => $brand->country?->name,
+                'country_id' => $brand->country_id,
+            ];
+        } catch (QueryException $e) {
+            Log::error('Database error fetching brand billing details', ['id' => $brandId, 'exception' => $e]);
+            throw new DomainException('Database error while fetching brand billing details.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching brand billing details', ['id' => $brandId, 'exception' => $e]);
+            throw new DomainException('Unexpected error while fetching brand billing details.');
+        }
+    }
+
     // ============================================================================
     // WRITE OPERATIONS
     // ============================================================================

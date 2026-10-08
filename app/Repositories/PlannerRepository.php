@@ -283,4 +283,9 @@ class PlannerRepository
     {
         return $this->model->fetchLatestSubmittedPlans($limit, $filters, $user ?? Auth::user());
     }
+
+    public function getApprovedBackupPlanByBriefId(int $briefId, $user = null): ?Planner
+    {
+        return $this->model->findApprovedBackupPlanByBriefId($briefId, $user ?? Auth::user());
+    }
 }

@@ -16,6 +16,8 @@ namespace App\Services;
 use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
 use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
 use App\Contracts\Repositories\UserRepositoryInterface;
+use App\Events\FinanceRecordAssignedEvent;
+use App\Events\FinanceStatusChangedEvent;
 use App\Models\Brief;
 use App\Models\FinanceRecord;
 use App\Models\Planner;
@@ -156,6 +158,16 @@ class FinanceRecordService
             }
 
             (new Brief())->markCostSheetSubmitted($briefId);
+
+            if ($financeRecord && $assignTo) {
+                event(new FinanceRecordAssignedEvent(
+                    $financeRecord->id,
+                    $assignTo,
+                    $assignBy,
+                    $existing ? (int) $existing->assign_to : null,
+                    $existing ? 'Cost sheet re-uploaded' : 'Cost sheet uploaded for approved plan'
+                ));
+            }
 
             return $financeRecord;
         } catch (Throwable $e) {
@@ -344,7 +356,42 @@ class FinanceRecordService
                 return $this->financeRecordRepository->findCostSheet($id);
             }
 
-            return $this->financeRecordRepository->updateRecord($id, $updates, $comment);
+            $comment = $data['comment'] ?? null;
+            $previousAssignTo = $financeRecord->assign_to ? (int) $financeRecord->assign_to : null;
+            $previousStatusId = $financeRecord->finance_status_id ? (int) $financeRecord->finance_status_id : null;
+            $previousStatusName = $financeRecord->financeStatus?->name;
+
+            $updatedRecord = $this->financeRecordRepository->updateRecord($id, $updates, $comment);
+
+            if ($updatedRecord) {
+                $authUser = auth()->user();
+
+                if (isset($updates['assign_to']) && (int) $updates['assign_to'] !== $previousAssignTo) {
+                    event(new FinanceRecordAssignedEvent(
+                        $updatedRecord->id,
+                        (int) $updates['assign_to'],
+                        isset($updates['assign_by']) ? (int) $updates['assign_by'] : ($authUser ? (int) $authUser->id : null),
+                        $previousAssignTo,
+                        $comment
+                    ));
+                }
+
+                if (isset($updates['finance_status_id']) && (int) $updates['finance_status_id'] !== $previousStatusId) {
+                    $newStatus = $this->financeStatusRepository->find((int) $updates['finance_status_id']);
+                    event(new FinanceStatusChangedEvent(
+                        $updatedRecord->id,
+                        $previousStatusId,
+                        $previousStatusName,
+                        (int) $updates['finance_status_id'],
+                        $newStatus?->name,
+                        $authUser ? (int) $authUser->id : null,
+                        $authUser?->name,
+                        $comment
+                    ));
+                }
+            }
+
+            return $updatedRecord;
         } catch (Throwable $e) {
             if (!$e instanceof DomainException && !$e instanceof ValidationException) {
                 Log::error('Error updating cost sheet', ['id' => $id, 'exception' => $e]);
@@ -375,9 +422,28 @@ class FinanceRecordService
                 throw new DomainException('Finance status not found');
             }
 
-            return $this->financeRecordRepository->updateRecord($id, [
+            $previousStatusId = $financeRecord->finance_status_id ? (int) $financeRecord->finance_status_id : null;
+            $previousStatusName = $financeRecord->financeStatus?->name;
+
+            $updatedRecord = $this->financeRecordRepository->updateRecord($id, [
                 'finance_status_id' => $financeStatusId,
             ], $comment);
+
+            if ($updatedRecord) {
+                $authUser = auth()->user();
+                event(new FinanceStatusChangedEvent(
+                    $updatedRecord->id,
+                    $previousStatusId,
+                    $previousStatusName,
+                    $financeStatusId,
+                    $financeStatus->name,
+                    $authUser ? (int) $authUser->id : null,
+                    $authUser?->name,
+                    $comment
+                ));
+            }
+
+            return $updatedRecord;
         } catch (Throwable $e) {
             if (!$e instanceof DomainException) {
                 Log::error('Error updating cost sheet finance status', [
@@ -405,10 +471,24 @@ class FinanceRecordService
                 return null;
             }
 
-            return $this->financeRecordRepository->updateRecord($id, [
+            $previousAssignTo = $financeRecord->assign_to ? (int) $financeRecord->assign_to : null;
+
+            $updatedRecord = $this->financeRecordRepository->updateRecord($id, [
                 'assign_to' => $assignTo,
                 'assign_by' => $assignBy,
             ], $comment);
+
+            if ($updatedRecord) {
+                event(new FinanceRecordAssignedEvent(
+                    $updatedRecord->id,
+                    $assignTo,
+                    $assignBy,
+                    $previousAssignTo,
+                    $comment
+                ));
+            }
+
+            return $updatedRecord;
         } catch (Throwable $e) {
             Log::error('Error updating finance record assignee', [
                 'id' => $id,

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use App\Support\DashboardFilters;
 use App\Support\PlannerMetrics;
 use App\Support\UserAccessScope;
 use App\Traits\HandlesFileUploads;
@@ -126,11 +127,11 @@ class Planner extends BaseModel
         }
 
         // Super Admin with organisation assignment may view all records (dashboard uses org filters).
-        if (\App\Support\UserAccessScope::hasGlobalRecordAccess($user)) {
+        if (UserAccessScope::hasGlobalRecordAccess($user)) {
             return $query;
         }
 
-        \App\Support\UserAccessScope::applyVisibleUserFilter(
+        UserAccessScope::applyVisibleUserFilter(
             $query,
             $user,
             ['created_by'],
@@ -395,5 +396,57 @@ class Planner extends BaseModel
     public function fetchLatestSubmittedPlans(int $limit = 5, array $filters = [], $user = null): Collection
     {
         return $this->buildSubmittedPlansQuery($filters, $user)->limit($limit)->get();
+    }
+
+    /**
+     * Find the approved planner with a backup plan for a given brief ID.
+     */
+    public function findApprovedBackupPlanByBriefId(int $briefId, $user = null): ?self
+    {
+        $user = $user ?? auth()->user();
+
+        $userOrgIds = [];
+        if ($user) {
+            $isSuperAdmin = UserAccessScope::isSuperAdmin($user);
+            $userOrgIds = UserAccessScope::getAccessibleOrganisationIds($user);
+
+            if (!$isSuperAdmin && empty($userOrgIds)) {
+                return null;
+            }
+        }
+
+        $query = $this->newQuery()
+            ->with([
+                'brief:id,name,product_name,campaign_start_date,campaign_end_date,created_by,assign_user_id,contact_person_id',
+                'brief.contactPerson:id,name,organisation_id,department_id',
+                'plannerStatus:id,name,slug',
+                'creator:id,name',
+            ])
+            ->where('planners.brief_id', $briefId)
+            ->whereNull('planners.deleted_at')
+            ->where('planners.status', '!=', '15')
+            ->whereNotNull('planners.backup_plan')
+            ->where('planners.backup_plan', '!=', '')
+            ->whereHas('plannerStatus', function ($statusQuery) {
+                $statusQuery->where('slug', 'plan-approved')
+                    ->orWhere('name', 'Plan Approved');
+            });
+
+        if ($user && !empty($userOrgIds)) {
+            $orgUserIds = DashboardFilters::getOrganisationUserIds($userOrgIds);
+            if (!empty($orgUserIds)) {
+                $query->where(function ($orgQ) use ($userOrgIds, $orgUserIds) {
+                    $orgQ->whereHas('brief.contactPerson', function ($q) use ($userOrgIds) {
+                        $q->whereIn('organisation_id', $userOrgIds);
+                    })->orWhereIn('planners.created_by', $orgUserIds)
+                      ->orWhereHas('brief', function ($bQ) use ($orgUserIds) {
+                          $bQ->whereIn('assign_user_id', $orgUserIds)
+                             ->orWhereIn('created_by', $orgUserIds);
+                      });
+                });
+            }
+        }
+
+        return $query->latest('planners.updated_at')->first();
     }
 }

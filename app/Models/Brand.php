@@ -46,6 +46,9 @@ class Brand extends Model
         'zone_id',
         'created_by',
         'website',
+        'address',
+        'gst_no',
+        'gst_numbers',
         'postal_code',
         'status',
         'contact_person_id',
@@ -58,6 +61,7 @@ class Brand extends Model
      */
     protected $casts = [
         'status' => 'string',
+        'gst_numbers' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',

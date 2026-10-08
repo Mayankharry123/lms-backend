@@ -32,6 +32,10 @@ class BrandResource extends JsonResource
 
             // Location Information
             'website' => $this->website,
+            'address' => $this->address,
+            'gst_no' => $this->gst_no,
+            'gst_number' => $this->gst_no,
+            'gst_numbers' => $this->gst_numbers ?? ($this->gst_no ? [$this->gst_no] : []),
             'postal_code' => $this->postal_code,
 
             // Relationships (Objects)

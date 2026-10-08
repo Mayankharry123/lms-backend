@@ -7,7 +7,6 @@
  * to an operation status and the users who assigned and received it.
  *
  * @package App\Models
- * @author Achal Sharma
  * @version 1.0.0
  * @since 2026-10-04
  */
@@ -173,25 +172,27 @@ class Operation extends BaseModel
         }
 
         if (!empty($effectiveOrgIds)) {
-            $orgUserIds = DashboardFilters::getOrganisationUserIds($effectiveOrgIds);
             $table = $this->getTable();
 
-            $query->where(function (Builder $orgQ) use ($effectiveOrgIds, $orgUserIds, $table) {
+            $query->where(function (Builder $orgQ) use ($effectiveOrgIds, $table) {
                 $orgQ->whereHas('brief.contactPerson', function ($q) use ($effectiveOrgIds) {
                     $q->whereIn('organisation_id', $effectiveOrgIds);
-                });
-
-                if (!empty($orgUserIds)) {
-                    $orgQ->orWhereIn("{$table}.assign_to", $orgUserIds)
-                        ->orWhereIn("{$table}.assign_by", $orgUserIds)
-                        ->orWhereHas('planner', function ($pQ) use ($orgUserIds) {
-                            $pQ->whereIn('created_by', $orgUserIds);
-                        })
-                        ->orWhereHas('brief', function ($bQ) use ($orgUserIds) {
-                            $bQ->whereIn('assign_user_id', $orgUserIds)
-                                ->orWhereIn('created_by', $orgUserIds);
+                })->orWhere(function (Builder $fallbackQ) use ($effectiveOrgIds, $table) {
+                    $fallbackQ->where(function ($sub) {
+                        $sub->whereDoesntHave('brief.contactPerson')
+                            ->orWhereHas('brief.contactPerson', function ($cpQ) {
+                                $cpQ->whereNull('organisation_id');
+                            });
+                    })->where(function ($sub) use ($effectiveOrgIds, $table) {
+                        $sub->whereHas('planner.creator.organisations', function ($q) use ($effectiveOrgIds) {
+                            $q->whereIn('organisations.id', $effectiveOrgIds);
+                        })->orWhereHas('assignedTo.organisations', function ($q) use ($effectiveOrgIds) {
+                            $q->whereIn('organisations.id', $effectiveOrgIds);
+                        })->orWhereHas('assignedTo', function ($q) use ($effectiveOrgIds) {
+                            $q->whereIn('organisation_id', $effectiveOrgIds);
                         });
-                }
+                    });
+                });
             });
         }
     }
@@ -269,6 +270,23 @@ class Operation extends BaseModel
 
         if (!empty($criteria['assign_to'])) {
             $query->where("{$table}.assign_to", $criteria['assign_to']);
+        }
+
+        if (!empty($criteria['user_ids'])) {
+            $userIds = is_array($criteria['user_ids']) ? $criteria['user_ids'] : explode(',', (string) $criteria['user_ids']);
+            $userIds = array_values(array_filter(array_map('intval', $userIds)));
+            if (!empty($userIds)) {
+                $query->where(function (Builder $userQuery) use ($userIds, $table) {
+                    $userQuery->whereIn("{$table}.assign_to", $userIds)
+                        ->orWhereIn("{$table}.assign_by", $userIds);
+                });
+            }
+        } elseif (!empty($criteria['user_id'])) {
+            $userId = (int) $criteria['user_id'];
+            $query->where(function (Builder $userQuery) use ($userId, $table) {
+                $userQuery->where("{$table}.assign_to", $userId)
+                    ->orWhere("{$table}.assign_by", $userId);
+            });
         }
 
         if (!empty($criteria['date_from'])) {
