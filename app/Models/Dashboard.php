@@ -562,4 +562,117 @@ class Dashboard extends Model
 
         return (float) $query->sum('purchase_orders.total_amount');
     }
+
+    /**
+     * Unassigned work counts across all five modules:
+     * 1. Unassigned Sales (Leads without assigned user)
+     * 2. Unassigned Briefs (Briefs without assigned user)
+     * 3. Unassigned Planner (Active non-closed briefs without active plans)
+     * 4. Unassigned Operations (Operations without assigned user)
+     * 5. Unassigned Finance (Finance records without assigned user)
+     *
+     * @param array<string, mixed> $filters
+     * @return array{unassigned_sales: int, unassigned_briefs: int, unassigned_planner: int, unassigned_operations: int, unassigned_finance: int}
+     */
+    public function fetchUnassignedCounts(array $filters, ?User $user): array
+    {
+        // 1. Unassigned Sales (Leads)
+        $salesQuery = Lead::query()
+            ->accessibleToUser($user)
+            ->whereNull('leads.deleted_at')
+            ->where('leads.status', '!=', '15')
+            ->where(function (Builder $q) {
+                $q->whereNull('leads.current_assign_user')
+                    ->orWhere('leads.current_assign_user', 0);
+            });
+        DashboardFilters::applyLeadDashboardFilters($salesQuery, $filters, 'leads');
+        $this->applyDepartmentFilterToLeadQuery($salesQuery, $filters);
+        $unassignedSales = (int) (clone $salesQuery)->count();
+
+        // 2. Unassigned Briefs
+        $briefsQuery = Brief::query()
+            ->accessibleToUser($user)
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15')
+            ->where(function (Builder $q) {
+                $q->whereNull('briefs.assign_user_id')
+                    ->orWhere('briefs.assign_user_id', 0);
+            });
+        DashboardFilters::applyBriefDashboardFilters($briefsQuery, $filters, 'briefs');
+        $this->applyDepartmentFilterToBriefQuery($briefsQuery, $filters);
+        $unassignedBriefs = (int) (clone $briefsQuery)->count();
+
+        // 3. Unassigned Planner (Active briefs in planning with no active planner created)
+        $plannerQuery = Brief::query()
+            ->accessibleToUser($user)
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15')
+            ->whereDoesntHave('briefStatus', function (Builder $query) {
+                $query->where('slug', 'closed');
+            })
+            ->whereDoesntHave('planners', function (Builder $query) {
+                $query->whereNull('deleted_at')
+                    ->where('status', '!=', '15');
+            });
+        DashboardFilters::applyBriefDashboardFilters($plannerQuery, $filters, 'briefs');
+        $this->applyDepartmentFilterToBriefQuery($plannerQuery, $filters);
+        $unassignedPlanner = (int) (clone $plannerQuery)->count();
+
+        // 4. Unassigned Operations
+        $operationsQuery = $this->scopedOperationsQuery($filters, $user)
+            ->where(function (Builder $q) {
+                $q->whereNull('operations.assign_to')
+                    ->orWhere('operations.assign_to', 0);
+            });
+        $unassignedOperations = (int) (clone $operationsQuery)->count();
+
+        // 5. Unassigned Finance
+        $financeQuery = $this->scopedFinanceRecordsQuery($filters, $user)
+            ->where(function (Builder $q) {
+                $q->whereNull('finance_records.assign_to')
+                    ->orWhere('finance_records.assign_to', 0);
+            });
+        $unassignedFinance = (int) (clone $financeQuery)->count();
+
+        return [
+            'unassigned_sales' => $unassignedSales,
+            'unassigned_briefs' => $unassignedBriefs,
+            'unassigned_planner' => $unassignedPlanner,
+            'unassigned_operations' => $unassignedOperations,
+            'unassigned_finance' => $unassignedFinance,
+        ];
+    }
+
+    private function applyDepartmentFilterToLeadQuery(Builder $query, array $filters): void
+    {
+        $deptIds = $this->extractDepartmentIds($filters);
+        if (!empty($deptIds)) {
+            $query->whereIn('leads.department_id', $deptIds);
+        }
+    }
+
+    private function applyDepartmentFilterToBriefQuery(Builder $query, array $filters): void
+    {
+        $deptIds = $this->extractDepartmentIds($filters);
+        if (!empty($deptIds)) {
+            $query->where(function (Builder $q) use ($deptIds) {
+                $q->whereHas('contactPerson', fn (Builder $cp) => $cp->whereIn('department_id', $deptIds))
+                    ->orWhereHas('assignedUser.departments', fn (Builder $d) => $d->whereIn('departments.id', $deptIds));
+            });
+        }
+    }
+
+    private function extractDepartmentIds(array $filters): array
+    {
+        $deptIds = [];
+        if (!empty($filters['department_ids'])) {
+            $deptIds = is_array($filters['department_ids'])
+                ? $filters['department_ids']
+                : explode(',', (string) $filters['department_ids']);
+        } elseif (!empty($filters['department_id'])) {
+            $deptIds = [$filters['department_id']];
+        }
+
+        return array_values(array_filter(array_map('intval', $deptIds)));
+    }
 }

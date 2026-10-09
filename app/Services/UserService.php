@@ -539,4 +539,16 @@ class UserService
 
         return $data;
     }
+
+    /**
+     * Get all users without any filter or access scope.
+     *
+     * @param array $filters
+     * @param int|null $perPage
+     * @return \Illuminate\Database\Eloquent\Collection<int, User>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<User>
+     */
+    public function getAllUsersWithoutFilter(array $filters = [], ?int $perPage = null)
+    {
+        return $this->userRepository->getAllWithoutFilter($filters, $perPage);
+    }
 }

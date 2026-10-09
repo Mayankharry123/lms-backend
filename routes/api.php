@@ -51,6 +51,9 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('me', 'Api\AuthController@me');
     });
 
+    // All users without any filter
+    $router->get('all-users', 'Api\UserController@getAllUsersWithoutFilter');
+
     // User routes (permission-protected)
     $router->group(['prefix' => 'users', 'middleware' => 'permission:users.read'], function () use ($router) {
         $router->get('/', 'Api\UserController@index');
@@ -726,6 +729,7 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('/operations-charts', 'Api\DashboardController@getOperationsCharts');
         $router->get('/finance-charts', 'Api\DashboardController@getFinanceCharts');
         $router->get('/finance-summary', 'Api\DashboardController@getFinanceSummary');
+        $router->get('/unassigned-counts', 'Api\DashboardController@getUnassignedCounts');
     });
 
     // Activity Log routes

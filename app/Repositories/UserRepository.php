@@ -165,4 +165,33 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     {
         return User::findActiveFinanceAdminsByOrganisation($organisationId);
     }
+
+    /**
+     * Get all users without any filter or access scope.
+     *
+     * @param array $filters
+     * @param int|null $perPage
+     * @return \Illuminate\Database\Eloquent\Collection<int, User>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<User>
+     */
+    public function getAllWithoutFilter(array $filters = [], ?int $perPage = null)
+    {
+        $modelClass = $this->modelClass;
+        $query = $modelClass::query()
+            ->select('id', 'name')
+            ->whereNull('deleted_at')
+            ->where('status', '!=', '15');
+
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        $query->orderBy('name', 'asc');
+
+        if ($perPage !== null && $perPage > 0) {
+            return $query->paginate($perPage);
+        }
+
+        return $query->get();
+    }
 }

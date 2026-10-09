@@ -95,4 +95,9 @@ class DashboardRepository implements DashboardRepositoryInterface
     {
         return $this->model->fetchFinanceSummary($filters, $user);
     }
+
+    public function getUnassignedCounts(array $filters, ?User $user): array
+    {
+        return $this->model->fetchUnassignedCounts($filters, $user);
+    }
 }
