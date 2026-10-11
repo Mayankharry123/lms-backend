@@ -13,6 +13,7 @@
 namespace App\Models;
 
 use App\Support\UserAccessScope;
+use App\Support\PlannerMetrics;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -44,7 +45,7 @@ class Brief extends Model
     const MODE_PROGRAMMATIC = 'programmatic';
     const MODE_NON_PROGRAMMATIC = 'non_programmatic';
 
-    // Campaign Type Constants (Media Types)
+    // Campaign Type Constants (Media Types
     const TYPE_PROGRAMMATIC_DOOH = 'dooh';
     const TYPE_PROGRAMMATIC_CTV = 'ctv';
     const TYPE_NON_PROGRAMMATIC_DOOH = 'dooh';
@@ -358,7 +359,12 @@ class Brief extends Model
         $query = $this->newQuery()->with(self::DEFAULT_RELATIONSHIPS)
             ->accessibleToUser(Auth::user())
             ->whereNull('briefs.deleted_at')
-            ->whereRaw('briefs.status != 15');
+            ->whereRaw('briefs.status != 15')
+            ->whereHas('planners', function ($plannerQuery) {
+                $plannerQuery->whereNull('planners.deleted_at')
+                    ->where('planners.status', '!=', '15');
+                PlannerMetrics::applySubmittedPlansScope($plannerQuery);
+            });
 
         $this->applyLatestBriefOrganisationFilter($query, $filters);
         \App\Support\DashboardFilters::applyDateFilter($query, $filters, 'briefs.created_at');
