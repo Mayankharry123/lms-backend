@@ -508,6 +508,34 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         ];
     }
 
+    /**
+     * Get all users without any filter or access scope.
+     *
+     * @param array $filters
+     * @param int|null $perPage
+     * @return Collection<int, self>|LengthAwarePaginator<self>
+     */
+    public static function getAllWithoutFilter(array $filters = [], ?int $perPage = null)
+    {
+        $query = self::query()
+            ->select('id', 'name')
+            ->whereNull('deleted_at')
+            ->where('status', '!=', '15');
+
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        $query->orderBy('name', 'asc');
+
+        if ($perPage !== null && $perPage > 0) {
+            return $query->paginate($perPage);
+        }
+
+        return $query->get();
+    }
+
     public static function findActivePlannerAdminsByOrganisation(int $organisationId): Collection
     {
         return self::findActiveUsersByRoleAndOrganisation('planner-admin', $organisationId);

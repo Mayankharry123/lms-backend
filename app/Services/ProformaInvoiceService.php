@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Proforma Invoice Service
+ * 
+ * @author : Achal Sharma
+ * @date : 12/10/2026
+ * @version : 1.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\ProformaInvoiceRepositoryInterface;
@@ -151,6 +159,9 @@ class ProformaInvoiceService
                 'amount_in_words' => $calculated['amount_in_words'],
                 'pi_path' => $piPath,
                 'created_by' => $user ? $user->id : auth()->id(),
+                'assign_to' => isset($payload['assign_to']) && $payload['assign_to'] !== ''
+                    ? (int) $payload['assign_to']
+                    : (isset($payload['assigned_to']) && $payload['assigned_to'] !== '' ? (int) $payload['assigned_to'] : null),
                 'status' => (string) ($payload['status'] ?? '1'),
             ];
 
@@ -162,7 +173,7 @@ class ProformaInvoiceService
                 $piPath = $this->generatePdf($invoice);
             }
 
-            return $invoice->fresh(['brand', 'creator', 'items']);
+            return $invoice->fresh(['brand', 'creator', 'assignedTo', 'items']);
         } catch (Throwable $e) {
             Log::error('Error creating proforma invoice', ['payload' => $payload, 'exception' => $e]);
             throw $e;
@@ -238,6 +249,11 @@ class ProformaInvoiceService
                 $updateData['status'] = (string) $payload['status'];
             }
 
+            if (isset($payload['assign_to']) || isset($payload['assigned_to'])) {
+                $assignToVal = $payload['assign_to'] ?? $payload['assigned_to'];
+                $updateData['assign_to'] = $assignToVal !== null && $assignToVal !== '' ? (int) $assignToVal : null;
+            }
+
             if (isset($payload['pi_number'])) {
                 $updateData['pi_number'] = trim((string) $payload['pi_number']);
             }
@@ -308,7 +324,7 @@ class ProformaInvoiceService
                 $this->generatePdf($updated);
             }
 
-            return $updated->fresh(['brand', 'creator', 'items']);
+            return $updated->fresh(['brand', 'creator', 'assignedTo', 'items']);
         } catch (Throwable $e) {
             Log::error('Error updating proforma invoice', ['id' => $id, 'payload' => $payload, 'exception' => $e]);
             throw $e;
