@@ -28,11 +28,22 @@ class RecentBriefResource extends JsonResource
             'budget' => $this->budget,
             'brand_name' => $this->brand ? $this->brand->name : null,
             'contact_person_name' => $this->contactPerson ? $this->contactPerson->name : null,
-            'assigned_user' => $this->assignedUser ? [
-                'id' => $this->assignedUser->id,
-                'name' => $this->assignedUser->name,
-                'email' => $this->assignedUser->email,
-            ] : null,
+            'assigned_user' => $this->assignedUser ? (function ($user) {
+                $role = $user->relationLoaded('roles')
+                    ? $user->roles->first()
+                    : $user->roles()->first();
+                $roleName = $role ? ($role->display_name ?: $role->name) : null;
+                $nameWithRole = $roleName
+                    ? "{$user->name} ({$roleName})"
+                    : $user->name;
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'name_with_role' => $nameWithRole,
+                    'email' => $user->email,
+                ];
+            })($this->assignedUser) : null,
             'brief_status' => $this->briefStatus ? [
                 'name' => $this->briefStatus->name,
                 'percentage' => $this->briefStatus->percentage,

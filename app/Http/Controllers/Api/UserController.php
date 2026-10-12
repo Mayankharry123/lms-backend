@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
+use App\Models\User;
 use App\Models\Zone;
 
 class UserController extends Controller
@@ -1110,6 +1111,54 @@ class UserController extends Controller
             );
         } catch (\Exception $e) {
             return $this->responseService->serverError('Failed to retrieve child planners for lead: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get all users without any filter or access scope.
+     *
+     * GET /api/v1/all-users
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getAllUsersWithoutFilter(Request $request): JsonResponse
+    {
+        try {
+            $perPage = $request->has('per_page') ? (int) $request->input('per_page') : null;
+            $filters = array_filter([
+                'search' => $request->input('search'),
+            ]);
+
+            $users = $this->userService->getAllUsersWithoutFilter($filters, $perPage);
+
+            if ($perPage !== null && $users instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator) {
+                $users->getCollection()->transform(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                    ];
+                });
+
+                return $this->responseService->paginated(
+                    $users,
+                    'All users retrieved successfully'
+                );
+            }
+
+            $data = $users->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                ];
+            });
+
+            return $this->responseService->success(
+                $data,
+                'All users retrieved successfully'
+            );
+        } catch (\Throwable $e) {
+            return $this->responseService->handleException($e);
         }
     }
 }

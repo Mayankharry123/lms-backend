@@ -13,6 +13,7 @@
 namespace App\Models;
 
 use App\Support\UserAccessScope;
+use App\Support\PlannerMetrics;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -44,7 +45,7 @@ class Brief extends Model
     const MODE_PROGRAMMATIC = 'programmatic';
     const MODE_NON_PROGRAMMATIC = 'non_programmatic';
 
-    // Campaign Type Constants (Media Types)
+    // Campaign Type Constants (Media Types
     const TYPE_PROGRAMMATIC_DOOH = 'dooh';
     const TYPE_PROGRAMMATIC_CTV = 'ctv';
     const TYPE_NON_PROGRAMMATIC_DOOH = 'dooh';
@@ -358,7 +359,12 @@ class Brief extends Model
         $query = $this->newQuery()->with(self::DEFAULT_RELATIONSHIPS)
             ->accessibleToUser(Auth::user())
             ->whereNull('briefs.deleted_at')
-            ->whereRaw('briefs.status != 15');
+            ->whereRaw('briefs.status != 15')
+            ->whereHas('planners', function ($plannerQuery) {
+                $plannerQuery->whereNull('planners.deleted_at')
+                    ->where('planners.status', '!=', '15');
+                PlannerMetrics::applySubmittedPlansScope($plannerQuery);
+            });
 
         $this->applyLatestBriefOrganisationFilter($query, $filters);
         \App\Support\DashboardFilters::applyDateFilter($query, $filters, 'briefs.created_at');
@@ -385,11 +391,20 @@ class Brief extends Model
         $this->applyOrganisationValidation($baseQuery, Auth::user());
         \App\Support\DashboardFilters::applyBriefDashboardFilters($baseQuery, $filters, 'briefs');
 
+        $totalBriefs = (clone $baseQuery)->count();
         $activeBriefs = (clone $baseQuery)->whereDate('submission_date', '>=', now())->count();
         $closedBriefs = (clone $baseQuery)->whereHas('briefStatus', function ($query) {
             $query->where('slug', 'closed');
         })->count();
-        $overdueTime = (clone $baseQuery)->where('submission_date', '<', now())->count();
+        $overdueTime = (clone $baseQuery)
+            ->whereNotNull('submission_date')
+            ->where('submission_date', '<', now())
+            ->whereDoesntHave('planners', function ($query) {
+                $query->whereNull('deleted_at')
+                    ->where('status', '!=', '15')
+                    ->whereNotNull('planner_status_id');
+            })
+            ->count();
         $averagePlanningTime = (clone $baseQuery)
             ->selectRaw('AVG(DATEDIFF(submission_date, created_at)) as avg_days')
             ->value('avg_days');
@@ -398,6 +413,7 @@ class Brief extends Model
         $plannerSummary = Planner::getSummaryForBriefIds($briefIds);
 
         return [
+            'total_brief' => $totalBriefs,
             'active_briefs' => $activeBriefs,
             'closed_briefs' => $closedBriefs,
             'overdue_briefs' => $overdueTime ?? 0,

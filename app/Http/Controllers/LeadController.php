@@ -371,7 +371,7 @@ class LeadController extends Controller
                 'current_assign_user' => 'nullable|integer|exists:users,id',
                 'priority_id' => 'nullable|integer|exists:priorities,id',
                 'call_status_id' => 'nullable|integer|exists:call_statuses,id',
-                'lead_type_id' => 'required|integer|exists:lead_types,id',
+                'lead_type_id' => 'nullable|integer|exists:lead_types,id',
                 'designation_id' => 'required|integer|exists:designations,id',
                 'department_id' => 'required|integer|exists:departments,id',
                 'source_id' => 'nullable|integer|exists:lead_source,id',
@@ -863,7 +863,7 @@ class LeadController extends Controller
             $reminderEnabled = filter_var($request->input('reminder', false), FILTER_VALIDATE_BOOLEAN);
 
             $validated = $this->validate($request, [
-                'call_status_id' => 'required|integer|exists:call_statuses,id',
+                'call_status_id' => 'nullable|integer|exists:call_statuses,id',
                 'comment' => 'required|string|max:1000',
                 'reminder' => 'sometimes|nullable|boolean',
                 'reminder_at' => ($reminderEnabled ? 'required' : 'nullable') . '|date',

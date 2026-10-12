@@ -165,4 +165,16 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     {
         return User::findActiveFinanceAdminsByOrganisation($organisationId);
     }
+
+    /**
+     * Get all users without any filter or access scope.
+     *
+     * @param array $filters
+     * @param int|null $perPage
+     * @return \Illuminate\Database\Eloquent\Collection<int, User>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<User>
+     */
+    public function getAllWithoutFilter(array $filters = [], ?int $perPage = null)
+    {
+        return User::getAllWithoutFilter($filters, $perPage);
+    }
 }

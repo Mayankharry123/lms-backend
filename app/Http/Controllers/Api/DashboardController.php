@@ -204,4 +204,41 @@ class DashboardController extends Controller
             );
         }
     }
+
+    /**
+     * Get unassigned work counts across all modules.
+     *
+     * GET /dashboard/unassigned-counts
+     */
+    public function getUnassignedCounts(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                return $this->responseService->unauthorized('User not authenticated');
+            }
+
+            if (
+                !DashboardPermissionSupport::canViewOverview($user) &&
+                !DashboardPermissionSupport::canViewSales($user) &&
+                !DashboardPermissionSupport::canViewPlanner($user) &&
+                !DashboardPermissionSupport::canViewOperations($user) &&
+                !DashboardPermissionSupport::canViewFinance($user)
+            ) {
+                return $this->responseService->forbidden('Insufficient permissions to view unassigned work counts.');
+            }
+
+            $filters = DashboardFilters::fromRequest($request);
+            $counts = $this->dashboardService->getUnassignedWorkCounts($filters);
+
+            return $this->responseService->success(
+                $counts,
+                'Unassigned work counts retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return $this->responseService->serverError(
+                'Failed to retrieve unassigned work counts: ' . $e->getMessage()
+            );
+        }
+    }
 }

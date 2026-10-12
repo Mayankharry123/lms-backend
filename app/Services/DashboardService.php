@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 use App\Contracts\Repositories\UserRepositoryInterface;
+use App\Support\DashboardPermissionSupport;
 
 class DashboardService
 {
@@ -482,6 +483,60 @@ class DashboardService
                 'filters' => $filters,
             ]);
             throw new Exception('Unable to build scoped organisation rows: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Unassigned work counts across all five modules (Sales, Briefs, Planner, Operations, Finance).
+     *
+     * @param array<string, mixed> $filters
+     * @return array{unassigned_sales: int, unassigned_briefs: int, unassigned_planner: int, unassigned_operations: int, unassigned_finance: int, total_unassigned: int}
+     * @throws Exception
+     */
+    public function getUnassignedWorkCounts(array $filters = []): array
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                throw new Exception('User not authenticated');
+            }
+
+            $filters = UserAccessScope::resolveOrganisationFilter($user, $filters);
+            $counts = $this->dashboardRepository->getUnassignedCounts($filters, $user);
+
+            // Apply role/permission restrictions: if user cannot view a section, mask to 0
+            if (!DashboardPermissionSupport::can($user, DashboardPermissionSupport::SALES) && !DashboardPermissionSupport::canViewOverview($user)) {
+                $counts['unassigned_sales'] = 0;
+                $counts['unassigned_briefs'] = 0;
+            }
+
+            if (!DashboardPermissionSupport::can($user, DashboardPermissionSupport::PLANNER) && !DashboardPermissionSupport::canViewOverview($user)) {
+                $counts['unassigned_planner'] = 0;
+            }
+
+            if (!DashboardPermissionSupport::can($user, DashboardPermissionSupport::OPERATIONS) && !DashboardPermissionSupport::canViewOverview($user)) {
+                $counts['unassigned_operations'] = 0;
+            }
+
+            if (!DashboardPermissionSupport::can($user, DashboardPermissionSupport::FINANCE) && !DashboardPermissionSupport::canViewOverview($user)) {
+                $counts['unassigned_finance'] = 0;
+            }
+
+            $counts['total_unassigned'] = array_sum([
+                $counts['unassigned_sales'],
+                $counts['unassigned_briefs'],
+                $counts['unassigned_planner'],
+                $counts['unassigned_operations'],
+                $counts['unassigned_finance'],
+            ]);
+
+            return $counts;
+        } catch (Exception $e) {
+            Log::error('Error fetching unassigned work counts', [
+                'exception' => $e,
+                'filters' => $filters,
+            ]);
+            throw new Exception('Unable to fetch unassigned work counts: ' . $e->getMessage());
         }
     }
 }

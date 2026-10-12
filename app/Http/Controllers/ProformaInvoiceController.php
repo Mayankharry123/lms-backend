@@ -38,6 +38,8 @@ class ProformaInvoiceController extends Controller
             $filters = $request->only([
                 'search',
                 'brand_id',
+                'created_by',
+                'assign_to',
                 'status',
                 'from_date',
                 'to_date',
@@ -135,6 +137,8 @@ class ProformaInvoiceController extends Controller
                 'file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg|max:51200',
                 'pi_file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg|max:51200',
                 'status' => 'nullable|string|in:1,2',
+                'assign_to' => 'nullable|integer|exists:users,id',
+                'assigned_to' => 'nullable|integer|exists:users,id',
             ]);
 
             $file = $request->file('file') ?? $request->file('pi_file');
@@ -207,6 +211,8 @@ class ProformaInvoiceController extends Controller
                 'file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg|max:51200',
                 'pi_file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg|max:51200',
                 'status' => 'nullable|string|in:1,2,15',
+                'assign_to' => 'nullable|integer|exists:users,id',
+                'assigned_to' => 'nullable|integer|exists:users,id',
             ]);
 
             $file = $request->file('file') ?? $request->file('pi_file');

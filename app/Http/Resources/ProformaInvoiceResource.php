@@ -54,13 +54,21 @@ class ProformaInvoiceResource extends JsonResource
             'file_url' => $fileUrl,
             'download_url' => $downloadUrl,
             'status' => $this->status,
+            'created_by' => $this->created_by ? (int) $this->created_by : null,
             'creator' => $this->relationLoaded('creator') && $this->creator ? [
                 'id' => $this->creator->id,
                 'name' => $this->creator->name,
+                'email' => $this->creator->email,
             ] : null,
-            'items' => $this->relationLoaded('items')
-                ? ProformaInvoiceItemResource::collection($this->items)
-                : [],
+            'assign_to' => $this->assign_to ? (int) $this->assign_to : null,
+            'assigned_to' => $this->relationLoaded('assignedTo') && $this->assignedTo ? [
+                'id' => $this->assignedTo->id,
+                'name' => $this->assignedTo->name,
+                'email' => $this->assignedTo->email,
+            ] : null,
+            // 'items' => $this->relationLoaded('items')
+            //     ? ProformaInvoiceItemResource::collection($this->items)
+            //     : [],
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];

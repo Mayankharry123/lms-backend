@@ -67,9 +67,22 @@ class BriefResource extends JsonResource
                 ];
             }),
             'assigned_user' => $this->whenLoaded('assignedUser', function () {
+                if (!$this->assignedUser) {
+                    return null;
+                }
+
+                $role = $this->assignedUser->relationLoaded('roles')
+                    ? $this->assignedUser->roles->first()
+                    : $this->assignedUser->roles()->first();
+                $roleName = $role ? ($role->display_name ?: $role->name) : null;
+                $nameWithRole = $roleName
+                    ? "{$this->assignedUser->name} ({$roleName})"
+                    : $this->assignedUser->name;
+
                 return [
                     'id' => $this->assignedUser->id,
                     'name' => $this->assignedUser->name,
+                    'name_with_role' => $nameWithRole,
                     'email' => $this->assignedUser->email,
                 ];
             }),

@@ -148,4 +148,13 @@ interface DashboardRepositoryInterface
      * @return list<array<string, mixed>>
      */
     public function getRecentFinanceRecords(array $filters, ?User $user): array;
+
+    /**
+     * Get unassigned work counts across all five modules (Sales, Briefs, Planner, Operations, Finance).
+     *
+     * @param array $filters
+     * @param User|null $user
+     * @return array{unassigned_sales: int, unassigned_briefs: int, unassigned_planner: int, unassigned_operations: int, unassigned_finance: int}
+     */
+    public function getUnassignedCounts(array $filters, ?User $user): array;
 }

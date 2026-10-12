@@ -38,6 +38,7 @@ class ProformaInvoice extends BaseModel
         'amount_in_words',
         'pi_path',
         'created_by',
+        'assign_to',
         'status',
     ];
 
@@ -47,6 +48,7 @@ class ProformaInvoice extends BaseModel
     protected $casts = [
         'brand_id' => 'integer',
         'created_by' => 'integer',
+        'assign_to' => 'integer',
         'subtotal' => 'float',
         'sgst_rate' => 'float',
         'sgst_amount' => 'float',
@@ -63,7 +65,8 @@ class ProformaInvoice extends BaseModel
 
     public const LIST_RELATIONS = [
         'brand:id,name,slug',
-        'creator:id,name',
+        'creator:id,name,email',
+        'assignedTo:id,name,email',
         'items',
     ];
 
@@ -81,6 +84,14 @@ class ProformaInvoice extends BaseModel
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * User to whom the proforma invoice is assigned.
+     */
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assign_to');
     }
 
     /**
@@ -111,6 +122,14 @@ class ProformaInvoice extends BaseModel
             $query->where('brand_id', (int) $filters['brand_id']);
         }
 
+        if (!empty($filters['assign_to'])) {
+            $query->where('assign_to', (int) $filters['assign_to']);
+        }
+
+        if (!empty($filters['created_by'])) {
+            $query->where('created_by', (int) $filters['created_by']);
+        }
+
         if (isset($filters['status']) && $filters['status'] !== '') {
             $query->where('status', (string) $filters['status']);
         } else {
@@ -134,7 +153,7 @@ class ProformaInvoice extends BaseModel
     public function findForDetail(int $id): ?self
     {
         return $this->newQuery()
-            ->with(['brand', 'creator', 'items'])
+            ->with(['brand', 'creator', 'assignedTo', 'items'])
             ->find($id);
     }
 
@@ -169,7 +188,7 @@ class ProformaInvoice extends BaseModel
         }
 
         $invoice->update($data);
-        return $invoice->fresh(['brand', 'creator', 'items']);
+        return $invoice->fresh(['brand', 'creator', 'assignedTo', 'items']);
     }
 
     /**

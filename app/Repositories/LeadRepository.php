@@ -382,11 +382,19 @@ class LeadRepository implements LeadRepositoryInterface
             $lead = $this->model->findOrFail($id);
 
             $payload = [
-                'comment' => $data['comment'],
-                'call_status' => $data['call_status_id'],
+                'comment' => $data['comment'] ?? $lead->comment,
             ];
 
-            $callStatusChanged = $this->historyValuesDiffer($payload['call_status'], $lead->call_status);
+            $callStatusChanged = false;
+            if (array_key_exists('call_status_id', $data) && $data['call_status_id'] !== null && $data['call_status_id'] !== '') {
+                $payload['call_status'] = $data['call_status_id'];
+                $callStatusChanged = $this->historyValuesDiffer($payload['call_status'], $lead->call_status);
+
+                $statusRecord = Status::findForCallStatus((int) $data['call_status_id']);
+                if ($statusRecord) {
+                    $payload['lead_status'] = $statusRecord->id;
+                }
+            }
 
             $lead->update($payload);
             $lead->refresh();
