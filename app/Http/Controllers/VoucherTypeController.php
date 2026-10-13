@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * VoucherTypeController
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Http\Controllers;
 
 use App\Http\Resources\VoucherTypeResource;
@@ -14,9 +22,22 @@ class VoucherTypeController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var VoucherTypeService
+     */
     protected VoucherTypeService $voucherTypeService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new VoucherTypeController instance.
+     *
+     * @param VoucherTypeService $voucherTypeService
+     * @param ResponseService $responseService
+     */
     public function __construct(VoucherTypeService $voucherTypeService, ResponseService $responseService)
     {
         $this->voucherTypeService = $voucherTypeService;

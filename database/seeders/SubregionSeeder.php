@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * SubregionSeeder
+ * 
+ * @author Achal Sharma
+ * @package Database\Seeders
+ * @version 1.0.1
+ */
+
 namespace Database\Seeders;
 
 use App\Services\GeographyDumpImporter;
@@ -8,6 +16,11 @@ use RuntimeException;
 
 class SubregionSeeder extends Seeder
 {
+    /**
+     * Run the database seeds.
+     *
+     * @return void
+     */
     public function run(): void
     {
         $table = 'subregions';

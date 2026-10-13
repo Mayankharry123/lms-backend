@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Dashboard
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-08
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * AgencyGroupService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\AgencyGroupRepositoryInterface;
@@ -12,13 +20,29 @@ use Illuminate\Support\Facades\Log;
 
 class AgencyGroupService
 {
+    /**
+     * @var AgencyGroupRepositoryInterface
+     */
     protected AgencyGroupRepositoryInterface $repository;
 
+    /**
+     * AgencyGroupService constructor.
+     *
+     * @param AgencyGroupRepositoryInterface $repository
+     */
     public function __construct(AgencyGroupRepositoryInterface $repository)
     {
         $this->repository = $repository;
     }
 
+    /**
+     * Get all agency groups with pagination and optional search filter.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return LengthAwarePaginator
+     * @throws DomainException
+     */
     public function getAllGroups(int $perPage = 15, ?string $searchTerm = null): LengthAwarePaginator
     {
         try {
@@ -32,6 +56,13 @@ class AgencyGroupService
         }
     }
 
+    /**
+     * Get an agency group by ID.
+     *
+     * @param int $id
+     * @return Agency|null
+     * @throws DomainException
+     */
     public function getGroup(int $id): ?Agency
     {
         try {
@@ -45,6 +76,13 @@ class AgencyGroupService
         }
     }
 
+    /**
+     * Create a new agency group.
+     *
+     * @param array $data
+     * @return Agency
+     * @throws DomainException
+     */
     public function createGroup(array $data): Agency
     {
         try {
@@ -66,6 +104,14 @@ class AgencyGroupService
         }
     }
 
+    /**
+     * Update an agency group by ID.
+     *
+     * @param int $id
+     * @param array $data
+     * @return Agency
+     * @throws DomainException
+     */
     public function updateGroup(int $id, array $data): Agency
     {
         try {
@@ -79,6 +125,13 @@ class AgencyGroupService
         }
     }
 
+    /**
+     * Delete an agency group by ID.
+     *
+     * @param int $id
+     * @return bool
+     * @throws DomainException
+     */
     public function deleteGroup(int $id): bool
     {
         try {

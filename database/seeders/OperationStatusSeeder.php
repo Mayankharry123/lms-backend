@@ -32,6 +32,7 @@ class OperationStatusSeeder extends Seeder
         $statuses = [
             'Live',
             'Pending',
+            'Done'
         ];
 
         $now = Carbon::now();

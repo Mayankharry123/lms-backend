@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * ActivityLogService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Repositories\ActivityLogRepository;
@@ -19,7 +27,12 @@ class ActivityLogService
      * @var ResponseService
      */
     protected ResponseService $responseService;
-
+    /**
+     * ActivityLogService constructor.
+     *
+     * @param ActivityLogRepository $repository
+     * @param ResponseService $responseService
+     */
     public function __construct(ActivityLogRepository $repository, ResponseService $responseService)
     {
         $this->repository = $repository;

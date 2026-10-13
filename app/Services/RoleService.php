@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * RoleService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\RoleRepositoryInterface;
@@ -12,8 +20,13 @@ class RoleService
 {
 	protected RoleRepositoryInterface $roleRepository;
 	protected ResponseService $responseService;
-
-	public function __construct(RoleRepositoryInterface $roleRepository, ResponseService $responseService)
+    /**
+     * RoleService constructor.
+     *
+     * @param RoleRepositoryInterface $roleRepository
+     * @param ResponseService $responseService
+     */
+    public function __construct(RoleRepositoryInterface $roleRepository, ResponseService $responseService)
 	{
 		$this->roleRepository = $roleRepository;
 		$this->responseService = $responseService;

@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * RecentBriefResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
@@ -10,6 +16,10 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *
  * Formats brief data for recent briefs endpoint.
  * Includes basic brief info, brand, contact person, assigned user, and brief status.
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-08
  */
 class RecentBriefResource extends JsonResource
 {

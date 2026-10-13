@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * DashboardController
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-08
+ */
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -93,6 +101,12 @@ class DashboardController extends Controller
         }
     }
 
+    /**
+     * Get sales dashboard chart statistics.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function getSalesCharts(Request $request): JsonResponse
     {
         try {
@@ -116,6 +130,12 @@ class DashboardController extends Controller
         }
     }
 
+    /**
+     * Get planner dashboard chart statistics.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function getPlannerCharts(Request $request): JsonResponse
     {
         try {
@@ -139,6 +159,12 @@ class DashboardController extends Controller
         }
     }
 
+    /**
+     * Get operations dashboard chart statistics.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function getOperationsCharts(Request $request): JsonResponse
     {
         try {
@@ -161,6 +187,12 @@ class DashboardController extends Controller
         }
     }
 
+    /**
+     * Get finance dashboard chart statistics.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function getFinanceCharts(Request $request): JsonResponse
     {
         try {
@@ -183,6 +215,12 @@ class DashboardController extends Controller
         }
     }
 
+    /**
+     * Get finance summary metrics.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function getFinanceSummary(Request $request): JsonResponse
     {
         try {

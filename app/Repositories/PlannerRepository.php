@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PlannerRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Models\Planner;
@@ -272,18 +280,39 @@ class PlannerRepository
         }
     }
 
-   
+    /**
+     * Get submitted plans with pagination and filters.
+     *
+     * @param int $perPage
+     * @param array $filters
+     * @param mixed $user
+     * @return LengthAwarePaginator
+     */
     public function getSubmittedPlans(int $perPage = 5, array $filters = [], $user = null): LengthAwarePaginator
     {
         return $this->model->fetchSubmittedPlans($perPage, $filters, $user ?? Auth::user());
     }
 
-   
+    /**
+     * Get latest submitted plans with limit and filters.
+     *
+     * @param int $limit
+     * @param array $filters
+     * @param mixed $user
+     * @return Collection
+     */
     public function getLatestSubmittedPlans(int $limit = 5, array $filters = [], $user = null): Collection
     {
         return $this->model->fetchLatestSubmittedPlans($limit, $filters, $user ?? Auth::user());
     }
 
+    /**
+     * Get approved backup plan by brief ID.
+     *
+     * @param int $briefId
+     * @param mixed $user
+     * @return Planner|null
+     */
     public function getApprovedBackupPlanByBriefId(int $briefId, $user = null): ?Planner
     {
         return $this->model->findApprovedBackupPlanByBriefId($briefId, $user ?? Auth::user());

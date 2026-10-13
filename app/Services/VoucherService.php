@@ -1,4 +1,11 @@
 <?php
+/**
+ * VoucherService
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
 
 namespace App\Services;
 
@@ -23,7 +30,13 @@ class VoucherService
     protected VoucherRepositoryInterface $voucherRepository;
     protected VoucherTypeRepositoryInterface $voucherTypeRepository;
     protected PaymentModeTypeRepositoryInterface $paymentModeTypeRepository;
-
+    /**
+     * VoucherService constructor.
+     *
+     * @param VoucherRepositoryInterface $voucherRepository
+     * @param VoucherTypeRepositoryInterface $voucherTypeRepository
+     * @param PaymentModeTypeRepositoryInterface $paymentModeTypeRepository
+     */
     public function __construct(
         VoucherRepositoryInterface $voucherRepository,
         VoucherTypeRepositoryInterface $voucherTypeRepository,
@@ -132,13 +145,16 @@ class VoucherService
                 'month' => !empty($payload['month']) ? (string) $payload['month'] : date('M-y'),
                 'notes' => !empty($payload['notes']) ? (string) $payload['notes'] : null,
                 'created_by' => $user ? $user->id : auth()->id(),
+                'assign_to' => isset($payload['assign_to']) && $payload['assign_to'] !== ''
+                    ? (int) $payload['assign_to']
+                    : (isset($payload['assigned_to']) && $payload['assigned_to'] !== '' ? (int) $payload['assigned_to'] : null),
                 'status' => (string) ($payload['status'] ?? '1'),
             ];
 
             $voucher = $this->voucherRepository->create($headerData);
             $this->voucherRepository->createItems($voucher, $calculated['items']);
 
-            return $voucher->fresh(['voucherType', 'creator', 'items.paymentModeType']);
+            return $voucher->fresh(['voucherType', 'creator', 'assignedTo', 'items.paymentModeType']);
         } catch (DomainException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -195,6 +211,11 @@ class VoucherService
                 $updateData['status'] = (string) $payload['status'];
             }
 
+            if (isset($payload['assign_to']) || isset($payload['assigned_to'])) {
+                $assignToVal = $payload['assign_to'] ?? $payload['assigned_to'];
+                $updateData['assign_to'] = $assignToVal !== null && $assignToVal !== '' ? (int) $assignToVal : null;
+            }
+
             // Handle file upload
             if ($uploadedFile instanceof UploadedFile) {
                 $vNum = $updateData['voucher_number'] ?? $voucher->voucher_number;
@@ -246,7 +267,7 @@ class VoucherService
             }
 
             $updated = $this->voucherRepository->update($id, $updateData);
-            return $updated ?: $voucher->fresh(['voucherType', 'creator', 'items.paymentModeType']);
+            return $updated ?: $voucher->fresh(['voucherType', 'creator', 'assignedTo', 'items.paymentModeType']);
         } catch (DomainException $e) {
             throw $e;
         } catch (Throwable $e) {

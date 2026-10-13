@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * BriefService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\BriefRepositoryInterface;
@@ -254,6 +262,13 @@ class BriefService
         }
     }
 
+    /**
+     * Get planner dashboard card data.
+     *
+     * @param array $filters
+     * @return array
+     * @throws DomainException
+     */
     public function getPlannerDashboardCardData(array $filters = []): array
     {
         try {
@@ -598,6 +613,12 @@ class BriefService
         }
     }
     
+    /**
+     * Synchronize planner status to Plan Approved when brief is approved.
+     *
+     * @param Brief $brief
+     * @return void
+     */
     public function syncPlanApprovedOnBriefApproval(Brief $brief): void
     {
         try {

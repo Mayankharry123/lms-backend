@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * IndustryController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\IndustryService;
@@ -16,15 +22,34 @@ class IndustryController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var IndustryService
+     */
     protected $industryService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
 
+    /**
+     * Create a new IndustryController instance.
+     *
+     * @param IndustryService $industryService
+     * @param ResponseService $responseService
+     */
     public function __construct(IndustryService $industryService, ResponseService $responseService)
     {
         $this->industryService = $industryService;
         $this->responseService = $responseService;
     }
 
+    /**
+     * Display a listing of industries.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -60,6 +85,12 @@ class IndustryController extends Controller
         }
     }
 
+    /**
+     * Store a newly created industry in storage.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         try {
@@ -90,6 +121,12 @@ class IndustryController extends Controller
         }
     }
 
+    /**
+     * Display the specified industry.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function show(int $id): JsonResponse
     {
         try {
@@ -100,6 +137,13 @@ class IndustryController extends Controller
         }
     }
 
+    /**
+     * Update the specified industry in storage.
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
     public function update(Request $request, int $id): JsonResponse
     {
         try {
@@ -130,6 +174,12 @@ class IndustryController extends Controller
         }
     }
 
+    /**
+     * Remove the specified industry from storage.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function destroy(int $id): JsonResponse
     {
         try {

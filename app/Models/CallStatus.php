@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * CallStatus
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 class CallStatus extends BaseModel

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * VoucherTypeService
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\VoucherTypeRepositoryInterface;
@@ -17,7 +25,12 @@ class VoucherTypeService
 {
     protected VoucherTypeRepositoryInterface $voucherTypeRepository;
     protected ExpenseVoucherTemplateBuilder $templateBuilder;
-
+    /**
+     * VoucherTypeService constructor.
+     *
+     * @param VoucherTypeRepositoryInterface $voucherTypeRepository
+     * @param ExpenseVoucherTemplateBuilder $templateBuilder
+     */
     public function __construct(
         VoucherTypeRepositoryInterface $voucherTypeRepository,
         ExpenseVoucherTemplateBuilder $templateBuilder

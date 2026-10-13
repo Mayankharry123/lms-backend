@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * DesignationController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\DesignationService;
@@ -15,15 +21,34 @@ class DesignationController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var DesignationService
+     */
     protected $designationService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
     
+    /**
+     * Create a new DesignationController instance.
+     *
+     * @param DesignationService $designationService
+     * @param ResponseService $responseService
+     */
     public function __construct(DesignationService $designationService, ResponseService $responseService)
     {
         $this->designationService = $designationService;
         $this->responseService = $responseService;
     }
 
+    /**
+     * Display a listing of designations.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -64,6 +89,12 @@ class DesignationController extends Controller
         }
     }
 
+    /**
+     * Store a newly created designation in storage.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         try {
@@ -82,6 +113,12 @@ class DesignationController extends Controller
         }
     }
 
+    /**
+     * Display the specified designation.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function show(int $id): JsonResponse
     {
         try {
@@ -92,6 +129,13 @@ class DesignationController extends Controller
         }
     }
 
+    /**
+     * Update the specified designation in storage.
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
     public function update(Request $request, int $id): JsonResponse
     {
         try {
@@ -110,6 +154,12 @@ class DesignationController extends Controller
         }
     }
 
+    /**
+     * Remove the specified designation from storage.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function destroy(int $id): JsonResponse
     {
         try {

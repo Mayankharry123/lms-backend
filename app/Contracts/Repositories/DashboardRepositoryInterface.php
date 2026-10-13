@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Collection;
  * Defines the contract for retrieving aggregated dashboard metrics and data.
  *
  * @package App\Contracts\Repositories
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-08
  */
 interface DashboardRepositoryInterface
 {

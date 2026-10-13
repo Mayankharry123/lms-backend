@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * BrandImport
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -42,6 +48,11 @@ class BrandImport extends Model
         'updated_at' => 'datetime',
     ];
 
+    /**
+     * Get the user who initiated the brand import.
+     *
+     * @return BelongsTo
+     */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

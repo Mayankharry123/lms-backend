@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * ZoneService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Models\Zone;
@@ -11,14 +19,24 @@ use Illuminate\Database\QueryException;
 
 class ZoneService
 {
+    /**
+     * @var ZoneRepositoryInterface
+     */
     protected $zoneRepository;
 
-    // Interface ko constructor mein inject karein
+    /**
+     * ZoneService constructor.
+     *
+     * @param ZoneRepositoryInterface $zoneRepository
+     */
     public function __construct(ZoneRepositoryInterface $zoneRepository)
     {
         $this->zoneRepository = $zoneRepository;
     }
+
     /**
+     * Get all zones with pagination and optional search filter.
+     *
      * @param int $perPage
      * @param string|null $searchTerm
      * @return LengthAwarePaginator
@@ -38,16 +56,33 @@ class ZoneService
         }
     }
 
+    /**
+     * Get active zones list.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
     public function getActiveZonesList()
     {
         return $this->zoneRepository->getActiveList();
     }
 
+    /**
+     * Get a zone by ID.
+     *
+     * @param int $id
+     * @return Zone|null
+     */
     public function getZoneById($id)
     {
         return $this->zoneRepository->findById($id);
     }
 
+    /**
+     * Create a new zone.
+     *
+     * @param array $data
+     * @return Zone
+     */
     public function createZone(array $data)
     {
         // Business logic (jaise slug banana) service mein rehta hai
@@ -61,6 +96,13 @@ class ZoneService
         return $this->zoneRepository->create($dataToSave);
     }
 
+    /**
+     * Update an existing zone.
+     *
+     * @param Zone $zone
+     * @param array $data
+     * @return bool
+     */
     public function updateZone(Zone $zone, array $data)
     {
         // Business logic
@@ -73,6 +115,12 @@ class ZoneService
         return $this->zoneRepository->update($zone, $dataToUpdate);
     }
 
+    /**
+     * Delete an existing zone.
+     *
+     * @param Zone $zone
+     * @return bool
+     */
     public function deleteZone(Zone $zone)
     {
         return $this->zoneRepository->delete($zone);

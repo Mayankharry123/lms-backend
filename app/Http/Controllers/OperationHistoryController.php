@@ -25,9 +25,22 @@ class OperationHistoryController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var OperationHistoryService
+     */
     protected OperationHistoryService $operationHistoryService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new OperationHistoryController instance.
+     *
+     * @param OperationHistoryService $operationHistoryService
+     * @param ResponseService $responseService
+     */
     public function __construct(
         OperationHistoryService $operationHistoryService,
         ResponseService $responseService

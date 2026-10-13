@@ -27,9 +27,22 @@ class FinanceRecordHistoryController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var FinanceRecordHistoryService
+     */
     protected FinanceRecordHistoryService $financeRecordHistoryService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new FinanceRecordHistoryController instance.
+     *
+     * @param FinanceRecordHistoryService $financeRecordHistoryService
+     * @param ResponseService $responseService
+     */
     public function __construct(
         FinanceRecordHistoryService $financeRecordHistoryService,
         ResponseService $responseService

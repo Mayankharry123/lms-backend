@@ -6,6 +6,7 @@
  * Handles business logic for operation status operations, including validation and data transformation.
  *
  * @package App\Services
+ * @author Achal Sharma
  * @version 1.0.0
  * @since 2026-10-03
  */
@@ -26,7 +27,12 @@ class OperationStatusService
 {
     protected OperationStatusRepositoryInterface $operationStatusRepository;
     protected ResponseService $responseService;
-
+    /**
+     * OperationStatusService constructor.
+     *
+     * @param OperationStatusRepositoryInterface $operationStatusRepository
+     * @param ResponseService $responseService
+     */
     public function __construct(
         OperationStatusRepositoryInterface $operationStatusRepository,
         ResponseService $responseService

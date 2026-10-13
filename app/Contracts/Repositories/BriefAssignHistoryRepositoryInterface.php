@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface BriefAssignHistoryRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use App\Models\BriefAssignHistory;

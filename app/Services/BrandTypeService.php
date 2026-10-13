@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * BrandTypeService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\BrandTypeRepositoryInterface;

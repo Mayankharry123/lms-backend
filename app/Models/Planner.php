@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Planner
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -240,6 +246,13 @@ class Planner extends BaseModel
             $this->save();
         }
     }
+    /**
+     * Build the submitted plans base query with eager loads and access scopes.
+     *
+     * @param array $filters
+     * @param mixed $user
+     * @return Builder
+     */
     public function buildSubmittedPlansQuery(array $filters = [], $user = null): Builder
     {
         $user = $user ?? auth()->user();
@@ -387,12 +400,27 @@ class Planner extends BaseModel
 
         return $query->latest('planners.updated_at');
     }
+    /**
+     * Fetch paginated submitted plans.
+     *
+     * @param int $perPage
+     * @param array $filters
+     * @param mixed $user
+     * @return LengthAwarePaginator
+     */
     public function fetchSubmittedPlans(int $perPage = 5, array $filters = [], $user = null): LengthAwarePaginator
     {
         return $this->buildSubmittedPlansQuery($filters, $user)->paginate($perPage);
     }
 
-    
+    /**
+     * Fetch latest submitted plans.
+     *
+     * @param int $limit
+     * @param array $filters
+     * @param mixed $user
+     * @return Collection
+     */
     public function fetchLatestSubmittedPlans(int $limit = 5, array $filters = [], $user = null): Collection
     {
         return $this->buildSubmittedPlansQuery($filters, $user)->limit($limit)->get();

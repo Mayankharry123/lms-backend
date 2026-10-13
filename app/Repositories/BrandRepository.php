@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * BrandRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\BrandRepositoryInterface;
@@ -51,6 +59,13 @@ class BrandRepository implements BrandRepositoryInterface
         return $this->model->nameExists($name);
     }
 
+    /**
+     * Check if a brand slug exists, including soft-deleted records.
+     *
+     * @param string $slug
+     * @param int $exceptId
+     * @return bool
+     */
     public function slugExistsWithTrashed(string $slug, int $exceptId): bool
     {
         return $this->model->slugExistsWithTrashed($slug, $exceptId);

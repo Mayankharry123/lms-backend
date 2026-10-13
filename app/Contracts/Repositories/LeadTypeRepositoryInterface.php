@@ -17,8 +17,32 @@ namespace App\Contracts\Repositories;
 
 interface LeadTypeRepositoryInterface
 {
+    /**
+     * Get all lead types
+     * 
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return array
+     */
     public function getAllLeadTypes(int $perPage = 10, ?string $searchTerm = null);
+    /**
+     * List lead types
+     * 
+     * @return array
+     */
     public function listLeadTypes();
+    /**
+     * Get lead type by ID
+     * 
+     * @param int $id
+     * @return array
+     */
     public function getLeadTypeById(int $id);
+    /**
+     * Create a new lead type
+     * 
+     * @param array $data
+     * @return array
+     */
     public function createLeadType(array $data);
 }

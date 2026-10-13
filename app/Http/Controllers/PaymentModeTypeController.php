@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PaymentModeTypeController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\PaymentModeTypeResource;
@@ -14,9 +20,22 @@ class PaymentModeTypeController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var PaymentModeTypeService
+     */
     protected PaymentModeTypeService $paymentModeTypeService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new PaymentModeTypeController instance.
+     *
+     * @param PaymentModeTypeService $paymentModeTypeService
+     * @param ResponseService $responseService
+     */
     public function __construct(
         PaymentModeTypeService $paymentModeTypeService,
         ResponseService $responseService

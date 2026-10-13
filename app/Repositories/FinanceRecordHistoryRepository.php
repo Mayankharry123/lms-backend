@@ -19,8 +19,16 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class FinanceRecordHistoryRepository implements FinanceRecordHistoryRepositoryInterface
 {
+    /**
+     * @var FinanceRecordHistory
+     */
     protected FinanceRecordHistory $model;
 
+    /**
+     * FinanceRecordHistoryRepository constructor.
+     *
+     * @param FinanceRecordHistory $model
+     */
     public function __construct(FinanceRecordHistory $model)
     {
         $this->model = $model;

@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * LeadSource
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +34,11 @@ class LeadSource extends Model
         'deleted_at' => 'datetime',
     ];
 
+    /**
+     * Get the leads associated with this lead source.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function leads()
     {
         return $this->hasMany(Lead::class, 'source_id');

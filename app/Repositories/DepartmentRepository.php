@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * DepartmentRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\DepartmentRepositoryInterface;
@@ -7,13 +15,28 @@ use App\Models\Department;
 
 class DepartmentRepository implements DepartmentRepositoryInterface 
 {
+    /**
+     * @var Department
+     */
     protected $model;
 
+    /**
+     * DepartmentRepository constructor.
+     *
+     * @param Department $department
+     */
     public function __construct(Department $department)
     {
         $this->model = $department;
     }
 
+    /**
+     * Get all departments with pagination and optional search filter.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
     public function getAllDepartments(int $perPage = 10, ?string $searchTerm = null)
     {
         $query = $this->model->query();
@@ -23,16 +46,35 @@ class DepartmentRepository implements DepartmentRepositoryInterface
         return $query->orderBy('created_at', 'desc')->paginate($perPage);
     }
 
+    /**
+     * Get a department by ID.
+     *
+     * @param int $id
+     * @return Department
+     */
     public function getDepartmentById($id) 
     {
         return $this->model->findOrFail($id);
     }
 
+    /**
+     * Create a new department.
+     *
+     * @param array $data
+     * @return Department
+     */
     public function createDepartment(array $data) 
     {
         return $this->model->create($data);
     }
 
+    /**
+     * Update a department by ID.
+     *
+     * @param int $id
+     * @param array $data
+     * @return Department
+     */
     public function updateDepartment($id, array $data) 
     {
         $department = $this->model->findOrFail($id);
@@ -40,6 +82,12 @@ class DepartmentRepository implements DepartmentRepositoryInterface
         return $department;
     }
 
+    /**
+     * Delete a department by ID.
+     *
+     * @param int $id
+     * @return bool|null
+     */
     public function deleteDepartment($id) 
     {
         $department = $this->model->findOrFail($id);

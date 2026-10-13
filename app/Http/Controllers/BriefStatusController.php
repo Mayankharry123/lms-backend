@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * BriefStatusController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\BriefStatusResource;

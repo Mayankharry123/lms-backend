@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * LeadActivityResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use App\Models\LeadAssignHistory;
@@ -8,6 +14,12 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class LeadActivityResource extends JsonResource
 {
+    /**
+     * Create a new LeadActivityResource instance.
+     *
+     * @param mixed $resource
+     * @param LeadAssignHistory|null $history
+     */
     public function __construct($resource, protected ?LeadAssignHistory $history = null)
     {
         parent::__construct($resource);

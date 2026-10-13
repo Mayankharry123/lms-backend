@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * UserController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers\Api
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -848,6 +854,13 @@ class UserController extends Controller
         }
     }
 
+    /**
+     * Get child users filtered by lead assignment scope.
+     *
+     * @param Request $request
+     * @param int $leadId
+     * @return JsonResponse
+     */
     public function getChildUsersByLead(Request $request, int $leadId): JsonResponse
     {
         try {
@@ -881,6 +894,13 @@ class UserController extends Controller
         }
     }
 
+    /**
+     * Get child users eligible for brief creation under a lead.
+     *
+     * @param Request $request
+     * @param int $leadId
+     * @return JsonResponse
+     */
     public function getChildUsersForBriefCreation(Request $request, int $leadId): JsonResponse
     {
         try {
@@ -912,6 +932,13 @@ class UserController extends Controller
         }
     }
 
+    /**
+     * Get child users filtered by miss campaign assignment scope.
+     *
+     * @param Request $request
+     * @param int $campaignId
+     * @return JsonResponse
+     */
     public function getChildUsersByMissCampaign(Request $request, int $campaignId): JsonResponse
     {
         try {
@@ -947,6 +974,13 @@ class UserController extends Controller
         }
     }
 
+    /**
+     * Get child users filtered by brief assignment scope.
+     *
+     * @param Request $request
+     * @param int $briefId
+     * @return JsonResponse
+     */
     public function getChildUsersByBrief(Request $request, int $briefId): JsonResponse
     {
         try {

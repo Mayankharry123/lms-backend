@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * NotificationController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\NotificationResource;
@@ -15,9 +21,22 @@ class NotificationController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
+
+    /**
+     * @var NotificationService
+     */
     protected NotificationService $notificationService;
 
+    /**
+     * Create a new NotificationController instance.
+     *
+     * @param ResponseService $responseService
+     * @param NotificationService $notificationService
+     */
     public function __construct(ResponseService $responseService, NotificationService $notificationService)
     {
         $this->responseService = $responseService;

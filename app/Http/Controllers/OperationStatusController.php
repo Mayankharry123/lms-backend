@@ -26,9 +26,22 @@ class OperationStatusController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var OperationStatusService
+     */
     protected OperationStatusService $operationStatusService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new OperationStatusController instance.
+     *
+     * @param OperationStatusService $operationStatusService
+     * @param ResponseService $responseService
+     */
     public function __construct(OperationStatusService $operationStatusService, ResponseService $responseService)
     {
         $this->operationStatusService = $operationStatusService;

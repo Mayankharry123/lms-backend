@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PlannerController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\PlannerResource;
@@ -85,6 +91,12 @@ class PlannerController extends Controller
         }
     }
 
+    /**
+     * Get submitted plans with pagination.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function getSubmittedPlans(Request $request): JsonResponse
     {
         try {
@@ -730,6 +742,12 @@ class PlannerController extends Controller
         }
     }
 
+    /**
+     * Resolve file path for backup plan file.
+     *
+     * @param string $storedPath
+     * @return string|null
+     */
     protected function resolveBackupPlanFilePath(string $storedPath): ?string
     {
         try {
@@ -763,6 +781,13 @@ class PlannerController extends Controller
         }
     }
 
+    /**
+     * Resolve public file URL for a given relative path.
+     *
+     * @param Request $request
+     * @param string $path
+     * @return string|null
+     */
     protected function resolvePublicFileUrl(Request $request, string $path): ?string
     {
         try {
