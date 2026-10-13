@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * NotificationService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\NotificationRepositoryInterface;
@@ -12,7 +20,11 @@ use Illuminate\Support\Facades\Auth;
 class NotificationService
 {
     protected NotificationRepositoryInterface $repository;
-
+    /**
+     * NotificationService constructor.
+     *
+     * @param NotificationRepositoryInterface $repository
+     */
     public function __construct(
         NotificationRepositoryInterface $repository
     ) {

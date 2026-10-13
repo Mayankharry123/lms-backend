@@ -50,11 +50,23 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
      */
     protected MissCampaign $model;
 
+    /**
+     * MissCampaignRepository constructor.
+     *
+     * @param MissCampaign $missCampaign
+     */
     public function __construct(MissCampaign $missCampaign)
     {
         $this->model = $missCampaign;
     }
 
+    /**
+     * Get all miss campaigns with pagination and optional search filter.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return LengthAwarePaginator
+     */
     public function getAllMissCampaigns(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
         return $this->buildListingQuery($searchTerm)
@@ -62,11 +74,25 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
             ->appends(request()->query());
     }
 
+    /**
+     * Count miss campaigns matching search term for export.
+     *
+     * @param string|null $searchTerm
+     * @return int
+     */
     public function countMissCampaignsForExport(?string $searchTerm = null): int
     {
         return (int) $this->buildListingQuery($searchTerm)->count();
     }
 
+    /**
+     * Iterate over miss campaign export records in chunks.
+     *
+     * @param string|null $searchTerm
+     * @param int $chunkSize
+     * @param callable $callback
+     * @return void
+     */
     public function eachMissCampaignExportChunk(?string $searchTerm, int $chunkSize, callable $callback): void
     {
         $this->buildListingQuery($searchTerm)
@@ -123,6 +149,11 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
         return $query->orderBy('created_at', 'desc');
     }
 
+    /**
+     * Get a list of miss campaigns (id, name).
+     *
+     * @return Collection|null
+     */
     public function getMissCampaignList(): ?Collection
     {
         $query = $this->model
@@ -137,6 +168,12 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
             ->get();
     }
 
+    /**
+     * Get a miss campaign by ID.
+     *
+     * @param int $id
+     * @return MissCampaign|null
+     */
     public function getMissCampaignById(int $id): ?MissCampaign
     {
         $query = $this->model
@@ -150,6 +187,12 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
         return $query->find($id);
     }
 
+    /**
+     * Get a miss campaign by slug.
+     *
+     * @param string $slug
+     * @return MissCampaign|null
+     */
     public function getMissCampaignBySlug(string $slug): ?MissCampaign
     {
         $query = $this->model
@@ -164,11 +207,24 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
         return $query->first();
     }
 
+    /**
+     * Create a new miss campaign.
+     *
+     * @param array $data
+     * @return MissCampaign
+     */
     public function createMissCampaign(array $data): MissCampaign
     {
         return $this->model->create($data);
     }
 
+    /**
+     * Update a miss campaign by ID.
+     *
+     * @param int $id
+     * @param array $data
+     * @return bool
+     */
     public function updateMissCampaign(int $id, array $data): bool
     {
         $query = $this->model->accessibleToUser(Auth::user());
@@ -178,6 +234,12 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
         return $item->update($data);
     }
 
+    /**
+     * Delete a miss campaign by ID.
+     *
+     * @param int $id
+     * @return bool
+     */
     public function deleteMissCampaign(int $id): bool
     {
         $query = $this->model->accessibleToUser(Auth::user());
@@ -187,6 +249,13 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
         return $item->delete();
     }
 
+    /**
+     * Update status of a miss campaign.
+     *
+     * @param int $id
+     * @param string $status
+     * @return bool
+     */
     public function updateStatus(int $id, string $status): bool
     {
         $query = $this->model->accessibleToUser(Auth::user());
@@ -196,6 +265,14 @@ class MissCampaignRepository implements MissCampaignRepositoryInterface
         return $item->update(['status' => $status]);
     }
 
+    /**
+     * Assign a user to a miss campaign.
+     *
+     * @param int $id
+     * @param int $userId
+     * @param int $assignBy
+     * @return bool
+     */
     public function assignUser(int $id, int $userId, int $assignBy): bool
     {
         $query = $this->model->accessibleToUser(Auth::user());

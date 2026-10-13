@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * RegionService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\RegionRepositoryInterface;
@@ -10,7 +18,11 @@ use App\Services\ResponseService; // For the error code
 class RegionService
 {
     protected $repository;
-
+    /**
+     * RegionService constructor.
+     *
+     * @param RegionRepositoryInterface $repository
+     */
     public function __construct(RegionRepositoryInterface $repository)
     {
         $this->repository = $repository;

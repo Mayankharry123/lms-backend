@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * ActivityLog
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 class ActivityLog extends BaseModel

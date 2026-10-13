@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Industry
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +29,13 @@ class Industry extends Model
         'status' => 'integer',
     ];
 
+    /**
+     * Get paginated industries with optional search filtering.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return LengthAwarePaginator
+     */
     public function getAllIndustries(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
         $query = $this->newQuery();

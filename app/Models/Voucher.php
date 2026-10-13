@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Voucher
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Models;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -30,6 +38,7 @@ class Voucher extends BaseModel
         'month',
         'notes',
         'created_by',
+        'assign_to',
         'status',
     ];
 
@@ -39,6 +48,8 @@ class Voucher extends BaseModel
      * @var array<string, string>
      */
     protected $casts = [
+        'created_by' => 'integer',
+        'assign_to' => 'integer',
         'subtotal' => 'float',
         'sgst_rate' => 'float',
         'sgst_amount' => 'float',
@@ -70,6 +81,14 @@ class Voucher extends BaseModel
     }
 
     /**
+     * Relationship: User to whom the voucher is assigned.
+     */
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assign_to');
+    }
+
+    /**
      * Relationship: Voucher has many line items.
      */
     public function items(): HasMany
@@ -83,7 +102,7 @@ class Voucher extends BaseModel
     public function paginateForList(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         $query = $this->newQuery()
-            ->with(['voucherType', 'creator', 'items.paymentModeType'])
+            ->with(['voucherType', 'creator', 'assignedTo', 'items.paymentModeType'])
             ->whereNull('vouchers.deleted_at')
             ->where('vouchers.status', '!=', '15');
 
@@ -101,6 +120,10 @@ class Voucher extends BaseModel
 
         if (!empty($filters['created_by'])) {
             $query->where('vouchers.created_by', (int) $filters['created_by']);
+        }
+
+        if (!empty($filters['assign_to'])) {
+            $query->where('vouchers.assign_to', (int) $filters['assign_to']);
         }
 
         if (!empty($filters['month'])) {
@@ -140,7 +163,7 @@ class Voucher extends BaseModel
     public function findForDetail(int $id): ?self
     {
         return $this->newQuery()
-            ->with(['voucherType', 'creator', 'items.paymentModeType'])
+            ->with(['voucherType', 'creator', 'assignedTo', 'items.paymentModeType'])
             ->whereNull('deleted_at')
             ->find($id);
     }
@@ -176,7 +199,7 @@ class Voucher extends BaseModel
         }
 
         $voucher->update($data);
-        return $voucher->fresh(['voucherType', 'creator', 'items']);
+        return $voucher->fresh(['voucherType', 'creator', 'assignedTo', 'items.paymentModeType']);
     }
 
     /**

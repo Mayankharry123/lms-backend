@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * DashboardService
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-08
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\LeadRepositoryInterface;
@@ -18,7 +26,14 @@ class DashboardService
     protected DashboardRepositoryInterface $dashboardRepository;
     protected UserRepositoryInterface $userRepository;
     protected BriefAssignHistoryService $briefAssignHistoryService;
-
+    /**
+     * DashboardService constructor.
+     *
+     * @param LeadRepositoryInterface $leadRepository
+     * @param DashboardRepositoryInterface $dashboardRepository
+     * @param UserRepositoryInterface $userRepository
+     * @param BriefAssignHistoryService $briefAssignHistoryService
+     */
     public function __construct(
         LeadRepositoryInterface $leadRepository,
         DashboardRepositoryInterface $dashboardRepository,

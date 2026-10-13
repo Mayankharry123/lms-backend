@@ -20,13 +20,30 @@ use Illuminate\Support\Facades\Log;
 
 class CreateOperationStatusNotification
 {
+    /**
+     * The notification service instance.
+     *
+     * @var NotificationService
+     */
     protected NotificationService $notificationService;
 
+    /**
+     * Create the event listener.
+     *
+     * @param NotificationService $notificationService
+     * @return void
+     */
     public function __construct(NotificationService $notificationService)
     {
         $this->notificationService = $notificationService;
     }
 
+    /**
+     * Handle the event.
+     *
+     * @param OperationStatusChangedEvent $event
+     * @return void
+     */
     public function handle(OperationStatusChangedEvent $event): void
     {
         try {

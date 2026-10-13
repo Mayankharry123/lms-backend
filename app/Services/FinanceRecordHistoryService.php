@@ -22,7 +22,11 @@ use Throwable;
 class FinanceRecordHistoryService
 {
     protected FinanceRecordHistoryRepositoryInterface $repository;
-
+    /**
+     * FinanceRecordHistoryService constructor.
+     *
+     * @param FinanceRecordHistoryRepositoryInterface $repository
+     */
     public function __construct(FinanceRecordHistoryRepositoryInterface $repository)
     {
         $this->repository = $repository;

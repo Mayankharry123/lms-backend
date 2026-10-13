@@ -22,7 +22,11 @@ use Throwable;
 class OperationHistoryService
 {
     protected OperationHistoryRepositoryInterface $repository;
-
+    /**
+     * OperationHistoryService constructor.
+     *
+     * @param OperationHistoryRepositoryInterface $repository
+     */
     public function __construct(OperationHistoryRepositoryInterface $repository)
     {
         $this->repository = $repository;

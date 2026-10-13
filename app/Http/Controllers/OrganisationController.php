@@ -1,5 +1,17 @@
 <?php
-
+/**
+ * OrganisationController
+ * -----------------------------------------
+ * Handles API operations for organisations including listing,
+ * pagination, and fetching organisation details by ID.
+ * Utilizes service layer for business logic, API resources for
+ * data transformation, and ResponseService for standardized responses.
+ *
+ * @package App\Http\Controllers
+ * @author Achal Sharma
+ * @version 1.0.1
+ * @since 2026-05-05
+ */
 namespace App\Http\Controllers;
 
 use App\Services\OrganisationService;
@@ -14,33 +26,38 @@ use Illuminate\Support\Str;
 use Throwable;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Organisation Controller
- * -----------------------------------------
- * Handles API operations for organisations including listing,
- * pagination, and fetching organisation details by ID.
- * Utilizes service layer for business logic, API resources for
- * data transformation, and ResponseService for standardized responses.
- *
- * @package App\Http\Controllers
- * @author Achal Sharma
- * @version 1.0.0
- * @since 2026-05-05
- */
-
 class OrganisationController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var OrganisationService
+     */
     protected $organisationService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
 
+    /**
+     * Create a new OrganisationController instance.
+     *
+     * @param OrganisationService $organisationService
+     * @param ResponseService $responseService
+     */
     public function __construct(OrganisationService $organisationService, ResponseService $responseService)
     {
         $this->organisationService = $organisationService;
         $this->responseService = $responseService;
     }
 
+    /**
+     * Display a listing of organisations.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -86,6 +103,12 @@ class OrganisationController extends Controller
         }
     }
 
+    /**
+     * Display the specified organisation.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function show(int $id): JsonResponse
     {
         try {

@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface CityRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 interface CityRepositoryInterface 

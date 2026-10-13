@@ -1,11 +1,10 @@
 <?php
-
 /**
- * Get brief logs with pagination.
- *
- * `@param` int $perPage
-+     * `@param` string|null $searchTerm Optional search term to filter logs.
- * `@return` LengthAwarePaginator
+ * Interface BriefRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
  */
 
 namespace App\Contracts\Repositories;
@@ -152,6 +151,12 @@ interface BriefRepositoryInterface
     public function getRecentBriefs(int $limit = 5, array $filters = []);
 
 
+    /**
+     * Get planner dashboard card data.
+     *
+     * @param array $filters
+     * @return array
+     */
     public function getPlannerDashboardCardData(array $filters = []);
 
     /**

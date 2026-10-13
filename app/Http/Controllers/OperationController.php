@@ -28,10 +28,28 @@ class OperationController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var OperationService
+     */
     protected OperationService $operationService;
+
+    /**
+     * @var OperationHistoryService
+     */
     protected OperationHistoryService $operationHistoryService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new OperationController instance.
+     *
+     * @param OperationService $operationService
+     * @param OperationHistoryService $operationHistoryService
+     * @param ResponseService $responseService
+     */
     public function __construct(
         OperationService $operationService,
         OperationHistoryService $operationHistoryService,

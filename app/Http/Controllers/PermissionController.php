@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PermissionController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Models\Permission;
@@ -17,9 +23,22 @@ class PermissionController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var PermissionService
+     */
     protected PermissionService $permissionService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new PermissionController instance.
+     *
+     * @param PermissionService $permissionService
+     * @param ResponseService $responseService
+     */
     public function __construct(PermissionService $permissionService, ResponseService $responseService)
     {
         $this->permissionService = $permissionService;
@@ -495,6 +514,12 @@ class PermissionController extends Controller
         }
     }
 
+    /**
+     * Normalize empty string values in request input to null for optional permission fields.
+     *
+     * @param Request $request
+     * @return void
+     */
     protected function normalizePermissionRequest(Request $request): void
     {
         $input = $request->all();

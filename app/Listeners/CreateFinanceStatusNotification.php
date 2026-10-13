@@ -20,13 +20,30 @@ use Illuminate\Support\Facades\Log;
 
 class CreateFinanceStatusNotification
 {
+    /**
+     * The notification service instance.
+     *
+     * @var NotificationService
+     */
     protected NotificationService $notificationService;
 
+    /**
+     * Create the event listener.
+     *
+     * @param NotificationService $notificationService
+     * @return void
+     */
     public function __construct(NotificationService $notificationService)
     {
         $this->notificationService = $notificationService;
     }
 
+    /**
+     * Handle the event.
+     *
+     * @param FinanceStatusChangedEvent $event
+     * @return void
+     */
     public function handle(FinanceStatusChangedEvent $event): void
     {
         try {

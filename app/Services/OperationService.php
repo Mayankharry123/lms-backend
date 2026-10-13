@@ -32,7 +32,13 @@ class OperationService
     protected OperationRepositoryInterface $operationRepository;
     protected OperationStatusRepositoryInterface $operationStatusRepository;
     protected UserRepositoryInterface $userRepository;
-
+    /**
+     * OperationService constructor.
+     *
+     * @param OperationRepositoryInterface $operationRepository
+     * @param OperationStatusRepositoryInterface $operationStatusRepository
+     * @param UserRepositoryInterface $userRepository
+     */
     public function __construct(
         OperationRepositoryInterface $operationRepository,
         OperationStatusRepositoryInterface $operationStatusRepository,

@@ -3,7 +3,7 @@
 /**
  * Proforma Invoice Service
  * 
- * @author : Achal Sharma
+ * @author Achal Sharma
  * @date : 12/10/2026
  * @version : 1.1
  */
@@ -41,7 +41,11 @@ class ProformaInvoiceService
     ];
 
     protected ProformaInvoiceRepositoryInterface $proformaInvoiceRepository;
-
+    /**
+     * ProformaInvoiceService constructor.
+     *
+     * @param ProformaInvoiceRepositoryInterface $proformaInvoiceRepository
+     */
     public function __construct(ProformaInvoiceRepositoryInterface $proformaInvoiceRepository)
     {
         $this->proformaInvoiceRepository = $proformaInvoiceRepository;

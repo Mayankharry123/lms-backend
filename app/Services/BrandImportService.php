@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * BrandImportService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\BrandImportRepositoryInterface;
@@ -34,6 +42,20 @@ class BrandImportService
      */
     private const STAGES = ['pending', 'processing', 'completed', 'failed'];
 
+    /**
+     * BrandImportService constructor.
+     *
+     * @param BrandRepositoryInterface $brandRepository
+     * @param BrandTypeRepositoryInterface $brandTypeRepository
+     * @param IndustryRepositoryInterface $industryRepository
+     * @param CountryRepositoryInterface $countryRepository
+     * @param StateRepositoryInterface $stateRepository
+     * @param CityRepositoryInterface $cityRepository
+     * @param ZoneRepositoryInterface $zoneRepository
+     * @param BrandImportRepositoryInterface $brandImportRepository
+     * @param ExcelService $excelService
+     * @param BrandService $brandService
+     */
     public function __construct(
         protected BrandRepositoryInterface $brandRepository,
         protected BrandTypeRepositoryInterface $brandTypeRepository,
@@ -402,6 +424,12 @@ class BrandImportService
         }
     }
 
+    /**
+     * Ensure storage directories exist for all import stages and exports.
+     *
+     * @return void
+     * @throws DomainException
+     */
     private function ensureImportDirectories(): void
     {
         foreach (self::STAGES as $stage) {
@@ -421,21 +449,49 @@ class BrandImportService
         }
     }
 
+    /**
+     * Get the absolute path for a specific import stage directory.
+     *
+     * @param string $stage
+     * @return string
+     */
     private function stageDirectory(string $stage): string
     {
         return base_path(self::IMPORT_ROOT . DIRECTORY_SEPARATOR . $stage);
     }
 
+    /**
+     * Get the absolute file path for a file in a specific import stage.
+     *
+     * @param string $stage
+     * @param string $filename
+     * @return string
+     */
     private function stagePath(string $stage, string $filename): string
     {
         return $this->stageDirectory($stage) . DIRECTORY_SEPARATOR . $filename;
     }
 
+    /**
+     * Get the relative storage path for a file in a specific import stage.
+     *
+     * @param string $stage
+     * @param string $filename
+     * @return string
+     */
     private function relativePath(string $stage, string $filename): string
     {
         return self::IMPORT_ROOT . '/' . $stage . '/' . $filename;
     }
 
+    /**
+     * Move an import file from one stage path to another.
+     *
+     * @param string $from
+     * @param string $to
+     * @return string
+     * @throws DomainException
+     */
     private function moveImportFile(string $from, string $to): string
     {
         if ($from === $to) {
@@ -457,6 +513,12 @@ class BrandImportService
         return $to;
     }
 
+    /**
+     * Sanitize original file name for storage.
+     *
+     * @param string $filename
+     * @return string
+     */
     private function sanitizeOriginalFilename(string $filename): string
     {
         $basename = basename(str_replace('\\', '/', $filename));
@@ -512,6 +574,12 @@ class BrandImportService
         ];
     }
 
+    /**
+     * Generate the public URL for downloading the failed records file.
+     *
+     * @param string $filename
+     * @return string
+     */
     private function publicFailedFileUrl(string $filename): string
     {
         $baseUrl = rtrim((string) env('APP_URL', ''), '/');
@@ -596,6 +664,12 @@ class BrandImportService
         return $columnMap;
     }
 
+    /**
+     * Normalize header name by lowercasing and trimming punctuation.
+     *
+     * @param mixed $header
+     * @return string
+     */
     private function normalizeHeader($header): string
     {
         $value = strtolower(trim($this->cellToString($header)));
@@ -635,6 +709,12 @@ class BrandImportService
         return true;
     }
 
+    /**
+     * Convert Excel cell value to string representation.
+     *
+     * @param mixed $value
+     * @return string
+     */
     private function cellToString($value): string
     {
         if ($value === null) {
@@ -895,6 +975,12 @@ class BrandImportService
         return "City '{$name}' does not belong to state '{$state->name}'.";
     }
 
+    /**
+     * Normalize status value string into standard status code.
+     *
+     * @param string $status
+     * @return string|null
+     */
     private function normalizeImportStatus(string $status): ?string
     {
         if ($status === '') {
@@ -963,6 +1049,13 @@ class BrandImportService
         ];
     }
 
+    /**
+     * Generate a unique slug for a brand record.
+     *
+     * @param string $name
+     * @param int $id
+     * @return string
+     */
     private function uniqueSlugForBrand(string $name, int $id): string
     {
         $slugBase = Str::slug($name);

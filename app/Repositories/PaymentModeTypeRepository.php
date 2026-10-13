@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PaymentModeTypeRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\PaymentModeTypeRepositoryInterface;
@@ -9,8 +17,16 @@ use Illuminate\Database\Eloquent\Collection;
 
 class PaymentModeTypeRepository implements PaymentModeTypeRepositoryInterface
 {
+    /**
+     * @var PaymentModeType
+     */
     protected PaymentModeType $model;
 
+    /**
+     * PaymentModeTypeRepository constructor.
+     *
+     * @param PaymentModeType $model
+     */
     public function __construct(PaymentModeType $model)
     {
         $this->model = $model;

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PermissionSeeder
+ * 
+ * @author Achal Sharma
+ * @package Database\Seeders
+ * @version 1.0.1
+ */
+
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -204,7 +212,11 @@ class PermissionSeeder extends Seeder
     ];
 
     protected array $permissionIdByName = [];
-
+    /**
+     * Run the database seeds.
+     *
+     * @return void
+     */
     public function run(): void
     {
         $now = now();
@@ -310,6 +322,14 @@ class PermissionSeeder extends Seeder
         }
     }
 
+    /**
+     * Insert a permission record and cache its ID.
+     *
+     * @param array $data
+     * @param int|null $parentId
+     * @param mixed $now
+     * @return int
+     */
     protected function insertPermission(array $data, ?int $parentId, $now): int
     {
         $name = $data['name'];
@@ -336,6 +356,12 @@ class PermissionSeeder extends Seeder
         return $id;
     }
 
+    /**
+     * Convert module slug to human-readable display name.
+     *
+     * @param string $module
+     * @return string
+     */
     protected function moduleDisplayName(string $module): string
     {
         return str_replace('-', ' ', ucwords($module, '-'));

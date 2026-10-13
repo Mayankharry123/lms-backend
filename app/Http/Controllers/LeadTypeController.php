@@ -27,15 +27,34 @@ class LeadTypeController extends Controller
 {
 
 
+    /**
+     * @var LeadTypeService
+     */
     protected $leadTypeService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
 
+    /**
+     * Create a new LeadTypeController instance.
+     *
+     * @param LeadTypeService $leadTypeService
+     * @param ResponseService $responseService
+     */
     public function __construct(LeadTypeService $leadTypeService, ResponseService $responseService)
     {
         $this->leadTypeService = $leadTypeService;
         $this->responseService = $responseService;
     }
 
+    /**
+     * Display a listing of lead types.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -75,6 +94,12 @@ class LeadTypeController extends Controller
         }
     }
 
+    /**
+     * Display the specified lead type.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function show(int $id): JsonResponse
     {
         try {
@@ -89,6 +114,12 @@ class LeadTypeController extends Controller
         }
     }
 
+    /**
+     * Store a newly created lead type in storage.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         try {

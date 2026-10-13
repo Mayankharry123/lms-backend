@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Listener CreateBriefStatusNotification
+ * 
+ * @author Achal Sharma
+ * @package App\Listeners
+ * @version 1.0.1
+ */
 namespace App\Listeners;
 
 use App\Events\BriefStatusChangedEvent;
@@ -12,13 +18,30 @@ use Illuminate\Database\QueryException;
 
 class CreateBriefStatusNotification
 {
+    /**
+     * The notification service instance.
+     *
+     * @var NotificationService
+     */
     protected $notificationService;
 
+    /**
+     * Create the event listener.
+     *
+     * @param NotificationService $notificationService
+     * @return void
+     */
     public function __construct(NotificationService $notificationService)
     {
         $this->notificationService = $notificationService;
     }
 
+    /**
+     * Handle the event.
+     *
+     * @param BriefStatusChangedEvent $event
+     * @return void
+     */
     public function handle(BriefStatusChangedEvent $event)
     {
         try {

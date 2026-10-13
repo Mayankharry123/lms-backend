@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * VoucherItem
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

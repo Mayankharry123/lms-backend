@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * RoleController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\RoleService;
@@ -17,15 +23,34 @@ class RoleController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var RoleService
+     */
     protected RoleService $roleService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new RoleController instance.
+     *
+     * @param RoleService $roleService
+     * @param ResponseService $responseService
+     */
     public function __construct(RoleService $roleService, ResponseService $responseService)
     {
         $this->roleService = $roleService;
         $this->responseService = $responseService;
     }
 
+    /**
+     * Display a listing of roles.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -65,6 +90,12 @@ class RoleController extends Controller
         }
     }
 
+    /**
+     * Store a newly created role in storage.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         try {
@@ -100,6 +131,12 @@ class RoleController extends Controller
         }
     }
 
+    /**
+     * Display the specified role.
+     *
+     * @param int|string $id
+     * @return JsonResponse
+     */
     public function show($id): JsonResponse
     {
         try {
@@ -118,6 +155,13 @@ class RoleController extends Controller
         }
     }
 
+    /**
+     * Update the specified role in storage.
+     *
+     * @param Request $request
+     * @param int|string $id
+     * @return JsonResponse
+     */
     public function update(Request $request, $id): JsonResponse
     {
         try {
@@ -164,6 +208,12 @@ class RoleController extends Controller
         }
     }
 
+    /**
+     * Remove the specified role from storage.
+     *
+     * @param int|string $id
+     * @return JsonResponse
+     */
     public function destroy($id): JsonResponse
     {
         try {
@@ -207,6 +257,13 @@ class RoleController extends Controller
         }
     }
 
+    /**
+     * Attach a permission to a role.
+     *
+     * @param Request $request
+     * @param int|string $id
+     * @return JsonResponse
+     */
     public function attachPermission(Request $request, $id): JsonResponse
     {
         try {
@@ -231,6 +288,13 @@ class RoleController extends Controller
         }
     }
 
+    /**
+     * Detach a permission from a role.
+     *
+     * @param Request $request
+     * @param int|string $id
+     * @return JsonResponse
+     */
     public function detachPermission(Request $request, $id): JsonResponse
     {
         try {

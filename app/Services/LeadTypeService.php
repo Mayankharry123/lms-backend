@@ -42,11 +42,22 @@ class LeadTypeService
         return $this->leadTypeRepository->getAllLeadTypes($perPage, $searchTerm);
     }
 
+    /**
+     * List all lead types.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
     public function listLeadTypes()
     {
         return $this->leadTypeRepository->listLeadTypes();
     }
 
+    /**
+     * Get a lead type by ID.
+     *
+     * @param int $id
+     * @return \App\Models\LeadType
+     */
     public function getLeadTypeById(int $id)
     {
         return $this->leadTypeRepository->getLeadTypeById($id);

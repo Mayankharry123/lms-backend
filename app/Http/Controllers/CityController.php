@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * CityController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\CityService;
@@ -16,9 +22,22 @@ class CityController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var CityService
+     */
     protected $cityService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
 
+    /**
+     * Create a new CityController instance.
+     *
+     * @param CityService $cityService
+     * @param ResponseService $responseService
+     */
     public function __construct(CityService $cityService, ResponseService $responseService)
     {
         $this->cityService = $cityService;
@@ -195,6 +214,12 @@ class CityController extends Controller
         }
     }
 
+    /**
+     * Remove the specified city from storage.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function destroy(int $id): JsonResponse
     {
         try {

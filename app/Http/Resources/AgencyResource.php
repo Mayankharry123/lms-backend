@@ -1,12 +1,27 @@
 <?php
+/**
+ * AgencyResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
+
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\BrandResource;
 use App\Http\Resources\AgencyTypeResource;
 
 class AgencyResource extends JsonResource
 {
-    public function toArray($request) {
+    /**
+     * Transform the resource into an array.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return array<string, mixed>
+     */
+    public function toArray($request)
+    {
         $brandData = null;
         
         if ($this->relationLoaded('brand') && $this->brand && count($this->brand) > 0) {

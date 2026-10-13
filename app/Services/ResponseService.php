@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * ResponseService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;

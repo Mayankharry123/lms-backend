@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * User
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Auth\Authenticatable;
@@ -281,6 +287,15 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return $tree;
     }
 
+    /**
+     * Get child user hierarchy filtered by departments and organisation.
+     *
+     * @param array $departmentIds
+     * @param array $departmentSlugs
+     * @param int|null $organisationId
+     * @bool bool $includeAssignedBriefCount
+     * @return array
+     */
     public function getChildTreeByDepartments(
         array $departmentIds = [],
         array $departmentSlugs = [],
@@ -351,6 +366,12 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return $tree;
     }
 
+    /**
+     * Check if user belongs to an organisation.
+     *
+     * @param int $organisationId
+     * @return bool
+     */
     private function belongsToOrganisation(int $organisationId): bool
     {
         if ((int) $this->organisation_id === $organisationId) {
@@ -372,6 +393,13 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return $query->whereNotNull('email_verified_at');
     }
 
+    /**
+     * Scope query to users visible to the authenticated user.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param User|null $user
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
     public function scopeVisibleToAuthenticatedUser($query, $user = null)
     {
         $user = $user ?? auth()->user();
@@ -854,6 +882,12 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         )->withTimestamps();
     }
 
+    /**
+     * Check if this user is a direct child of a potential parent.
+     *
+     * @param User $potentialParent
+     * @return bool
+     */
     public function isChildOf(User $potentialParent): bool
     {
         return $this->hasMany(UserParent::class, 'user_id')

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * BriefRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\BriefRepositoryInterface;
@@ -263,6 +271,12 @@ class BriefRepository implements BriefRepositoryInterface
         return $this->model->getRecentBriefs($limit, $filters);
     }
 
+    /**
+     * Get planner dashboard card data.
+     *
+     * @param array $filters
+     * @return array
+     */
     public function getPlannerDashboardCardData(array $filters = []): array
     {
         return $this->model->getPlannerDashboardCardData($filters);

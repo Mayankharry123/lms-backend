@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Zone
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -18,12 +24,24 @@ class Zone extends Model
     ];
     public $timestamps = true;
 
-    // Scope for active records
+    /**
+     * Scope a query to only include active zones.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
     public function scopeActive($query)
     {
         return $query->where('status', '1');
     }
 
+    /**
+     * Get paginated zones with optional search term.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
     public function getPaginated(int $perPage = 10, ?string $searchTerm = null)
     {
         $query = $this->newQuery();
@@ -35,6 +53,11 @@ class Zone extends Model
         return $query->latest()->paginate($perPage)->appends(request()->query());
     }
 
+    /**
+     * Get list of all active zones.
+     *
+     * @return Collection
+     */
     public function getActiveList(): Collection
     {
         return $this->newQuery()->active()->latest()->get();

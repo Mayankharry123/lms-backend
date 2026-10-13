@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PlannerStatusService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\PlannerStatusRepositoryInterface;
@@ -14,7 +22,12 @@ class PlannerStatusService
 {
     protected PlannerStatusRepositoryInterface $plannerStatusRepository;
     protected ResponseService $responseService;
-
+    /**
+     * PlannerStatusService constructor.
+     *
+     * @param PlannerStatusRepositoryInterface $plannerStatusRepository
+     * @param ResponseService $responseService
+     */
     public function __construct(PlannerStatusRepositoryInterface $plannerStatusRepository, ResponseService $responseService)
     {
         $this->plannerStatusRepository = $plannerStatusRepository;

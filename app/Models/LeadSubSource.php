@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * LeadSubSource
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +29,11 @@ class LeadSubSource extends Model
         'deleted_at' => 'datetime',
     ];
 
-    // Relation: a sub-source belongs to a lead source
+    /**
+     * Get the parent lead source for this sub-source.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function leadSource()
     {
         return $this->belongsTo(LeadSource::class, 'lead_source_id');

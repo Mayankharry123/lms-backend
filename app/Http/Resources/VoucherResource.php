@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * VoucherResource
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -43,12 +51,20 @@ class VoucherResource extends JsonResource
             'file_url' => $this->file_url,
             'notes' => $this->notes,
             'status' => (string) ($this->status ?? 'active'),
-            'created_by' => (int) $this->created_by,
+            'created_by' => $this->created_by ? (int) $this->created_by : null,
             'creator' => $this->whenLoaded('creator', function () {
                 return $this->creator ? [
                     'id' => (int) $this->creator->id,
                     'name' => (string) ($this->creator->name ?? trim(($this->creator->first_name ?? '') . ' ' . ($this->creator->last_name ?? ''))),
                     'email' => (string) ($this->creator->email ?? ''),
+                ] : null;
+            }),
+            'assign_to' => $this->assign_to ? (int) $this->assign_to : null,
+            'assigned_to' => $this->whenLoaded('assignedTo', function () {
+                return $this->assignedTo ? [
+                    'id' => (int) $this->assignedTo->id,
+                    'name' => (string) ($this->assignedTo->name ?? trim(($this->assignedTo->first_name ?? '') . ' ' . ($this->assignedTo->last_name ?? ''))),
+                    'email' => (string) ($this->assignedTo->email ?? ''),
                 ] : null;
             }),
             'items' => VoucherItemResource::collection($this->whenLoaded('items')),

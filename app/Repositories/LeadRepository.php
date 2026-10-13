@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * LeadRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\LeadRepositoryInterface;
@@ -740,11 +748,24 @@ class LeadRepository implements LeadRepositoryInterface
         return false;
     }
 
+    /**
+     * Determine whether two history values differ after normalization.
+     *
+     * @param mixed $left
+     * @param mixed $right
+     * @return bool
+     */
     private function historyValuesDiffer(mixed $left, mixed $right): bool
     {
         return $this->normalizeHistoryValue($left) !== $this->normalizeHistoryValue($right);
     }
 
+    /**
+     * Normalize a history value to string for reliable comparison.
+     *
+     * @param mixed $value
+     * @return string
+     */
     private function normalizeHistoryValue(mixed $value): string
     {
         if ($value === null) {

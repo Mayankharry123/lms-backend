@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * AuthResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use Carbon\Carbon;

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * ProformaInvoiceController
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Http\Controllers;
 
 use App\Http\Resources\ProformaInvoiceResource;
@@ -16,9 +24,22 @@ class ProformaInvoiceController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var ProformaInvoiceService
+     */
     protected ProformaInvoiceService $proformaInvoiceService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new ProformaInvoiceController instance.
+     *
+     * @param ProformaInvoiceService $proformaInvoiceService
+     * @param ResponseService $responseService
+     */
     public function __construct(
         ProformaInvoiceService $proformaInvoiceService,
         ResponseService $responseService

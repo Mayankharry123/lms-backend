@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PermissionService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\PermissionRepositoryInterface;
@@ -16,8 +24,13 @@ class PermissionService
 {
 	protected PermissionRepositoryInterface $permissionRepository;
 	protected ResponseService $responseService;
-
-	public function __construct(PermissionRepositoryInterface $permissionRepository, ResponseService $responseService)
+    /**
+     * PermissionService constructor.
+     *
+     * @param PermissionRepositoryInterface $permissionRepository
+     * @param ResponseService $responseService
+     */
+    public function __construct(PermissionRepositoryInterface $permissionRepository, ResponseService $responseService)
 	{
 		$this->permissionRepository = $permissionRepository;
 		$this->responseService = $responseService;

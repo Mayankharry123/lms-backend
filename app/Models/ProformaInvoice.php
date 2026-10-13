@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * ProformaInvoice
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Models;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * VoucherController
+ *
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-12
+ */
+
 namespace App\Http\Controllers;
 
 use App\Http\Resources\VoucherResource;
@@ -16,9 +24,22 @@ class VoucherController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var VoucherService
+     */
     protected VoucherService $voucherService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new VoucherController instance.
+     *
+     * @param VoucherService $voucherService
+     * @param ResponseService $responseService
+     */
     public function __construct(
         VoucherService $voucherService,
         ResponseService $responseService
@@ -41,6 +62,8 @@ class VoucherController extends Controller
                 'person_name',
                 'month',
                 'status',
+                'created_by',
+                'assign_to',
                 'from_date',
                 'to_date',
             ]);
@@ -119,6 +142,8 @@ class VoucherController extends Controller
                 'items.*.amount' => 'nullable|numeric|min:0',
                 'file' => 'nullable|file|mimes:pdf,png,jpg,jpeg,doc,docx,xls,xlsx,csv|max:10240',
                 'supporting_document' => 'nullable|file|mimes:pdf,png,jpg,jpeg,doc,docx,xls,xlsx,csv|max:10240',
+                'assign_to' => 'nullable|integer|exists:users,id',
+                'assigned_to' => 'nullable|integer|exists:users,id',
             ]);
 
             $file = $request->file('file') ?? $request->file('supporting_document');
@@ -178,6 +203,8 @@ class VoucherController extends Controller
                 'items.*.amount' => 'nullable|numeric|min:0',
                 'file' => 'nullable|file|mimes:pdf,png,jpg,jpeg,doc,docx,xls,xlsx,csv|max:10240',
                 'supporting_document' => 'nullable|file|mimes:pdf,png,jpg,jpeg,doc,docx,xls,xlsx,csv|max:10240',
+                'assign_to' => 'nullable|integer|exists:users,id',
+                'assigned_to' => 'nullable|integer|exists:users,id',
             ]);
 
             $file = $request->file('file') ?? $request->file('supporting_document');
