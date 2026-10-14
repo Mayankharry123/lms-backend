@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface RoleRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use App\Models\Role;
@@ -29,6 +35,14 @@ interface RoleRepositoryInterface
 	 * Find a role by name
 	 */
 	public function findByName(string $name): ?Role;
+
+	/**
+	 * Find a role by slug, including soft-deleted rows so uniqueness matches the database index.
+	 *
+	 * @param string $slug
+	 * @return Role|null
+	 */
+	public function findBySlug(string $slug): ?Role;
 
 	/**
 	 * Create a new role

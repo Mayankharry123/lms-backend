@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface PlannerHistoryRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -59,4 +65,22 @@ interface PlannerHistoryRepositoryInterface
      * @return PlannerHistory
      */
     public function createHistory(array $data): PlannerHistory;
+
+    /**
+     * Planner history rows for a brief that store a submitted_plan value.
+     * Soft-deleted and status 15 rows are excluded. Empty JSON is filtered
+     * by the service using the same rule as a submitted plan file list.
+     *
+     * @param int $briefId
+     * @return Collection<int, PlannerHistory>
+     */
+    public function getSubmittedPlanHistoriesForBrief(int $briefId): Collection;
+
+    /**
+     * Submitted-plan history rows for many briefs, oldest first within each brief.
+     *
+     * @param array<int, int> $briefIds
+     * @return Collection<int, PlannerHistory>
+     */
+    public function getSubmittedPlanHistoriesForBriefs(array $briefIds): Collection;
 }

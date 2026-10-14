@@ -124,6 +124,9 @@ php -S localhost:8000 -t public
 - `GET /users` – List all users (paginated)
   - Query params: `per_page` (default: 15)
 - `GET /users/{id}` – Get user by ID
+- `GET /users/{user_id}/assignment-submission-durations` – Time from each brief assignment to that user's plan submission. Each cycle includes `brief_id` and `brief_name`. `assignment_cycles` is paginated at 5 per page (`?page=2`).
+  - One item per assignment cycle. A brief assigned to the same user more than once is returned once per cycle.
+  - `plan_submitted_at`, `duration_seconds`, `duration_minutes`, and `duration` are null when that cycle has no submitted plan.
 - `GET /users/search` – Search users
   - Query params: `name`, `email`, `role`, `status`, `created_at`, `per_page`
 - `GET /users/statistics` – Get user statistics
@@ -134,11 +137,20 @@ php -S localhost:8000 -t public
 - `POST /users/{id}/change-password` – Change user password
   - Body: `current_password`, `password`, `password_confirmation`
 
+### Role Endpoints (Protected - JWT Required)
+- `POST /roles` – Create a role. `slug` is generated from `name` (`Planner Admin` → `planner-admin`). A duplicate slug becomes `planner-admin-1`.
+- `POST /roles/{id}` – Update a role. Changing `name` regenerates `slug`. Leaving `name` unchanged keeps the current slug.
+
 ### Profile Endpoints (Protected - JWT Required)
 - `GET /profile` – Get current user profile
 - `PUT /profile` – Update current user profile
 - `GET /profile/login-history` – Get login history
   - Query params: `per_page` (default: 15)
+- `GET /profile/child-planing-users` – Planning-department child hierarchy for the authenticated user
+  - Query params: `brief_id` (optional). When set, the brief's organisation (from its contact person) is used and only planning users in that organisation are returned. An invalid id is a validation error. A missing brief is 404.
+  - Query params: `contact_person_id` (optional, used when `brief_id` is omitted). Uses that contact person's organisation. An invalid id is a validation error. A missing contact person is 404.
+  - Query params: `Organisation_Id` (optional, used when `brief_id` is omitted). When set, only users in that organisation are returned, still nested as parent → children. Omitted, the full planning hierarchy is returned. An invalid or unknown id returns an empty `data` array.
+  - Each user includes `assigned_brief_count`: current briefs assigned to that user (`assign_user_id`), excluding deleted briefs.
 
 ### Other Endpoints
 - Industries, Departments, Designations

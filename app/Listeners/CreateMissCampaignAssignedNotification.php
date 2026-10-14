@@ -23,13 +23,30 @@ use Illuminate\Database\QueryException;
 
 class CreateMissCampaignAssignedNotification
 {
+    /**
+     * The notification service instance.
+     *
+     * @var NotificationService
+     */
     protected $notificationService;
 
+    /**
+     * Create the event listener.
+     *
+     * @param NotificationService $notificationService
+     * @return void
+     */
     public function __construct(NotificationService $notificationService)
     {
         $this->notificationService = $notificationService;
     }
 
+    /**
+     * Handle the event.
+     *
+     * @param MissCampaignAssignedEvent $event
+     * @return void
+     */
     public function handle(MissCampaignAssignedEvent $event)
     {
         try {

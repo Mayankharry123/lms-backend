@@ -128,6 +128,12 @@ class MissCampaignResource extends JsonResource
                     'name' => $this->city->name,
                 ] : null;
             }),
+            'organisation' => $this->whenLoaded('lead', function () {
+                return $this->lead && $this->lead->relationLoaded('organisation') && $this->lead->organisation ? [
+                    'id' => $this->lead->organisation->id,
+                    'name' => $this->lead->organisation->name,
+                ] : null;
+            }),
             'assign_by' => $this->when(
                 $this->relationLoaded('assignBy') && $this->canViewAssignmentFields(),
                 function () {

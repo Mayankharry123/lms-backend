@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PriorityController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\PriorityResource;
@@ -155,7 +161,7 @@ class PriorityController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function getLeadCount(int $id): JsonResponse
+    public function getLeadCount(int $id, Request $request, \App\Services\LeadService $leadService): JsonResponse
     {
         try {
             $priority = $this->priorityService->getPriority($id);
@@ -164,17 +170,12 @@ class PriorityController extends Controller
                 throw new \Illuminate\Database\Eloquent\ModelNotFoundException();
             }
 
-            // Get total lead count (accessible to user)
-            $totalLeadCount = \App\Models\Lead::accessibleToUser()->count();
-
-            // Get lead count for this specific priority (accessible to user)
-            $priorityLeadCount = \App\Models\Lead::accessibleToUser()
-                ->where('priority_id', $id)
-                ->count();
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
+            $stats = $leadService->getLeadCountStatsForPriority($id, $filters);
 
             $data = [
-                'total_leads' => $totalLeadCount,
-                'priority_lead_count' => $priorityLeadCount,
+                'total_leads' => $stats['total_leads'],
+                'priority_lead_count' => $stats['priority_lead_count'],
                 'priority_id' => $priority->id,
                 'priority_name' => $priority->name,
             ];
@@ -196,7 +197,7 @@ class PriorityController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function getBriefCount(int $id): JsonResponse
+    public function getBriefCount(int $id, Request $request, \App\Services\BriefService $briefService): JsonResponse
     {
         try {
             $priority = $this->priorityService->getPriority($id);
@@ -205,17 +206,12 @@ class PriorityController extends Controller
                 throw new \Illuminate\Database\Eloquent\ModelNotFoundException();
             }
 
-            // Get total brief count (accessible to user)
-            $totalBriefCount = \App\Models\Brief::accessibleToUser()->count();
-
-            // Get brief count for this specific priority (accessible to user)
-            $priorityBriefCount = \App\Models\Brief::accessibleToUser()
-                ->where('priority_id', $id)
-                ->count();
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
+            $stats = $briefService->getBriefCountStatsForPriority($id, $filters);
 
             $data = [
-                'total_briefs' => $totalBriefCount,
-                'priority_brief_count' => $priorityBriefCount,
+                'total_briefs' => $stats['total_briefs'],
+                'priority_brief_count' => $stats['priority_brief_count'],
                 'priority_id' => $priority->id,
                 'priority_name' => $priority->name,
             ];

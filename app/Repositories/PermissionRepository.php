@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PermissionRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\PermissionRepositoryInterface;
@@ -8,43 +16,94 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class PermissionRepository implements PermissionRepositoryInterface
 {
+    /**
+     * @var Permission
+     */
     protected Permission $model;
 
+    /**
+     * PermissionRepository constructor.
+     *
+     * @param Permission $model
+     */
     public function __construct(Permission $model)
     {
         $this->model = $model;
     }
 
+    /**
+     * Get all permissions with pagination.
+     *
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
     public function all(int $perPage = 15): LengthAwarePaginator
     {
         return $this->model->latest()->paginate($perPage);
     }   
 
+    /**
+     * Find a permission by ID.
+     *
+     * @param int $id
+     * @return Permission|null
+     */
     public function find(int $id): ?Permission
     {
         return $this->model->find($id);
     }
 
+    /**
+     * Find a permission by UUID.
+     *
+     * @param string $uuid
+     * @return Permission|null
+     */
     public function findByUuid(string $uuid): ?Permission
     {
         return $this->model->where('uuid', $uuid)->first();
     }
 
+    /**
+     * Find a permission by name.
+     *
+     * @param string $name
+     * @return Permission|null
+     */
     public function findByName(string $name): ?Permission
     {
         return $this->model->where('name', $name)->first();
     }
 
+    /**
+     * Find a permission by slug.
+     *
+     * @param string $slug
+     * @return Permission|null
+     */
     public function findBySlug(string $slug): ?Permission
     {
         return $this->model->where('slug', $slug)->first();
     }
 
+    /**
+     * Create a new permission.
+     *
+     * @param array $data
+     * @return Permission
+     */
     public function create(array $data): Permission
     {
         return $this->model->create($data);
     }
 
+    /**
+     * Update a permission by ID.
+     *
+     * @param int $id
+     * @param array $data
+     * @return bool
+     */
     public function update(int $id, array $data): bool
     {
         $permission = $this->model->find($id);
@@ -56,6 +115,12 @@ class PermissionRepository implements PermissionRepositoryInterface
         return (bool) $permission->update($data);
     }
 
+    /**
+     * Delete a permission by ID.
+     *
+     * @param int $id
+     * @return bool
+     */
     public function delete(int $id): bool
     {
         $permission = $this->model->find($id);
@@ -67,6 +132,13 @@ class PermissionRepository implements PermissionRepositoryInterface
         return (bool) $permission->delete();
     }
 
+    /**
+     * Search permissions by criteria with pagination.
+     *
+     * @param array $criteria
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
     public function search(array $criteria, int $perPage = 15): LengthAwarePaginator
     {
         $query = $this->model->newQuery();
@@ -98,11 +170,25 @@ class PermissionRepository implements PermissionRepositoryInterface
         return $query->orderBy('id', 'asc')->paginate($perPage);
     }
 
+    /**
+     * Find a permission by ID with specified relationships.
+     *
+     * @param int $id
+     * @param array $relations
+     * @return Permission|null
+     */
     public function findWithRelations(int $id, array $relations = []): ?Permission
     {
         return $this->model->with($relations)->find($id);
     }
 
+    /**
+     * Sync roles for a permission.
+     *
+     * @param int $permissionId
+     * @param array $roleIds
+     * @return bool
+     */
     public function syncRoles(int $permissionId, array $roleIds): bool
     {
         $permission = $this->model->find($permissionId);
@@ -120,6 +206,13 @@ class PermissionRepository implements PermissionRepositoryInterface
         }
     }
 
+    /**
+     * Attach a role to a permission without detaching existing roles.
+     *
+     * @param int $permissionId
+     * @param int $roleId
+     * @return bool
+     */
     public function attachRole(int $permissionId, int $roleId): bool
     {
         $permission = $this->model->find($permissionId);
@@ -140,6 +233,13 @@ class PermissionRepository implements PermissionRepositoryInterface
         }
     }
 
+    /**
+     * Detach a role from a permission.
+     *
+     * @param int $permissionId
+     * @param int $roleId
+     * @return bool
+     */
     public function detachRole(int $permissionId, int $roleId): bool
     {
         $permission = $this->model->find($permissionId);
@@ -156,6 +256,13 @@ class PermissionRepository implements PermissionRepositoryInterface
         }
     }
 
+    /**
+     * Get permissions by parent status.
+     *
+     * @param bool $isParent
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
     public function getByParentStatus(bool $isParent, int $perPage = 15): LengthAwarePaginator
     {
         return $this->model->where('is_parent', $isParent)
@@ -163,6 +270,12 @@ class PermissionRepository implements PermissionRepositoryInterface
             ->paginate($perPage);
     }
 
+    /**
+     * Get active permissions.
+     *
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
     public function getActive(int $perPage = 15): LengthAwarePaginator
     {
         return $this->model->active()
@@ -170,6 +283,11 @@ class PermissionRepository implements PermissionRepositoryInterface
             ->paginate($perPage);
     }
 
+    /**
+     * Get all permissions in tree structure.
+     *
+     * @return \Illuminate\Support\Collection
+     */
     public function getAllPermissionTree(): \Illuminate\Support\Collection
     {
         // Get all root permissions (where is_parent is NULL) with their children recursively

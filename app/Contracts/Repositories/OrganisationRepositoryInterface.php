@@ -17,6 +17,26 @@ namespace App\Contracts\Repositories;
 
 interface OrganisationRepositoryInterface
 {
+    /**
+     * Get all organisations
+     * 
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return array
+     */
     public function getAllOrganisations(int $perPage = 10, ?string $searchTerm = null);
+    /**
+     * Get organisation by ID
+     * 
+     * @param int $id
+     * @return array
+     */
     public function getOrganisationById(int $id);
+    /**
+     * Get organisations list by IDs
+     * 
+     * @param array $ids
+     * @return array
+     */
+    public function getOrganisationsListByIds(array $ids);
 }

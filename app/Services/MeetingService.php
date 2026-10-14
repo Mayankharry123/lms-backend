@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * MeetingService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\MeetingRepositoryInterface;
@@ -41,10 +49,10 @@ class MeetingService
      * @return LengthAwarePaginator
      * @throws DomainException
      */
-    public function getAllMeetings(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
+    public function getAllMeetings(int $perPage = 10, ?string $searchTerm = null, array $filters = []): LengthAwarePaginator
     {
         try {
-            return $this->repository->getAllMeetings($perPage, $searchTerm);
+            return $this->repository->getAllMeetings($perPage, $searchTerm, $filters);
         } catch (QueryException $e) {
             Log::error('Database error fetching meetings', ['exception' => $e]);
             throw new DomainException('Database error while fetching meetings.');
@@ -298,6 +306,13 @@ class MeetingService
         }
     }
 
+    /**
+     * Get attendee email addresses by attendee user IDs.
+     *
+     * @param array $attendeesIds
+     * @return array
+     * @throws DomainException
+     */
     public function getEmailIdsForAttendees(array $attendeesIds): array
     {
         try {
@@ -311,6 +326,13 @@ class MeetingService
         }
     }
 
+    /**
+     * Get lead emails by lead ID.
+     *
+     * @param int $leadId
+     * @return array
+     * @throws DomainException
+     */
     public function getLeadidByEmail(int $leadId): array
     {
         try {

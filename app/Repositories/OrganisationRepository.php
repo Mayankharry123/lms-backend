@@ -66,4 +66,15 @@ class OrganisationRepository implements OrganisationRepositoryInterface
     {
         return $this->model->find($id);
     }
+
+    /**
+     * Fetch a basic list of organisations by IDs.
+     *
+     * @param array $ids
+     * @return \Illuminate\Support\Collection
+     */
+    public function getOrganisationsListByIds(array $ids)
+    {
+        return $this->model->getListByIds($ids);
+    }
 }

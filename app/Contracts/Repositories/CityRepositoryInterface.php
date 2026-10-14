@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface CityRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 interface CityRepositoryInterface 
@@ -43,4 +49,12 @@ interface CityRepositoryInterface
      * Delete a city (This will be a HARD delete)
      */
     public function delete(int $id);
+
+    /**
+     * Find cities by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names);
 }

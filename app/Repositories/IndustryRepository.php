@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * IndustryRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\IndustryRepositoryInterface; 
@@ -20,23 +28,34 @@ class IndustryRepository implements IndustryRepositoryInterface
         $this->model = $industry;
     }
 
+    /**
+     * Get all industries with pagination and optional search filter.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
     public function getAllIndustries(int $perPage = 10, ?string $searchTerm = null)
     {
-        $query = $this->model->query(); 
-
-        
-        if ($searchTerm) {
-            $query->where('name', 'LIKE', "%{$searchTerm}%");
-        }
-        return $query->orderBy('created_at', 'desc')->paginate($perPage); 
+        return $this->model->getAllIndustries($perPage, $searchTerm);
     }   
 
+    /**
+     * Get an industry by ID.
+     *
+     * @param int $id
+     * @return Industry
+     */
     public function getIndustryById($id) 
     {
         return $this->model->findOrFail($id);
     }
+
     /**
-     * Create industry
+     * Create a new industry.
+     *
+     * @param array $data
+     * @return Industry
      */
     public function createIndustry(array $data)
     {
@@ -50,7 +69,11 @@ class IndustryRepository implements IndustryRepositoryInterface
     }
 
     /**
-     * Industry should update
+     * Update an industry by ID.
+     *
+     * @param int $id
+     * @param array $data
+     * @return Industry
      */
     public function updateIndustry($id, array $data)
     {
@@ -64,9 +87,26 @@ class IndustryRepository implements IndustryRepositoryInterface
         return $industry;
     }
 
+    /**
+     * Delete an industry by ID.
+     *
+     * @param int $id
+     * @return bool|null
+     */
     public function deleteIndustry($id)
     {
         $industry = $this->model->findOrFail($id);
         return $industry->delete();
+    }
+
+    /**
+     * Find non-deleted industries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names)
+    {
+        return $this->model->findByNames($names);
     }
 }

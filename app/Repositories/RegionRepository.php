@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * RegionRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\RegionRepositoryInterface;
@@ -8,8 +16,16 @@ use Illuminate\Support\Collection;
 
 class RegionRepository implements RegionRepositoryInterface
 {
+    /**
+     * @var Region
+     */
     protected $model;
 
+    /**
+     * RegionRepository constructor.
+     *
+     * @param Region $model
+     */
     public function __construct(Region $model)
     {
         $this->model = $model;

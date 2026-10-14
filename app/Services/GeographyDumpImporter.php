@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * GeographyDumpImporter
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
@@ -21,10 +29,19 @@ class GeographyDumpImporter
      */
     private array $truncateOrder = ['cities', 'states', 'countries', 'subregions', 'regions'];
 
+    /**
+     * GeographyDumpImporter constructor.
+     */
     public function __construct()
     {
     }
 
+    /**
+     * Import all geography tables in dependency order.
+     *
+     * @param bool $truncate
+     * @return array<string, int>
+     */
     public function importAll(bool $truncate = true): array
     {
         $this->ensureUtf8mb4Connection();
@@ -42,6 +59,13 @@ class GeographyDumpImporter
         return $imported;
     }
 
+    /**
+     * Import specified geography tables in dependency order.
+     *
+     * @param array $tables
+     * @param bool $truncate
+     * @return array<string, int>
+     */
     public function importTables(array $tables, bool $truncate = true): array
     {
         $this->ensureUtf8mb4Connection();
@@ -65,6 +89,13 @@ class GeographyDumpImporter
         return $imported;
     }
 
+    /**
+     * Import a single geography table.
+     *
+     * @param string $table
+     * @param bool $truncate
+     * @return int
+     */
     public function importTable(string $table, bool $truncate = true): int
     {
         $this->ensureUtf8mb4Connection();
@@ -78,11 +109,22 @@ class GeographyDumpImporter
         return $this->importTableFromFile($table, $this->sourcePathForTable($table), false);
     }
 
+    /**
+     * Get list of available geography table names.
+     *
+     * @return array<int, string>
+     */
     public function availableTables(): array
     {
         return $this->insertOrder;
     }
 
+    /**
+     * Validate and normalize a list of geography tables.
+     *
+     * @param array $tables
+     * @return array<int, string>
+     */
     private function normalizeTables(array $tables): array
     {
         $normalized = [];
@@ -94,6 +136,13 @@ class GeographyDumpImporter
         return array_values(array_unique($normalized));
     }
 
+    /**
+     * Validate and normalize a single table name.
+     *
+     * @param string $table
+     * @return string
+     * @throws RuntimeException
+     */
     private function normalizeTable(string $table): string
     {
         $table = trim($table);
@@ -105,11 +154,22 @@ class GeographyDumpImporter
         return $table;
     }
 
+    /**
+     * Ensure database PDO connection uses utf8mb4 encoding.
+     *
+     * @return void
+     */
     private function ensureUtf8mb4Connection(): void
     {
         DB::connection()->getPdo()->exec('SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
     }
 
+    /**
+     * Truncate specified tables safely with foreign key checks temporarily disabled.
+     *
+     * @param array $tables
+     * @return void
+     */
     private function truncateTables(array $tables): void
     {
         if ($tables === []) {
@@ -128,6 +188,15 @@ class GeographyDumpImporter
         }
     }
 
+    /**
+     * Import table records from an SQL source file.
+     *
+     * @param string $table
+     * @param string $sourcePath
+     * @param bool $truncate
+     * @return int
+     * @throws RuntimeException
+     */
     public function importTableFromFile(string $table, string $sourcePath, bool $truncate = false): int
     {
         $table = $this->normalizeTable($table);
@@ -157,10 +226,12 @@ class GeographyDumpImporter
     }
 
     /**
+     * Read and parse SQL insert statements from source file.
+     *
+     * @param string $table
+     * @param string $sourcePath
      * @return array<int, string>
-     */
-    /**
-     * @return array<int, string>
+     * @throws RuntimeException
      */
     private function statementsForFile(string $table, string $sourcePath): array
     {
@@ -179,6 +250,13 @@ class GeographyDumpImporter
         return $this->parseInsertStatements($contents, $table);
     }
 
+    /**
+     * Resolve the SQL source file path for a table.
+     *
+     * @param string $table
+     * @return string
+     * @throws RuntimeException
+     */
     private function sourcePathForTable(string $table): string
     {
         $tableFile = base_path('sql/' . $table . '.sql');
@@ -195,7 +273,12 @@ class GeographyDumpImporter
     }
 
     /**
+     * Parse raw SQL file contents into individual INSERT statement strings.
+     *
+     * @param string $contents
+     * @param string $table
      * @return array<int, string>
+     * @throws RuntimeException
      */
     private function parseInsertStatements(string $contents, string $table): array
     {

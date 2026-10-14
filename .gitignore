@@ -31,9 +31,12 @@ auth.json
 /storage/logs
 /storage/framework
 /storage/app
+/writable/
+/public/exports/brands/*.xlsx
 
 # SQL & Dumps
 *.sql
+/project_architecture.md
 # *.sql.zip
 dump_db.sql
 client_secret_838933910029-ll349ck7oqs4am74a33uau7cm7dq4qpb.apps.googleusercontent.com.json

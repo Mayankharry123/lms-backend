@@ -23,15 +23,34 @@ use Throwable;
 
 class MediaTypeController extends Controller
 {
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
+
+    /**
+     * @var MediaTypeService
+     */
     protected MediaTypeService $mediaTypeService;
 
+    /**
+     * Create a new MediaTypeController instance.
+     *
+     * @param MediaTypeService $mediaTypeService
+     * @param ResponseService $responseService
+     */
     public function __construct(MediaTypeService $mediaTypeService, ResponseService $responseService)
     {
         $this->mediaTypeService = $mediaTypeService;
         $this->responseService = $responseService;
     }
 
+    /**
+     * Display a listing of media types.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function index(Request $request)
     {
         try {
@@ -51,6 +70,12 @@ class MediaTypeController extends Controller
         }
     }
 
+    /**
+     * Store a newly created media type in storage.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function store(Request $request)
     {
         try {
@@ -71,6 +96,12 @@ class MediaTypeController extends Controller
         }
     }
 
+    /**
+     * Display the specified media type.
+     *
+     * @param int|string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function show($id)
     {
         try {
@@ -85,6 +116,13 @@ class MediaTypeController extends Controller
         }
     }
 
+    /**
+     * Update the specified media type in storage.
+     *
+     * @param Request $request
+     * @param int|string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function update(Request $request, $id)
     {
         try {
@@ -112,6 +150,12 @@ class MediaTypeController extends Controller
         }
     }
 
+    /**
+     * Remove the specified media type from storage.
+     *
+     * @param int|string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroy($id)
     {
         try {
@@ -123,6 +167,11 @@ class MediaTypeController extends Controller
         }
     }
 
+    /**
+     * Get list of all media types.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function list()
     {
         try {

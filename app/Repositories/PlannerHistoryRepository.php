@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PlannerHistoryRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\PlannerHistoryRepositoryInterface;
@@ -27,30 +35,8 @@ class PlannerHistoryRepository extends BaseRepository implements PlannerHistoryR
      */
     public function getAllPlannerHistories(int $perPage = 10, array $filters = [])
     {
-        $query = PlannerHistory::with('planner', 'brief', 'creator', 'plannerStatus');
-
-        // Filter by planner_id
-        if (isset($filters['planner_id'])) {
-            $query->where('planner_id', $filters['planner_id']);
-        }
-
-        // Filter by brief_id
-        if (isset($filters['brief_id'])) {
-            $query->where('brief_id', $filters['brief_id']);
-        }
-
-        // Filter by status
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        // Filter by created_by
-        if (isset($filters['created_by'])) {
-            $query->where('created_by', $filters['created_by']);
-        }
-
         return PlannerHistoryResource::collection(
-            $query->orderBy('created_at', 'desc')->paginate($perPage)
+            PlannerHistory::getAllPlannerHistories($perPage, $filters)
         );
     }
 
@@ -64,10 +50,7 @@ class PlannerHistoryRepository extends BaseRepository implements PlannerHistoryR
     public function getPlannerHistories(int $plannerId, int $perPage = 10)
     {
         return PlannerHistoryResource::collection(
-            PlannerHistory::with('planner', 'brief', 'creator', 'plannerStatus')
-                ->where('planner_id', $plannerId)
-                ->orderBy('created_at', 'desc')
-                ->paginate($perPage)
+            PlannerHistory::getPlannerHistories($plannerId, $perPage)
         );
     }
 
@@ -81,10 +64,7 @@ class PlannerHistoryRepository extends BaseRepository implements PlannerHistoryR
     public function getBriefPlannerHistories(int $briefId, int $perPage = 10)
     {
         return PlannerHistoryResource::collection(
-            PlannerHistory::with('planner', 'brief', 'creator', 'plannerStatus')
-                ->where('brief_id', $briefId)
-                ->orderBy('created_at', 'desc')
-                ->paginate($perPage)
+            PlannerHistory::getBriefPlannerHistories($briefId, $perPage)
         );
     }
 
@@ -98,10 +78,7 @@ class PlannerHistoryRepository extends BaseRepository implements PlannerHistoryR
     public function getByStatus(string $status, int $perPage = 10)
     {
         return PlannerHistoryResource::collection(
-            PlannerHistory::with('planner', 'brief', 'creator', 'plannerStatus')
-                ->where('status', $status)
-                ->orderBy('created_at', 'desc')
-                ->paginate($perPage)
+            PlannerHistory::getByStatus($status, $perPage)
         );
     }
 
@@ -114,10 +91,7 @@ class PlannerHistoryRepository extends BaseRepository implements PlannerHistoryR
     public function getRecentHistories(int $limit = 10)
     {
         return PlannerHistoryResource::collection(
-            PlannerHistory::with('planner', 'brief', 'creator', 'plannerStatus')
-                ->orderBy('created_at', 'desc')
-                ->limit($limit)
-                ->get()
+            PlannerHistory::getRecentHistories($limit)
         );
     }
 
@@ -129,6 +103,28 @@ class PlannerHistoryRepository extends BaseRepository implements PlannerHistoryR
      */
     public function createHistory(array $data): PlannerHistory
     {
-        return PlannerHistory::create($data);
+        return PlannerHistory::createHistory($data);
+    }
+
+    /**
+     * Planner history rows for a brief that store a submitted_plan value.
+     *
+     * @param int $briefId
+     * @return Collection<int, PlannerHistory>
+     */
+    public function getSubmittedPlanHistoriesForBrief(int $briefId): Collection
+    {
+        return PlannerHistory::getSubmittedPlanHistoriesForBrief($briefId);
+    }
+
+    /**
+     * Submitted-plan history rows for many briefs, oldest first within each brief.
+     *
+     * @param array<int, int> $briefIds
+     * @return Collection<int, PlannerHistory>
+     */
+    public function getSubmittedPlanHistoriesForBriefs(array $briefIds): Collection
+    {
+        return PlannerHistory::getSubmittedPlanHistoriesForBriefs($briefIds);
     }
 }

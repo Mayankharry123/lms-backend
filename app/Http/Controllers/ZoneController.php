@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * ZoneController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Models\Zone;
@@ -13,8 +19,22 @@ use Throwable;
 
 class ZoneController extends Controller
 {
+    /**
+     * @var ZoneService
+     */
     protected $zoneService;
-    protected $responseService; // Response service
+
+    /**
+     * @var ResponseService
+     */
+    protected $responseService;
+
+    /**
+     * Create a new ZoneController instance.
+     *
+     * @param ZoneService $zoneService
+     * @param ResponseService $responseService
+     */
     public function __construct(ZoneService $zoneService, ResponseService $responseService)
     {
         $this->zoneService = $zoneService;

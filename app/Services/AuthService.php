@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * AuthService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Models\User;
@@ -84,9 +92,15 @@ class AuthService
             // Generate refresh token
             $refreshToken = Str::random(64);
             
+            /**
+             * Updated authenticated user loading to include departments along
+             * with roles and organisation relationships in authentication responses.
+             */
             // Save refresh token to database
             $user->refresh_token = $refreshToken;
             $user->save();
+
+            $user->load(['roles', 'organisations', 'organisation', 'departments']);
     
             return [
                 'user' => $user,
@@ -261,7 +275,7 @@ class AuthService
         $user->refresh_token = $refreshToken;
         $user->save();
 
-        $user->load('roles');
+        $user->load(['roles', 'organisations', 'organisation', 'departments']);
 
         return [
             'user' => $user,
@@ -283,7 +297,7 @@ class AuthService
             $user = JWTAuth::parseToken()->authenticate();
             // Eager load roles to include role_id and role_name in response
             if ($user) {
-                $user->load('roles');
+                $user->load(['roles', 'organisations', 'organisation', 'departments']);
             }
             return $user;
         } catch (JWTException $e) {

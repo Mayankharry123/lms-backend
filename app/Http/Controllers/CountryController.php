@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * CountryController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\CountryService;
@@ -15,9 +21,22 @@ class CountryController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var CountryService
+     */
     protected $countryService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
 
+    /**
+     * Create a new CountryController instance.
+     *
+     * @param CountryService $countryService
+     * @param ResponseService $responseService
+     */
     public function __construct(CountryService $countryService, ResponseService $responseService)
     {
         $this->countryService = $countryService;
@@ -77,6 +96,12 @@ class CountryController extends Controller
         }
     }
 
+    /**
+     * Store a newly created country in storage.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         try {

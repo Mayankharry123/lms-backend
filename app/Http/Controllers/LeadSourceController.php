@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * LeadSourceController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\LeadSourceService;
@@ -12,9 +18,22 @@ use Illuminate\Validation\ValidationException;
 
 class LeadSourceController extends Controller
 {
+    /**
+     * @var LeadSourceService
+     */
     protected $leadSourceService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
 
+    /**
+     * Create a new LeadSourceController instance.
+     *
+     * @param LeadSourceService $leadSourceService
+     * @param ResponseService $responseService
+     */
     public function __construct(
         LeadSourceService $leadSourceService, 
         ResponseService $responseService
@@ -23,7 +42,13 @@ class LeadSourceController extends Controller
         $this->responseService = $responseService;
     }
 
-    public function index(Request $request) // <-- Request object added
+    /**
+     * Display a listing of lead sources.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index(Request $request)
     {
         try {
             $this->validate($request, [
@@ -46,6 +71,11 @@ class LeadSourceController extends Controller
         }
     }
 
+    /**
+     * Get list of lead sources with only id and name.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function list()
     {
         try {
@@ -62,6 +92,12 @@ class LeadSourceController extends Controller
         }
     }
 
+    /**
+     * Store a newly created lead source in storage.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function store(Request $request)
     {
         try {
@@ -84,6 +120,12 @@ class LeadSourceController extends Controller
         }
     }
 
+    /**
+     * Display the specified lead source.
+     *
+     * @param int|string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function show($id)
     {
         try {
@@ -100,6 +142,13 @@ class LeadSourceController extends Controller
         }
     }
 
+    /**
+     * Update the specified lead source in storage.
+     *
+     * @param Request $request
+     * @param int|string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function update(Request $request, $id)
     {
         try {
@@ -124,6 +173,12 @@ class LeadSourceController extends Controller
         }
     }
 
+    /**
+     * Remove the specified lead source from storage.
+     *
+     * @param int|string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroy($id)
     {
         try {

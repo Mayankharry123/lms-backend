@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PlannerStatusSeeder
+ * 
+ * @author Achal Sharma
+ * @package Database\Seeders
+ * @version 1.0.1
+ */
+
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;

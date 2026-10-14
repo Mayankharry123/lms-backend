@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PlannerStatus
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 class PlannerStatus extends BaseModel
@@ -23,4 +29,14 @@ class PlannerStatus extends BaseModel
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+
+    /**
+     * Find the Plan Approved status by slug or name.
+     */
+    public static function findPlanApproved(): ?self
+    {
+        return static::where('slug', 'plan-approved')
+            ->orWhere('name', 'Plan Approved')
+            ->first();
+    }
 }

@@ -1,14 +1,24 @@
 <?php
 
+/**
+ * LeadRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\LeadRepositoryInterface;
 use App\Models\Lead;
 use App\Models\LeadAssignHistory;
+use App\Models\LeadMobileNumber;
 use App\Models\Meeting;
 use App\Models\Priority;
 use App\Models\Status;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use DomainException;
 use Exception;
@@ -19,36 +29,6 @@ use Illuminate\Support\Str;
 
 class LeadRepository implements LeadRepositoryInterface
 {
-    /**
-     * Eager-load relations; skip soft-deleted related records where applicable.
-     *
-     * @return array<string|callable>
-     */
-    protected function eagerLoadRelations(): array
-    {
-        $notTrashed = static fn (string $table) => static fn ($query) => $query->whereNull($table . '.deleted_at');
-
-        return [
-            'brand' => $notTrashed('brands'),
-            'agency' => $notTrashed('agency'),
-            'leadType' => $notTrashed('lead_types'),
-            'assignedUser' => $notTrashed('users'),
-            'createdByUser' => $notTrashed('users'),
-            'priority' => $notTrashed('priorities'),
-            'designation' => $notTrashed('designations'),
-            'department' => $notTrashed('departments'),
-            'subSource' => $notTrashed('lead_sub_source'),
-            'country',
-            'state',
-            'city',
-            'zone' => $notTrashed('zones'),
-            'statusRelation' => $notTrashed('statuses'),
-            'callStatusRelation' => $notTrashed('call_statuses'),
-            'leadStatusRelation' => $notTrashed('statuses'),
-            'mobileNumbers',
-        ];
-    }
-
     /**
      * @var Lead
      */
@@ -78,38 +58,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getAllLeads(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
     {
-        $query = $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->accessibleToUser(Auth::user());
-
-        // Apply search filter if search term is provided
-        if ($searchTerm) {
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('name', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('email', 'LIKE', "%{$searchTerm}%")
-                  ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
-                      $brandQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$searchTerm}%");
-                  })
-                  ->orWhereHas('agency', function ($agencyQuery) use ($searchTerm) {
-                      $agencyQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$searchTerm}%");
-                  })
-                  ->orWhereHas('assignedUser', function ($userQuery) use ($searchTerm) {
-                      $userQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$searchTerm}%");
-                  })
-                  ->orWhereHas('mobileNumbers', function ($mobileQuery) use ($searchTerm) {
-                      $mobileQuery->where('mobile_number', 'LIKE', "%{$searchTerm}%");
-                  })
-                  ->orWhereHas('leadStatusRelation', function ($statusQuery) use ($searchTerm) {
-                      $statusQuery->where('name', 'LIKE', "%{$searchTerm}%");
-                  });
-            });
-        }
-
-        return $query
-            ->orderByDesc('updated_at')
-            ->paginate($perPage)
-            ->appends(request()->query());
+        return $this->model->getAllLeads($perPage, $searchTerm);
     }
 
     /**
@@ -120,11 +69,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadById(int $id): ?Lead
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->accessibleToUser(Auth::user())
-            ->find($id);
+        return $this->model->getLeadById($id);
     }
 
     /**
@@ -136,14 +81,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadsByBrandId(int $brandId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->where('brand_id', $brandId)
-            ->where('status', '1')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage)
-            ->appends(request()->query());
+        return $this->model->getLeadsByBrandId($brandId, $perPage);
     }
 
     /**
@@ -155,14 +93,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadsByAgencyId(int $agencyId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->where('agency_id', $agencyId)
-            ->where('status', '1')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage)
-            ->appends(request()->query());
+        return $this->model->getLeadsByAgencyId($agencyId, $perPage);
     }
 
     /**
@@ -174,14 +105,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadsByAssignedUser(int $userId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->where('current_assign_user', $userId)
-            ->where('status', '1')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage)
-            ->appends(request()->query());
+        return $this->model->getLeadsByAssignedUser($userId, $perPage);
     }
 
     /**
@@ -193,13 +117,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadsByStatus(string $status, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->where('status', $status)
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage)
-            ->appends(request()->query());
+        return $this->model->getLeadsByStatus($status, $perPage);
     }
 
     /**
@@ -211,14 +129,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadsByPriority(int $priorityId, int $perPage = 10): LengthAwarePaginator
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->where('priority_id', $priorityId)
-            ->where('status', '1')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage)
-            ->appends(request()->query());
+        return $this->model->getLeadsByPriority($priorityId, $perPage);
     }
 
     /**
@@ -228,12 +139,19 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadList(): ?Collection
     {
-        return $this->model
-            ->select('id', 'name')
-            ->notDeleted()
-            ->where('status', '1')
-            ->orderBy('id', 'asc')
-            ->get();
+        return $this->model->getLeadList();
+    }
+
+    /**
+     * Get lead assignment history by lead ID.
+     *
+     * @param int $leadId
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getLeadHistory(int $leadId, int $perPage = 10): LengthAwarePaginator
+    {
+        return $this->model->getLeadHistory($leadId, $perPage);
     }
 
     /**
@@ -245,73 +163,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLeadsWithFilters(array $filters, int $perPage = 10): LengthAwarePaginator
     {
-        $query = $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->accessibleToUser(Auth::user());
-
-        $this->applyIdFilter($query, 'brand_id', $filters['brand_id'] ?? null);
-        $this->applyIdFilter($query, 'agency_id', $filters['agency_id'] ?? null);
-        $this->applyIdFilter($query, 'current_assign_user', $filters['current_assign_user'] ?? null);
-        $this->applyIdFilter($query, 'priority_id', $filters['priority_id'] ?? null);
-        $this->applyIdFilter($query, 'created_by', $filters['created_by'] ?? null);
-        $this->applyIdFilter($query, 'sub_source_id', $filters['sub_source_id'] ?? null);
-        $this->applyIdFilter($query, 'call_status', $filters['call_status'] ?? null);
-        $this->applyIdFilter($query, 'lead_type_id', $filters['lead_type_id'] ?? null);
-        $this->applyIdFilter($query, 'country_id', $filters['country_id'] ?? null);
-        $this->applyIdFilter($query, 'state_id', $filters['state_id'] ?? null);
-        $this->applyIdFilter($query, 'city_id', $filters['city_id'] ?? null);
-
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
-        } else {
-            $query->where('status', '1');
-        }
-
-        if (isset($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%")
-                  ->orWhere('profile_url', 'LIKE', "%{$search}%")
-                  ->orWhereHas('agency', function ($agencyQuery) use ($search) {
-                      $agencyQuery->whereNull('deleted_at')->where('name', 'LIKE', "%{$search}%");
-                  })
-                  ->orWhereHas('mobileNumbers', function ($mobileQuery) use ($search) {
-                      $mobileQuery->where('mobile_number', 'LIKE', "%{$search}%");
-                  });
-            });
-        }
-
-        return $query
-            ->orderByDesc('updated_at')
-            ->paginate($perPage)
-            ->appends(request()->query());
-    }
-
-    /**
-     * Apply a single ID or list of IDs (comma-separated values from query string).
-     *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param string $column
-     * @param int|array<int>|null $value
-     */
-    protected function applyIdFilter($query, string $column, $value): void
-    {
-        if ($value === null || $value === '' || $value === []) {
-            return;
-        }
-
-        if (is_array($value)) {
-            $ids = array_values(array_filter(array_map('intval', $value)));
-            if ($ids !== []) {
-                $query->whereIn($column, $ids);
-            }
-
-            return;
-        }
-
-        $query->where($column, (int) $value);
+        return $this->model->getLeadsWithFilters($filters, $perPage);
     }
 
     // ============================================================================
@@ -368,20 +220,7 @@ class LeadRepository implements LeadRepositoryInterface
                 $data['call_status'] = $callStatusId;
                 
                 // Find the Status that contains this callStatusId
-                $statusRecord = null;
-                $allStatuses = Status::all();
-                
-                foreach ($allStatuses as $status) {
-                    // call_status is stored as JSON array
-                    $callStatuses = is_string($status->call_status) 
-                        ? json_decode($status->call_status, true) 
-                        : $status->call_status;
-                    
-                    if (is_array($callStatuses) && in_array($callStatusId, $callStatuses)) {
-                        $statusRecord = $status;
-                        break;
-                    }
-                }
+                $statusRecord = Status::findForCallStatus((int) $callStatusId);
                 
                 // If matching status found, set lead_status
                 if ($statusRecord) {
@@ -389,20 +228,7 @@ class LeadRepository implements LeadRepositoryInterface
                 }
                 
                 // Find and set priority based on call_status_id
-                $priorityRecord = null;
-                $allPriorities = Priority::all();
-                
-                foreach ($allPriorities as $priority) {
-                    // call_status is stored as JSON array in Priority model
-                    $priorityCallStatuses = is_string($priority->call_status) 
-                        ? json_decode($priority->call_status, true) 
-                        : $priority->call_status;
-                    
-                    if (is_array($priorityCallStatuses) && in_array($callStatusId, $priorityCallStatuses)) {
-                        $priorityRecord = $priority;
-                        break;
-                    }
-                }
+                $priorityRecord = Priority::findForCallStatus((int) $callStatusId);
                 
                 // If matching priority found, set priority_id
                 if ($priorityRecord) {
@@ -425,7 +251,7 @@ class LeadRepository implements LeadRepositoryInterface
             if (!empty($mobileNumbers)) {
                 $isFirst = true;
                 foreach ($mobileNumbers as $number) {
-                    \App\Models\LeadMobileNumber::create([
+                    LeadMobileNumber::create([
                         'lead_id' => $lead->id,
                         'mobile_number' => $number,
                         'is_primary' => $isFirst,
@@ -433,6 +259,10 @@ class LeadRepository implements LeadRepositoryInterface
                     ]);
                     $isFirst = false;
                 }
+            }
+
+            if ($this->shouldRecordCreatedLeadHistory($lead)) {
+                $this->saveLeadHistory($lead, !empty($lead->call_status));
             }
             
             return $lead;
@@ -492,20 +322,7 @@ class LeadRepository implements LeadRepositoryInterface
                 $data['call_status'] = $callStatusId;
                 
                 // Find the Status that contains this callStatusId
-                $statusRecord = null;
-                $allStatuses = Status::all();
-                
-                foreach ($allStatuses as $status) {
-                    // call_status is stored as JSON array
-                    $callStatuses = is_string($status->call_status) 
-                        ? json_decode($status->call_status, true) 
-                        : $status->call_status;
-                    
-                    if (is_array($callStatuses) && in_array($callStatusId, $callStatuses)) {
-                        $statusRecord = $status;
-                        break;
-                    }
-                }
+                $statusRecord = Status::findForCallStatus((int) $callStatusId);
                 
                 // If matching status found, set lead_status
                 if ($statusRecord) {
@@ -513,20 +330,7 @@ class LeadRepository implements LeadRepositoryInterface
                 }
                 
                 // Find and set priority based on call_status_id
-                $priorityRecord = null;
-                $allPriorities = Priority::all();
-                
-                foreach ($allPriorities as $priority) {
-                    // call_status is stored as JSON array in Priority model
-                    $priorityCallStatuses = is_string($priority->call_status) 
-                        ? json_decode($priority->call_status, true) 
-                        : $priority->call_status;
-                    
-                    if (is_array($priorityCallStatuses) && in_array($callStatusId, $priorityCallStatuses)) {
-                        $priorityRecord = $priority;
-                        break;
-                    }
-                }
+                $priorityRecord = Priority::findForCallStatus((int) $callStatusId);
                 
                 // If matching priority found, set priority_id
                 if ($priorityRecord) {
@@ -537,17 +341,23 @@ class LeadRepository implements LeadRepositoryInterface
                 unset($data['call_status_id']);
             }
             
-            // Save history before update (captures old data)
-            $this->saveLeadHistory($lead);
-            
+            $shouldRecordHistory = $this->hasStatusOrCommentChange($lead, $data);
+            $callStatusChanged = array_key_exists('call_status', $data)
+                && $this->historyValuesDiffer($data['call_status'] ?? null, $lead->call_status);
+
             $result = $lead->update($data);
+
+            if ($shouldRecordHistory && $result) {
+                $lead->refresh();
+                $this->saveLeadHistory($lead, $callStatusChanged);
+            }
             
             // Update mobile numbers if provided
             if ($mobileNumbers !== null && !empty($mobileNumbers)) {
-                \App\Models\LeadMobileNumber::where('lead_id', $id)->delete();
+                LeadMobileNumber::deleteForLead($id);
                 $isFirst = true;
                 foreach ($mobileNumbers as $number) {
-                    \App\Models\LeadMobileNumber::create([
+                    LeadMobileNumber::create([
                         'lead_id' => $id,
                         'mobile_number' => $number,
                         'is_primary' => $isFirst,
@@ -565,6 +375,85 @@ class LeadRepository implements LeadRepositoryInterface
             Log::error('Unexpected error updating lead', ['id' => $id, 'data' => $data, 'exception' => $e]);
             throw new DomainException('Unexpected error while updating lead.');
         }
+    }
+
+    /**
+     * Update only lead activity fields (comment and call_status) and record history.
+     *
+     * @param int $id
+     * @param array<string, mixed> $data
+     * @return array{lead: Lead, history: LeadAssignHistory}
+     */
+    public function updateLeadActivity(int $id, array $data): array
+    {
+        try {
+            $lead = $this->model->findOrFail($id);
+
+            $payload = [
+                'comment' => $data['comment'] ?? $lead->comment,
+            ];
+
+            $callStatusChanged = false;
+            if (array_key_exists('call_status_id', $data) && $data['call_status_id'] !== null && $data['call_status_id'] !== '') {
+                $payload['call_status'] = $data['call_status_id'];
+                $callStatusChanged = $this->historyValuesDiffer($payload['call_status'], $lead->call_status);
+
+                $statusRecord = Status::findForCallStatus((int) $data['call_status_id']);
+                if ($statusRecord) {
+                    $payload['lead_status'] = $statusRecord->id;
+                }
+            }
+
+            $lead->update($payload);
+            $lead->refresh();
+
+            $history = $this->saveLeadHistory($lead, $callStatusChanged, $this->reminderPayload($data), false);
+            if (!$history) {
+                throw new DomainException('Unable to save lead activity.');
+            }
+
+            $lead->load(['callStatusRelation', 'leadStatusRelation']);
+
+            return [
+                'lead' => $lead,
+                'history' => $history,
+            ];
+        } catch (ModelNotFoundException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error updating lead activity', ['id' => $id, 'data' => $data, 'exception' => $e]);
+            throw new DomainException('Database error while updating lead activity.');
+        } catch (DomainException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            Log::error('Unexpected error updating lead activity', ['id' => $id, 'data' => $data, 'exception' => $e]);
+            throw new DomainException('Unexpected error while updating lead activity.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array{reminder: bool, reminder_at: mixed, reminder_before: mixed, reminder_before_unit: mixed}
+     */
+    private function reminderPayload(array $data): array
+    {
+        $enabled = filter_var($data['reminder'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (!$enabled) {
+            return [
+                'reminder' => false,
+                'reminder_at' => null,
+                'reminder_before' => null,
+                'reminder_before_unit' => null,
+            ];
+        }
+
+        return [
+            'reminder' => true,
+            'reminder_at' => $data['reminder_at'] ?? null,
+            'reminder_before' => $data['reminder_before'] ?? null,
+            'reminder_before_unit' => $data['reminder_before_unit'] ?? null,
+        ];
     }
 
     /**
@@ -661,34 +550,10 @@ class LeadRepository implements LeadRepositoryInterface
             $lead = $this->model->findOrFail($leadId);
             
             // Get all statuses to find which one contains this callStatusId
-            $statusRecord = null;
-            $allStatuses = Status::all();
-            
-            foreach ($allStatuses as $status) {
-                // call_status is stored as JSON array
-                $callStatuses = is_string($status->call_status) 
-                    ? json_decode($status->call_status, true) 
-                    : $status->call_status;
-                
-                if (is_array($callStatuses) && in_array($callStatusId, $callStatuses)) {
-                    $statusRecord = $status;
-                    break;
-                }
-            }
+            $statusRecord = Status::findForCallStatus($callStatusId);
             
             // Get priority based on call_status mapping
-            $priorityId = null;
-            $allPriorities = Priority::all();
-            foreach ($allPriorities as $priority) {
-                $priorityCallStatuses = is_string($priority->call_status) 
-                    ? json_decode($priority->call_status, true) 
-                    : $priority->call_status;
-                
-                if (is_array($priorityCallStatuses) && in_array($callStatusId, $priorityCallStatuses)) {
-                    $priorityId = $priority->id;
-                    break;
-                }
-            }
+            $priorityId = Priority::findForCallStatus($callStatusId)?->id;
             
             Log::info('Adding call status', [
                 'lead_id' => $leadId,
@@ -810,34 +675,127 @@ class LeadRepository implements LeadRepositoryInterface
      * @param int $perPage
      * @return LengthAwarePaginator
      */
-    public function getPendingLeads(int $perPage = 10): LengthAwarePaginator
+    public function getPendingLeads(int $perPage = 10, array $filters = []): LengthAwarePaginator
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->notDeleted()
-            ->whereHas('leadStatusRelation', function ($query) {
-                $query->whereNull('statuses.deleted_at')->where('statuses.slug', 'pending');
-            }, '>=', 1)
-            ->where('leads.status', '1')
-            ->orderBy('leads.created_at', 'desc')
-            ->paginate($perPage)
-            ->appends(request()->query());
+        return $this->model->getPendingLeads($perPage, $filters);
+    }
+
+    /**
+     * Fetch all leads assigned to a specific user with performance relations.
+     *
+     * @param int $userId
+     * @return Collection
+     */
+    public function getUserLeadPerformance(int $userId, array $filters = []): Collection
+    {
+        return $this->model->getUserLeadPerformance($userId, $filters);
+    }
+
+    /**
+     * Fetch assign-history comments for a lead in pages of 9.
+     *
+     * @param int $leadId
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getAssignHistoryByLeadId(int $leadId, int $perPage = 9): LengthAwarePaginator
+    {
+        return $this->model->getAssignHistoryByLeadId($leadId, $perPage);
+    }
+
+    /**
+     * Whether create should write a lead_assign_histories row.
+     */
+    private function shouldRecordCreatedLeadHistory(Lead $lead): bool
+    {
+        return $this->normalizeHistoryValue($lead->comment) !== ''
+            || !empty($lead->call_status)
+            || !empty($lead->lead_status)
+            || $this->normalizeHistoryValue($lead->status) !== '1';
+    }
+
+    /**
+     * Whether the update payload changes status (enum / call / lead) or comment.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function hasStatusOrCommentChange(Lead $lead, array $data): bool
+    {
+        if (array_key_exists('comment', $data)
+            && $this->historyValuesDiffer($data['comment'] ?? null, $lead->comment)
+        ) {
+            return true;
+        }
+
+        if (array_key_exists('status', $data)
+            && $this->historyValuesDiffer($data['status'] ?? null, $lead->status)
+        ) {
+            return true;
+        }
+
+        if (array_key_exists('call_status', $data)
+            && $this->historyValuesDiffer($data['call_status'] ?? null, $lead->call_status)
+        ) {
+            return true;
+        }
+
+        if (array_key_exists('lead_status', $data)
+            && $this->historyValuesDiffer($data['lead_status'] ?? null, $lead->lead_status)
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether two history values differ after normalization.
+     *
+     * @param mixed $left
+     * @param mixed $right
+     * @return bool
+     */
+    private function historyValuesDiffer(mixed $left, mixed $right): bool
+    {
+        return $this->normalizeHistoryValue($left) !== $this->normalizeHistoryValue($right);
+    }
+
+    /**
+     * Normalize a history value to string for reliable comparison.
+     *
+     * @param mixed $value
+     * @return string
+     */
+    private function normalizeHistoryValue(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        return trim((string) $value);
     }
 
     /**
      * Save lead update history to lead_assign_histories table.
      *
      * @param Lead $lead
-     * @return void
+     * @param bool $touchCallStatusTime When false (comment-only), do not reset the 1-hour call-status lock.
+     * @param array<string, mixed> $reminder
+     * @param bool $failSilently
+     * @return LeadAssignHistory|null
      */
-    private function saveLeadHistory(Lead $lead): void
-    {
+    private function saveLeadHistory(
+        Lead $lead,
+        bool $touchCallStatusTime = true,
+        array $reminder = [],
+        bool $failSilently = true
+    ): ?LeadAssignHistory {
         try {
             // Get current authenticated user
             $currentUserId = Auth::check() ? Auth::id() : null;
 
-            // First, let's check ALL meetings for this lead (for debugging)
-            $allMeetings = Meeting::where('lead_id', $lead->id)->get();
+            $meetingContext = Meeting::getLeadHistoryContext($lead->id);
+            $allMeetings = $meetingContext['all'];
             
             Log::info('Lead history - All meetings for lead', [
                 'lead_id' => $lead->id,
@@ -851,21 +809,7 @@ class LeadRepository implements LeadRepositoryInterface
                 ])->toArray(),
             ]);
 
-            // Fetch meeting information for this lead - get the latest non-deleted meeting
-            // Initially try to get active (status='1') meetings only
-            $meeting = Meeting::where('lead_id', $lead->id)
-                ->where('status', '1')
-                ->whereNull('deleted_at')
-                ->orderBy('created_at', 'desc')
-                ->first();
-            
-            // If no active meeting found, try to get any non-deleted meeting
-            if (!$meeting) {
-                $meeting = Meeting::where('lead_id', $lead->id)
-                    ->whereNull('deleted_at')
-                    ->orderBy('created_at', 'desc')
-                    ->first();
-            }
+            $meeting = $meetingContext['meeting'];
             
             $meetingDateTime = null;
             
@@ -887,17 +831,23 @@ class LeadRepository implements LeadRepositoryInterface
                 $meetingDateTime = $meeting->meeting_date;
             }
 
+            $reminderEnabled = filter_var($reminder['reminder'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
             // Create history record
-            LeadAssignHistory::create([
+            $history = LeadAssignHistory::createHistory([
                 'uuid' => Str::uuid(),
                 'lead_id' => $lead->id,
-                'assign_user_id' => $lead->current_assign_user,
+                'assign_user_id' => $lead->current_assign_user ?? $currentUserId ?? $lead->created_by,
                 'current_user_id' => $currentUserId,
                 'priority_id' => $lead->priority_id,
                 'lead_status_id' => $lead->lead_status,
                 'call_status_id' => $lead->call_status,
-                'last_call_status_date_time' => now(),
+                'last_call_status_date_time' => $touchCallStatusTime ? now() : null,
                 'lead_comment' => $lead->comment,
+                'reminder' => $reminderEnabled,
+                'reminder_at' => $reminderEnabled ? ($reminder['reminder_at'] ?? null) : null,
+                'reminder_before' => $reminderEnabled ? ($reminder['reminder_before'] ?? null) : null,
+                'reminder_before_unit' => $reminderEnabled ? ($reminder['reminder_before_unit'] ?? null) : null,
                 'meeting_date' => $meeting?->meeting_date,
                 'meeting_time' => $meeting?->meeting_time,
                 'status' => $lead->status,
@@ -907,14 +857,32 @@ class LeadRepository implements LeadRepositoryInterface
                 'lead_id' => $lead->id,
                 'meeting_date_time' => $meetingDateTime,
             ]);
+
+            return $history;
         } catch (Exception $e) {
-            // Log error but don't throw to prevent breaking the update operation
             Log::warning('Failed to record lead history', [
                 'lead_id' => $lead->id,
                 'exception' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            if (!$failSilently) {
+                throw $e;
+            }
+
+            return null;
         }
+    }
+
+    /**
+     * Get the latest two leads.
+     *
+     * @param array $filters
+     * @return Collection
+     */
+    public function getLatestTwoLeads(array $filters = [])
+    {
+        return $this->model->getLatestTwoLeads($filters);
     }
 
     /**
@@ -922,16 +890,10 @@ class LeadRepository implements LeadRepositoryInterface
      *
      * @return Collection
      */
-    public function getLatestTwoFollowUpLeads()
+
+    public function getLatestTwoFollowUpLeads(array $filters = [])
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->whereHas('callStatusRelation', function ($query) {
-                $query->where('slug', 'follow-up');
-            })
-            ->orderBy('created_at', 'desc')
-            ->limit(2)
-            ->get();
+        return $this->model->getLatestTwoFollowUpLeads($filters);
     }
 
     /**
@@ -939,16 +901,9 @@ class LeadRepository implements LeadRepositoryInterface
      *
      * @return Collection
      */
-    public function getLatestTwoMeetingScheduledLeads()
+    public function getLatestTwoMeetingScheduledLeads(array $filters = [])
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->whereHas('callStatusRelation', function ($query) {
-                $query->where('slug', 'meeting-schedule');
-            })
-            ->orderBy('created_at', 'desc')
-            ->limit(2)
-            ->get();
+        return $this->model->getLatestTwoMeetingScheduledLeads($filters);
     }
 
     /**
@@ -958,13 +913,18 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getLatestTwoMeetingDoneLeads()
     {
-        return $this->model
-            ->with($this->eagerLoadRelations())
-            ->whereHas('callStatusRelation', function ($query) {
-                $query->where('slug', 'meeting-done');
-            })
-            ->orderBy('created_at', 'desc')
-            ->limit(2)
-            ->get();
+        return $this->model->getLatestTwoMeetingDoneLeads();
+    }
+
+    /**
+     * Get lead count statistics for a given priority.
+     *
+     * @param int $priorityId
+     * @param array $filters
+     * @return array
+     */
+    public function getLeadCountStatsForPriority(int $priorityId, array $filters): array
+    {
+        return $this->model->getLeadCountStatsForPriority($priorityId, $filters);
     }
 }

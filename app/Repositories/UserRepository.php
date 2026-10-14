@@ -1,10 +1,17 @@
 <?php
 
+/**
+ * UserRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Models\User;
 use App\Contracts\Repositories\UserRepositoryInterface;
-use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -23,8 +30,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function all(int $perPage = 15): LengthAwarePaginator
     {
-        $modelClass = $this->modelClass;
-        return $modelClass::with(['roles', 'permissions', 'parents', 'children', 'organisation', 'zone'])->paginate($perPage);
+        return User::getRepositoryUsers($perPage);
     }
 
     /**
@@ -32,7 +38,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function find(int $id): ?User
     {
-        return parent::find($id);
+        return User::findRepositoryUser($id);
     }
 
     /**
@@ -40,7 +46,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findByEmail(string $email): ?User
     {
-        return User::where('email', $email)->first();
+        return User::findRepositoryUserByEmail($email);
     }
 
     /**
@@ -72,7 +78,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findWithRelations(int $id, array $relations = []): ?User
     {
-        return parent::findWithRelations($id, $relations);
+        return User::findRepositoryUserWithRelations($id, $relations);
     }
 
     /**
@@ -80,34 +86,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function search(array $criteria, int $perPage = 15): LengthAwarePaginator
     {
-        $modelClass = $this->modelClass;
-        $query = $modelClass::with(['roles', 'permissions', 'parents', 'children', 'organisation', 'zone']);
-
-        // Handle the generic 'search' parameter
-        if (!empty($criteria['search'])) {
-            $search = $criteria['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
-        foreach ($criteria as $field => $value) {
-            if ($field === 'search') {
-                // Already handled above
-                continue;
-            } elseif ($field === 'role') {
-                // Handle role search through relationships
-                $query->whereHas('roles', function ($q) use ($value) {
-                    $q->where('name', $value);
-                });
-            } else {
-                $query->where($field, $value);
-            }
-        }
-
-        return $query->paginate($perPage);
+        return User::searchRepositoryUsers($criteria, $perPage);
     }
 
     /**
@@ -115,8 +94,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findBy(array $conditions): Collection
     {
-        $modelClass = $this->modelClass;
-        return $modelClass::where($conditions)->get();
+        return User::findRepositoryUsersBy($conditions);
     }
 
     /**
@@ -124,8 +102,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findFirstBy(array $conditions): ?User
     {
-        $modelClass = $this->modelClass;
-        return $modelClass::where($conditions)->first();
+        return User::findFirstRepositoryUserBy($conditions);
     }
 
     /**
@@ -133,8 +110,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function countBy(array $conditions): int
     {
-        $modelClass = $this->modelClass;
-        return $modelClass::where($conditions)->count();
+        return User::countRepositoryUsersBy($conditions);
     }
 
     /**
@@ -142,15 +118,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function updateLastLogin(int $userId): ?User
     {
-        $user = $this->find($userId);
-        if (!$user) {
-            return null;
-        }
-
-        $user->last_login_at = Carbon::now();
-        $user->save();
-
-        return $user;
+        return User::updateRepositoryLastLogin($userId);
     }
 
     /**
@@ -158,15 +126,63 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function getStatistics(): array
     {
-        $modelClass = $this->modelClass;
-        
-        return [
-            'total' => $modelClass::count(),
-            'active' => $modelClass::where('status', 'active')->count(),
-            'inactive' => $modelClass::where('status', 'inactive')->count(),
-            'suspended' => $modelClass::where('status', 'suspended')->count(),
-            'verified' => $modelClass::whereNotNull('email_verified_at')->count(),
-            'unverified' => $modelClass::whereNull('email_verified_at')->count(),
-        ];
+        return User::getRepositoryStatistics();
+    }
+
+    /**
+     * Sync user departments.
+     *
+     * @param int $userId
+     * @param array $departmentIds
+     * @return void
+     */
+    public function syncDepartments(int $userId, array $departmentIds): void
+    {
+        User::syncRepositoryDepartments($userId, $departmentIds);
+    }
+
+    /**
+     * Active planner-admin users that belong to the given organisation.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActivePlannerAdminsByOrganisation(int $organisationId): Collection
+    {
+        return User::findActivePlannerAdminsByOrganisation($organisationId);
+    }
+
+    /**
+     * Active ops-admin users that belong to the given organisation.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActiveOpsAdminsByOrganisation(int $organisationId): Collection
+    {
+        return User::findActiveOpsAdminsByOrganisation($organisationId);
+    }
+
+    /**
+     * Active finance-admin users that belong to the given organisation.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActiveFinanceAdminsByOrganisation(int $organisationId): Collection
+    {
+        return User::findActiveFinanceAdminsByOrganisation($organisationId);
+    }
+
+    /**
+     * Get all users without any filter or access scope.
+     *
+     * @param array $filters
+     * @param int|null $perPage
+     * @return \Illuminate\Database\Eloquent\Collection<int, User>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<User>
+     */
+    public function getAllWithoutFilter(array $filters = [], ?int $perPage = null)
+    {
+        return User::getAllWithoutFilter($filters, $perPage);
     }
 }

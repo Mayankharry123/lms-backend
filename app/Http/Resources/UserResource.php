@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * UserResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
@@ -19,10 +25,53 @@ class UserResource extends BaseResource
             'email' => $this->email,
             'phone' => $this->phone,
             'avatar' => $this->avatar,
-            
+            'organisation_id' => $this->organisation_id,
+            'zone_id' => $this->zone_id,
+
             'organisation_name' => $this->relationLoaded('organisation')
-                ? $this->organisation?->name
-                : null,
+                 ? $this->organisation?->name
+                 : null,
+
+            'organisation_ids' => $this->whenLoaded('organisations', function () {
+                return $this->organisations->pluck('id')->values();
+            }),
+
+            'zone_ids' => $this->whenLoaded('zones', function () {
+                return $this->zones->pluck('id')->values();
+            }),
+
+            'zones' => $this->whenLoaded('zones', function () {
+                return $this->zones->map(function ($zone) {
+                    return [
+                        'id' => $zone->id,
+                        'name' => $zone->name,
+                        'slug' => $zone->slug,
+                    ];
+                })->values();
+            }),
+
+            'organisations' => $this->whenLoaded('organisations', function () {
+                return $this->organisations->map(function ($organisation) {
+                    return [
+                        'id' => $organisation->id,
+                        'name' => $organisation->name,
+                        'slug' => $organisation->slug,
+                    ];
+                })->values();
+            }),
+          
+            /**
+             * Added department details to the user response in a simplified
+             * departments_id and departments_name array format.
+             */
+            'departments' => $this->whenLoaded('departments', function () {
+                return $this->departments->map(function ($department) {
+                    return [
+                        'departments_id' => $department->id,
+                        'departments_name' => $department->name,
+                    ];
+                })->values();
+            }),
             
             'zone_name' => $this->relationLoaded('zone')
                 ? $this->zone?->name

@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface MeetingRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use App\Models\Meeting;
@@ -19,7 +25,7 @@ interface MeetingRepositoryInterface
      * @param string|null $searchTerm Optional search term to filter meetings.
      * @return LengthAwarePaginator
      */
-    public function getAllMeetings(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator;
+    public function getAllMeetings(int $perPage = 10, ?string $searchTerm = null, array $filters = []): LengthAwarePaginator;
 
     /**
      * Fetch all meetings without pagination.
@@ -113,7 +119,18 @@ interface MeetingRepositoryInterface
      */
     public function restore(int $id): bool;
 
+    /**
+     * Get email IDs for attendees
+     * 
+     * @param array $attendeesId
+     * @return array
+     */
     public function getEmailIdsForAttendees(array $attendeesId): array;
-
+    /**
+     * Get lead ID by email
+     * 
+     * @param int $id
+     * @return array
+     */
     public function getLeadidByEmail(int $id): array;
 }

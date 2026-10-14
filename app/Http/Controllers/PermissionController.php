@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PermissionController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Models\Permission;
@@ -17,9 +23,22 @@ class PermissionController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var PermissionService
+     */
     protected PermissionService $permissionService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new PermissionController instance.
+     *
+     * @param PermissionService $permissionService
+     * @param ResponseService $responseService
+     */
     public function __construct(PermissionService $permissionService, ResponseService $responseService)
     {
         $this->permissionService = $permissionService;
@@ -84,6 +103,8 @@ class PermissionController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
+            $this->normalizePermissionRequest($request);
+
             $rules = [
                 'name' => 'required|string|max:255',
                 'display_name' => 'required|string|max:255',
@@ -145,13 +166,11 @@ class PermissionController extends Controller
     public function update(Request $request, $id): JsonResponse
     {
         try {
+            $id = (int) $id;
+            $this->normalizePermissionRequest($request);
+
             $rules = [
-                'name' => [
-                    'sometimes',
-                    'required',
-                    'string',
-                    'max:255',
-                ],
+                'name' => 'sometimes|required|string|max:255',
                 'display_name' => 'sometimes|required|string|max:255',
                 'description' => 'sometimes|required|string|max:1000',
                 'slug' => [
@@ -169,7 +188,9 @@ class PermissionController extends Controller
                 'order' => 'sometimes|nullable|numeric|min:0',
             ];
 
-            $validatedData = $this->validate($request, $rules);
+            $validatedData = collect($this->validate($request, $rules))
+                ->except(['_method'])
+                ->all();
 
             // Get existing permission to check for old icon file
             $existingPermission = $this->permissionService->find($id);
@@ -491,5 +512,35 @@ class PermissionController extends Controller
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }
+    }
+
+    /**
+     * Normalize empty string values in request input to null for optional permission fields.
+     *
+     * @param Request $request
+     * @return void
+     */
+    protected function normalizePermissionRequest(Request $request): void
+    {
+        $input = $request->all();
+
+        foreach (['url', 'icon_text', 'description', 'slug'] as $field) {
+            if (array_key_exists($field, $input) && $input[$field] === '') {
+                $input[$field] = null;
+            }
+        }
+
+        if (array_key_exists('is_parent', $input)) {
+            $isParent = $input['is_parent'];
+            if ($isParent === '' || $isParent === '0' || $isParent === 0 || $isParent === null) {
+                $input['is_parent'] = null;
+            }
+        }
+
+        if (array_key_exists('_method', $input)) {
+            unset($input['_method']);
+        }
+
+        $request->replace($input);
     }
 }

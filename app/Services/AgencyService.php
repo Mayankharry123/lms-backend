@@ -26,31 +26,62 @@ use DomainException;
 
 class AgencyService
 {
+    /**
+     * @var AgencyRepositoryInterface
+     */
     protected $repo;
 
-     /**
+    /**
      * @var ResponseService
      */
     protected ResponseService $responseService;
 
-    
-    public function __construct(ResponseService $responseService,AgencyRepositoryInterface $repo) { 
+    /**
+     * AgencyService constructor.
+     *
+     * @param ResponseService $responseService
+     * @param AgencyRepositoryInterface $repo
+     */
+    public function __construct(ResponseService $responseService, AgencyRepositoryInterface $repo) { 
         $this->repo = $repo;
         $this->responseService = $responseService; 
     }
     
+    /**
+     * Get all agencies.
+     *
+     * @return mixed
+     */
     public function getAll() { 
         return $this->repo->getAllAgency(); 
     }
     
+    /**
+     * Get agency by ID.
+     *
+     * @param int|string $id
+     * @return mixed
+     */
     public function getById($id) {
         return $this->repo->getAgencyById($id);
     }
     
+    /**
+     * Delete agency by ID.
+     *
+     * @param int|string $id
+     * @return mixed
+     */
     public function delete($id) { 
         return $this->repo->deleteAgency($id); 
     }
 
+    /**
+     * Create agencies and their brand relationships.
+     *
+     * @param array $data
+     * @return mixed
+     */
     public function create(array $data) {
         try {
             DB::beginTransaction();
@@ -119,6 +150,15 @@ class AgencyService
         }
     }
     
+    /**
+     * Update an agency and its brand relationships.
+     *
+     * @param int $id
+     * @param array $data
+     * @return Agency
+     * @throws ValidationException
+     * @throws \Exception
+     */
     public function update(int $id, array $data) {
         try {
             DB::beginTransaction();
@@ -189,6 +229,13 @@ class AgencyService
         }
     }
 
+    /**
+     * Create a basic agency.
+     *
+     * @param array $data
+     * @return Agency
+     * @throws DomainException
+     */
     public function createBasicAgency(array $data): Agency
     {
         try {
@@ -238,10 +285,22 @@ class AgencyService
         }
     }
     
+    /**
+     * Generate slug from name.
+     *
+     * @param string $name
+     * @param mixed $excludeId
+     * @return string
+     */
     private function createUniqueSlug(string $name, $excludeId = null): string {
         return Str::slug($name);
     }
 
+    /**
+     * Get or create the Direct agency.
+     *
+     * @return int
+     */
     private function getOrCreateDirectAgency(): int
     {
         $directAgency = Agency::withTrashed()

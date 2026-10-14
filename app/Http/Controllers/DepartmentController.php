@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * DepartmentController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\DepartmentService;
@@ -18,9 +24,22 @@ class DepartmentController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var DepartmentService
+     */
     protected $departmentService;
+
+    /**
+     * @var ResponseService
+     */
     protected $responseService;
 
+    /**
+     * Create a new DepartmentController instance.
+     *
+     * @param DepartmentService $departmentService
+     * @param ResponseService $responseService
+     */
     public function __construct(DepartmentService $departmentService, ResponseService $responseService)
     {
         $this->departmentService = $departmentService;

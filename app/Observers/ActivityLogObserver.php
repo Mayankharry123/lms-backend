@@ -1,5 +1,12 @@
 <?php
-
+/**
+ * Activity Log Observer
+ *
+ * @package App\Observers
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-04-19
+ */
 namespace App\Observers;
 
 use App\Services\ActivityLogService;

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PlannerHistoryService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Repositories\PlannerHistoryRepository;
@@ -22,7 +30,12 @@ class PlannerHistoryService
      * @var ResponseService
      */
     protected ResponseService $responseService;
-
+    /**
+     * PlannerHistoryService constructor.
+     *
+     * @param PlannerHistoryRepositoryInterface $repository
+     * @param ResponseService $responseService
+     */
     public function __construct(PlannerHistoryRepositoryInterface $repository, ResponseService $responseService)
     {
         $this->repository = $repository;
