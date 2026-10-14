@@ -104,6 +104,8 @@ class PurchaseOrderService
                 'publisher_id' => $publisher['id'],
                 'publisher_address_id' => $selectedAddress['id'] ?? null,
                 'finance_record_id' => (int) $financeRecord->id,
+                'created_by' => !empty($payload['created_by']) ? (int) $payload['created_by'] : (auth()->id() ?: null),
+                'assign_to' => !empty($payload['assign_to']) ? (int) $payload['assign_to'] : ($financeRecord->assign_to ?? null),
                 'publisher_name' => $publisher['name'],
                 'company_name' => $publisher['company_name'],
                 'primary_email' => $publisher['primary_email'],
