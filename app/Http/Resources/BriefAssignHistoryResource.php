@@ -59,7 +59,7 @@ class BriefAssignHistoryResource extends JsonResource
             // Dates
             'submission_date' => $this->submission_date ? $this->submission_date->format('d-m-Y H:i:s') : null,
             'comment' => $this->comment,
-            'attachment' => $this->attachment,
+            'attachment_url' => $this->attachment ? $this->getFileUrl($this->attachment) : null,
 
             // Timestamps
             'created_at' => DateTimeFormatter::format($this->created_at),

@@ -16,10 +16,11 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Support\UserAccessScope;
+use App\Traits\HandlesFileUploads;
 
 class BriefAssignHistory extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HandlesFileUploads;
 
     /**
      * The table associated with the model.

@@ -35,6 +35,19 @@ class ProformaInvoiceResource extends JsonResource
                 'name' => $this->brand->name,
                 'slug' => $this->brand->slug,
             ] : null,
+            'brief_id' => $this->brief_id ? (int) $this->brief_id : null,
+            'brief' => $this->relationLoaded('brief') && $this->brief ? [
+                'id' => $this->brief->id,
+                'name' => $this->brief->name,
+            ] : null,
+            'planner_id' => $this->planner_id ? (int) $this->planner_id : null,
+            'planner' => $this->relationLoaded('planner') && $this->planner ? [
+                'id' => $this->planner->id,
+                'name' => $this->planner->creator?->name ?? $this->planner->name ?? null,
+            ] : null,
+            'planner_name' => $this->relationLoaded('planner') && $this->planner
+                ? ($this->planner->creator?->name ?? $this->planner->name ?? null)
+                : null,
             'brand_name' => $this->brand_name ?: ($this->relationLoaded('brand') ? $this->brand?->name : null),
             'client_name' => $this->client_name ?: ($this->brand_name ?: ($this->relationLoaded('brand') ? $this->brand?->name : null)),
             'gst_no' => $this->gst_no,

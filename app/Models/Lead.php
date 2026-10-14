@@ -224,7 +224,11 @@ class Lead extends Model
             ->accessibleToUser(Auth::user());
         $this->applyOrganisationValidation($query, Auth::user());
 
-        return $query->where('status', '1')->orderBy('id', 'asc')->get();
+        return $query->where('status', '1')
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->orderBy('id', 'asc')
+            ->get();
     }
 
     public function getLeadsWithFilters(array $filters, int $perPage = 10): LengthAwarePaginator

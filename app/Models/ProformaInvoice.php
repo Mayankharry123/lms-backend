@@ -24,6 +24,8 @@ class ProformaInvoice extends BaseModel
         'pi_number',
         'invoice_date',
         'brand_id',
+        'brief_id',
+        'planner_id',
         'brand_name',
         'client_name',
         'gst_no',
@@ -55,6 +57,8 @@ class ProformaInvoice extends BaseModel
      */
     protected $casts = [
         'brand_id' => 'integer',
+        'brief_id' => 'integer',
+        'planner_id' => 'integer',
         'created_by' => 'integer',
         'assign_to' => 'integer',
         'subtotal' => 'float',
@@ -73,6 +77,9 @@ class ProformaInvoice extends BaseModel
 
     public const LIST_RELATIONS = [
         'brand:id,name,slug',
+        'brief:id,name',
+        'planner:id,created_by',
+        'planner.creator:id,name',
         'creator:id,name,email',
         'assignedTo:id,name,email',
         'items',
@@ -103,6 +110,22 @@ class ProformaInvoice extends BaseModel
     }
 
     /**
+     * Brief for this proforma invoice.
+     */
+    public function brief(): BelongsTo
+    {
+        return $this->belongsTo(Brief::class, 'brief_id');
+    }
+
+    /**
+     * Planner for this proforma invoice.
+     */
+    public function planner(): BelongsTo
+    {
+        return $this->belongsTo(Planner::class, 'planner_id');
+    }
+
+    /**
      * Line items on this proforma invoice.
      */
     public function items(): HasMany
@@ -128,6 +151,14 @@ class ProformaInvoice extends BaseModel
 
         if (!empty($filters['brand_id'])) {
             $query->where('brand_id', (int) $filters['brand_id']);
+        }
+
+        if (!empty($filters['brief_id'])) {
+            $query->where('brief_id', (int) $filters['brief_id']);
+        }
+
+        if (!empty($filters['planner_id'])) {
+            $query->where('planner_id', (int) $filters['planner_id']);
         }
 
         if (!empty($filters['assign_to'])) {
@@ -161,7 +192,7 @@ class ProformaInvoice extends BaseModel
     public function findForDetail(int $id): ?self
     {
         return $this->newQuery()
-            ->with(['brand', 'creator', 'assignedTo', 'items'])
+            ->with(['brand', 'creator', 'assignedTo', 'brief', 'planner.creator', 'items'])
             ->find($id);
     }
 
@@ -196,7 +227,7 @@ class ProformaInvoice extends BaseModel
         }
 
         $invoice->update($data);
-        return $invoice->fresh(['brand', 'creator', 'assignedTo', 'items']);
+        return $invoice->fresh(['brand', 'creator', 'assignedTo', 'brief', 'planner.creator', 'items']);
     }
 
     /**

@@ -65,11 +65,35 @@ class Planner extends BaseModel
     }
 
     /**
+     * Relationship: A planner has many proforma invoices.
+     */
+    public function proformaInvoices()
+    {
+        return $this->hasMany(ProformaInvoice::class, 'planner_id');
+    }
+
+    /**
+     * Relationship: A planner has many sales purchase orders.
+     */
+    public function salesPurchaseOrders()
+    {
+        return $this->hasMany(SalesPurchaseOrder::class, 'planner_id');
+    }
+
+    /**
      * Relationship: A planner is created by a user.
      */
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the display name for the planner (creator user name).
+     */
+    public function getNameAttribute(): ?string
+    {
+        return $this->creator?->name ?? $this->brief?->assignedUser?->name ?? null;
     }
 
     /**
