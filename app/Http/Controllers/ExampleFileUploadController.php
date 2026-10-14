@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * ExampleFileUploadController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\ResponseService;
@@ -18,8 +24,16 @@ class ExampleFileUploadController extends Controller
 {
     use HandlesFileUploads, ValidatesRequests;
 
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new ExampleFileUploadController instance.
+     *
+     * @param ResponseService $responseService
+     */
     public function __construct(ResponseService $responseService)
     {
         $this->responseService = $responseService;

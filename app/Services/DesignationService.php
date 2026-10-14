@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * DesignationService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\DesignationRepositoryInterface;
@@ -10,17 +18,33 @@ use Exception;
 
 class DesignationService
 {
+    /**
+     * @var DesignationRepositoryInterface
+     */
     protected $designationRepository;
 
+    /**
+     * DesignationService constructor.
+     *
+     * @param DesignationRepositoryInterface $designationRepository
+     */
     public function __construct(DesignationRepositoryInterface $designationRepository)
     {
         $this->designationRepository = $designationRepository;
     }
 
-    public function getAllDesignations(int $perPage = 10,?string $searchTerm = null) // <-- Parameter added
+    /**
+     * Get all designations with pagination and optional search filter.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     * @throws DomainException
+     */
+    public function getAllDesignations(int $perPage = 10, ?string $searchTerm = null)
     {
         try {
-            return $this->designationRepository->getAllDesignations($perPage,$searchTerm); // <-- Parameter passed
+            return $this->designationRepository->getAllDesignations($perPage, $searchTerm);
         } catch (QueryException $e) {
             throw new DomainException('Database error while fetching designations: ' . $e->getMessage());
         } catch (Exception $e) {
@@ -28,6 +52,13 @@ class DesignationService
         }
     }
 
+    /**
+     * Create a new designation.
+     *
+     * @param array $data
+     * @return \App\Models\Designation
+     * @throws DomainException
+     */
     public function createNewDesignation(array $data)
     {
         try {
@@ -68,12 +99,25 @@ class DesignationService
         }
     }
 
+    /**
+     * Check if slug exists including soft-deleted designations.
+     *
+     * @param string $slug
+     * @return bool
+     */
     private function slugExistsIncludingDeleted($slug)
     {
         // Check all records including soft-deleted ones to avoid database constraint violation
         return \App\Models\Designation::withTrashed()->where('slug', $slug)->exists();
     }
 
+    /**
+     * Get a designation by ID.
+     *
+     * @param int $id
+     * @return \App\Models\Designation
+     * @throws DomainException
+     */
     public function getDesignation($id)
     {
         try {
@@ -85,6 +129,14 @@ class DesignationService
         }
     }
 
+    /**
+     * Update a designation by ID.
+     *
+     * @param int $id
+     * @param array $data
+     * @return \App\Models\Designation
+     * @throws DomainException
+     */
     public function updateDesignation($id, array $data)
     {
         try {
@@ -121,12 +173,26 @@ class DesignationService
         }
     }
 
+    /**
+     * Check if slug exists including soft-deleted designations except given ID.
+     *
+     * @param string $slug
+     * @param int $excludeId
+     * @return bool
+     */
     private function slugExistsIncludingDeletedExcept($slug, $excludeId)
     {
         // Check all records including soft-deleted ones (except current ID) to avoid database constraint violation
         return \App\Models\Designation::withTrashed()->where('slug', $slug)->where('id', '!=', $excludeId)->exists();
     }
 
+    /**
+     * Delete a designation by ID.
+     *
+     * @param int $id
+     * @return bool|null
+     * @throws DomainException
+     */
     public function deleteDesignation($id)
     {
         try {

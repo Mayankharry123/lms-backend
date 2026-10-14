@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface ActivityLogRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.2
+ */
 namespace App\Contracts\Repositories;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;

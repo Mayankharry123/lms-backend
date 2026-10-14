@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * CallStatusController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\CallStatusResource;
@@ -103,8 +109,14 @@ class CallStatusController extends Controller
         }
     }
 
+    /**
+     * Get priorities associated with a specific call status.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function getPriorities(int $id): JsonResponse
-{
+    {
     try {
         // Ensure call status exists
         $callStatus = $this->callStatusService->getCallStatus($id);

@@ -1,11 +1,25 @@
 <?php
 
+/**
+ * Brief Model
+ * -----------------------------------------
+ * Model for managing brief information.
+ *
+ * @package App\Models
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-06
+ */
 namespace App\Models;
 
+use App\Support\UserAccessScope;
+use App\Support\PlannerMetrics;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -16,18 +30,29 @@ class Brief extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected const DEFAULT_RELATIONSHIPS = [
+        'contactPerson.organisation',
+        'brand',
+        'agency',
+        'assignedUser',
+        'createdByUser',
+        'briefStatus',
+        'costSheetStatus',
+        'priority',
+    ];
+
     // Campaign Mode Constants
     const MODE_PROGRAMMATIC = 'programmatic';
     const MODE_NON_PROGRAMMATIC = 'non_programmatic';
 
-    // Campaign Type Constants (Media Types)
+    // Campaign Type Constants (Media Types
     const TYPE_PROGRAMMATIC_DOOH = 'dooh';
     const TYPE_PROGRAMMATIC_CTV = 'ctv';
     const TYPE_NON_PROGRAMMATIC_DOOH = 'dooh';
     const TYPE_NON_PROGRAMMATIC_OOH = 'ooh';
 
     // Fields to track for history
-    const TRACKED_FIELDS = ['assign_user_id', 'brief_status_id', 'submission_date'];
+    const TRACKED_FIELDS = ['assign_user_id', 'brief_status_id', 'submission_date', 'comment'];
 
     /**
      * The table associated with the model.
@@ -55,6 +80,7 @@ class Brief extends Model
         'assign_user_id',
         'created_by',
         'brief_status_id',
+        'cost_sheet_status_id',
         'priority_id',
         'comment',
         'attachment',
@@ -95,6 +121,22 @@ class Brief extends Model
     {
         static::creating(function ($brief) {
             $brief->calculateCampaignDuration();
+
+            if (empty($brief->cost_sheet_status_id)) {
+                $pendingId = CostSheetStatus::query()->where('slug', 'pending')->value('id');
+
+                if ($pendingId) {
+                    $brief->cost_sheet_status_id = $pendingId;
+                }
+            }
+        });
+
+        static::created(function ($brief) {
+            if ($brief->assign_user_id !== null || filled($brief->comment)) {
+                $brief->createAssignHistory([
+                    'assign_user_id' => ['new' => $brief->assign_user_id],
+                ]);
+            }
         });
 
         static::updating(function ($brief) {
@@ -103,6 +145,346 @@ class Brief extends Model
 
         static::updated(function ($brief) {
             $brief->saveHistoryIfFieldsChanged();
+        });
+    }
+
+    /**
+     * Get brief count statistics for a priority.
+     *
+     * @param int $priorityId
+     * @param array $filters
+     * @return array
+     */
+    public static function getBriefCountStatsForPriority(int $priorityId, array $filters): array
+    {
+        $totalBriefQuery = self::accessibleToUser()
+            ->whereNull('deleted_at')
+            ->whereRaw('briefs.status != 15');
+        \App\Support\DashboardFilters::applyBriefDashboardFilters($totalBriefQuery, $filters, 'briefs');
+
+        $priorityBriefQuery = self::accessibleToUser()
+            ->whereNull('deleted_at')
+            ->whereRaw('briefs.status != 15')
+            ->where('priority_id', $priorityId);
+        \App\Support\DashboardFilters::applyBriefDashboardFilters($priorityBriefQuery, $filters, 'briefs');
+
+        return [
+            'total_briefs' => $totalBriefQuery->count(),
+            'priority_brief_count' => $priorityBriefQuery->count(),
+        ];
+    }
+
+    public function getAllBriefs(int $perPage = 15, ?string $searchTerm = null): LengthAwarePaginator
+    {
+        $query = $this->newQuery()->with(self::DEFAULT_RELATIONSHIPS)->accessibleToUser(Auth::user());
+        $this->applyOrganisationValidation($query, Auth::user());
+        if ($searchTerm !== null && $searchTerm !== '') {
+            $this->applySearchFilter($query, $searchTerm);
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getBriefById(int $id): ?self
+    {
+        return $this->newQuery()->with(self::DEFAULT_RELATIONSHIPS)->find($id);
+    }
+
+    public function getBriefsByBrand(int $brandId, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->getAccessibleBriefQuery()
+            ->where('brand_id', $brandId)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->query());
+    }
+
+    public function getBriefsByAgency(int $agencyId, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->getAccessibleBriefQuery()
+            ->where('agency_id', $agencyId)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->query());
+    }
+
+    public function getBriefsByAssignedUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->getAccessibleBriefQuery()
+            ->where('assign_user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->query());
+    }
+
+    public function getBriefsByStatus(int $statusId, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->getAccessibleBriefQuery()
+            ->where('brief_status_id', $statusId)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->query());
+    }
+
+    public function getBriefsByPriority(int $priorityId, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->getAccessibleBriefQuery()
+            ->where('priority_id', $priorityId)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->query());
+    }
+
+    public function getBriefWithRelations(int $id): ?self
+    {
+        return $this->getBriefById($id);
+    }
+
+    public function searchBriefs(array $criteria, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->getAccessibleBriefQuery();
+        foreach ($criteria as $field => $value) {
+            if ($value !== null && $value !== '') {
+                $query->where($field, $value);
+            }
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function filterBriefs(array $filters, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->getAccessibleBriefQuery();
+
+        foreach (['brand_id', 'agency_id', 'assign_user_id', 'brief_status_id', 'priority_id', 'status'] as $field) {
+            if (isset($filters[$field]) && !empty($filters[$field])) {
+                $query->where($field, $filters[$field]);
+            }
+        }
+
+        if (isset($filters['search']) && !empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('product_name', 'LIKE', "%{$search}%");
+            });
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    public function getBriefLogs(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
+    {
+        $query = $this->getAccessibleBriefQuery();
+        if ($searchTerm !== null && $searchTerm !== '') {
+            $this->applySearchFilter($query, $searchTerm);
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage)->appends(request()->query());
+    }
+
+    private function getAccessibleBriefQuery(): Builder
+    {
+        $query = $this->newQuery()->with(self::DEFAULT_RELATIONSHIPS)->accessibleToUser(Auth::user());
+        $this->applyOrganisationValidation($query, Auth::user());
+
+        return $query;
+    }
+
+    private function applySearchFilter(Builder $query, string $searchTerm): void
+    {
+        $query->where(function ($q) use ($searchTerm) {
+            $q->where('name', 'LIKE', "%{$searchTerm}%")
+                ->orWhere('product_name', 'LIKE', "%{$searchTerm}%")
+                ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
+                    $brandQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                })
+                ->orWhereHas('contactPerson', function ($contactQuery) use ($searchTerm) {
+                    $contactQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                })
+                ->orWhereHas('priority', function ($priorityQuery) use ($searchTerm) {
+                    $priorityQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                })
+                ->orWhereHas('assignedUser', function ($userQuery) use ($searchTerm) {
+                    $userQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                });
+        });
+    }
+
+    protected function applyOrganisationValidation(Builder $query, $user): void
+    {
+        if (!$user) {
+            return;
+        }
+
+        $userOrgIds = \App\Support\UserAccessScope::getAccessibleOrganisationIds($user);
+        if (empty($userOrgIds)) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $orgUserIds = \App\Support\DashboardFilters::getOrganisationUserIds($userOrgIds);
+        if (empty($orgUserIds)) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $query->where(function ($q) use ($orgUserIds) {
+            $q->whereIn('assign_user_id', $orgUserIds)
+                ->orWhereIn('created_by', $orgUserIds);
+        });
+
+        $ancestorIds = \App\Support\UserAccessScope::getAncestorIds($user);
+        if (!empty($ancestorIds)) {
+            $query->where(function ($q) use ($ancestorIds, $user) {
+                $descendantIds = \App\Support\UserAccessScope::getStrictDescendantIds($user);
+                $q->whereNotIn('created_by', $ancestorIds)
+                    ->orWhereIn('assign_user_id', $descendantIds);
+            });
+        }
+    }
+
+    public function getLatestTwoBriefs(array $filters = []): Collection
+    {
+        $query = $this->getAccessibleBriefQuery()
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15');
+        \App\Support\DashboardFilters::applyBriefDashboardFilters($query, $filters, 'briefs');
+
+        return $query->orderBy('briefs.created_at', 'desc')->limit(2)->get();
+    }
+
+    public function getLatestFiveBriefs(array $filters = []): Collection
+    {
+        $query = $this->newQuery()->with(self::DEFAULT_RELATIONSHIPS)
+            ->accessibleToUser(Auth::user())
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15')
+            ->whereHas('planners', function ($plannerQuery) {
+                $plannerQuery->whereNull('planners.deleted_at')
+                    ->where('planners.status', '!=', '15');
+                PlannerMetrics::applySubmittedPlansScope($plannerQuery);
+            });
+
+        $this->applyLatestBriefOrganisationFilter($query, $filters);
+        \App\Support\DashboardFilters::applyDateFilter($query, $filters, 'briefs.created_at');
+        \App\Support\DashboardFilters::applyLeadPriorityFilter($query, $filters, 'briefs');
+
+        return $query->orderBy('briefs.created_at', 'desc')->limit(5)->get();
+    }
+
+    public function getRecentBriefs(int $limit = 5, array $filters = []): Collection
+    {
+        $query = $this->getAccessibleBriefQuery()
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15');
+        \App\Support\DashboardFilters::applyBriefDashboardFilters($query, $filters, 'briefs');
+
+        return $query->orderBy('briefs.created_at', 'desc')->limit($limit)->get();
+    }
+
+    public function getPlannerDashboardCardData(array $filters = []): array
+    {
+        $baseQuery = $this->newQuery()->accessibleToUser(Auth::user())
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15');
+        $this->applyOrganisationValidation($baseQuery, Auth::user());
+        \App\Support\DashboardFilters::applyBriefDashboardFilters($baseQuery, $filters, 'briefs');
+
+        $totalBriefs = (clone $baseQuery)->count();
+        $activeBriefs = (clone $baseQuery)->whereDate('submission_date', '>=', now())->count();
+        $closedBriefs = (clone $baseQuery)->whereHas('briefStatus', function ($query) {
+            $query->where('slug', 'closed');
+        })->count();
+        $overdueTime = (clone $baseQuery)
+            ->whereNotNull('submission_date')
+            ->where('submission_date', '<', now())
+            ->whereDoesntHave('planners', function ($query) {
+                $query->whereNull('deleted_at')
+                    ->where('status', '!=', '15')
+                    ->whereNotNull('planner_status_id');
+            })
+            ->count();
+        $averagePlanningTime = (clone $baseQuery)
+            ->selectRaw('AVG(DATEDIFF(submission_date, created_at)) as avg_days')
+            ->value('avg_days');
+
+        $briefIds = (clone $baseQuery)->pluck('briefs.id')->all();
+        $plannerSummary = Planner::getSummaryForBriefIds($briefIds);
+
+        return [
+            'total_brief' => $totalBriefs,
+            'active_briefs' => $activeBriefs,
+            'closed_briefs' => $closedBriefs,
+            'overdue_briefs' => $overdueTime ?? 0,
+            'assigned_plans' => $plannerSummary['assigned_plans'],
+            'average_planning_time_days' => $averagePlanningTime ? round($averagePlanningTime, 2) : 0,
+            'average_assignment_days' => $plannerSummary['average_assignment_days']
+                ? round($plannerSummary['average_assignment_days'], 1)
+                : 0,
+        ];
+    }
+
+    public function getBusinessForecast(array $filters = []): array
+    {
+        $query = $this->newQuery()->accessibleToUser(Auth::user())
+            ->whereNull('briefs.deleted_at')
+            ->whereRaw('briefs.status != 15');
+        $this->applyOrganisationValidation($query, Auth::user());
+        \App\Support\DashboardFilters::applyBriefDashboardFilters($query, $filters, 'briefs');
+
+        $totalBudget = (clone $query)->sum('briefs.budget');
+        $totalBriefCount = (clone $query)->count();
+
+        $businessWeightage = 0;
+        if ($totalBriefCount > 0) {
+            $totalStatusPercentage = (clone $query)
+                ->join('brief_statuses', 'briefs.brief_status_id', '=', 'brief_statuses.id')
+                ->sum('brief_statuses.percentage');
+            $businessWeightage = round(($totalStatusPercentage / $totalBriefCount), 2);
+        }
+
+        return [
+            'total_budget' => (float) $totalBudget,
+            'total_brief_count' => $totalBriefCount,
+            'business_weightage' => $businessWeightage,
+        ];
+    }
+
+    private function applyLatestBriefOrganisationFilter(Builder $query, array $filters): void
+    {
+        $organisationIds = array_values(array_filter(array_map('intval', $filters['organisation_ids'] ?? [])));
+        if ($organisationIds === []) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $userIds = \App\Support\DashboardFilters::getOrganisationUserIds($organisationIds);
+        $query->where(function ($builder) use ($organisationIds, $userIds) {
+            $builder->whereHas('contactPerson', function ($contactQuery) use ($organisationIds) {
+                $contactQuery->whereIn('leads.organisation_id', $organisationIds);
+            });
+
+            if ($userIds !== []) {
+                $builder->orWhereIn('briefs.created_by', $userIds)
+                    ->orWhereIn('briefs.assign_user_id', $userIds);
+            }
+        });
+
+        $user = Auth::user();
+        if (!$user) {
+            return;
+        }
+
+        $ancestorIds = \App\Support\UserAccessScope::getAncestorIds($user);
+        if ($ancestorIds === []) {
+            return;
+        }
+
+        $descendantIds = \App\Support\UserAccessScope::getStrictDescendantIds($user);
+        $query->where(function ($builder) use ($ancestorIds, $descendantIds) {
+            $builder->whereNotIn('briefs.created_by', $ancestorIds)
+                ->orWhereIn('briefs.assign_user_id', $descendantIds);
         });
     }
 
@@ -123,16 +505,19 @@ class Brief extends Model
             return $query->whereRaw('0 = 1');
         }
 
-        // Super Admin can view all briefs
-        if ($user->hasRole('Super Admin')) {
+        // Super Admin with organisation assignment may view all records (dashboard uses org filters).
+        if (UserAccessScope::hasGlobalRecordAccess($user)) {
             return $query;
         }
 
-        // Others can see briefs where they are the creator (created_by) or assigned user (assign_user_id)
-        return $query->where(function (Builder $q) use ($user) {
-            $q->where('created_by', $user->id)
-              ->orWhere('assign_user_id', $user->id);
-        });
+        UserAccessScope::applyVisibleUserFilter(
+            $query,
+            $user,
+            ['created_by', 'assign_user_id'],
+            $this->getTable()
+        );
+
+        return $query;
     }
 
     // ===================================================================
@@ -196,6 +581,65 @@ class Brief extends Model
     }
 
     /**
+     * Cost sheet status for this brief. Pending until a plan cost sheet is saved.
+     */
+    public function costSheetStatus()
+    {
+        return $this->belongsTo(CostSheetStatus::class, 'cost_sheet_status_id');
+    }
+
+    /**
+     * Mark this brief's cost status as submitted after a plan cost sheet is saved.
+     */
+    public function markCostSheetSubmitted(int $briefId): void
+    {
+        $submittedId = CostSheetStatus::query()->where('slug', 'submitted')->value('id');
+
+        if (!$submittedId) {
+            return;
+        }
+
+        $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $submittedId,
+        ]);
+    }
+
+    /**
+     * Mark this brief's cost status as pending when its cost sheet is removed.
+     */
+    public function markCostSheetPending(int $briefId): void
+    {
+        $pendingId = CostSheetStatus::query()->where('slug', 'pending')->value('id');
+
+        if (!$pendingId) {
+            return;
+        }
+
+        $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $pendingId,
+        ]);
+    }
+
+    /**
+     * Set a brief's cost sheet status when the status exists.
+     */
+    public function assignCostSheetStatus(int $briefId, int $statusId): bool
+    {
+        $statusExists = CostSheetStatus::query()
+            ->where('id', $statusId)
+            ->where('status', '1')
+            ->exists();
+
+        if (!$statusExists) {
+            return false;
+        }
+
+        return (bool) $this->newQuery()->where('id', $briefId)->update([
+            'cost_sheet_status_id' => $statusId,
+        ]);
+    }
+
+    /**
      * Get the priority associated with this brief.
      */
     public function priority()
@@ -209,6 +653,44 @@ class Brief extends Model
     public function notifications(): MorphMany
     {
         return $this->morphMany(Notification::class, 'notifiable');
+    }
+
+    /**
+     * Get the planners associated with this brief.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function planners()
+    {
+        return $this->hasMany(Planner::class, 'brief_id');
+    }
+
+    /**
+     * Get active planners for this brief (excluding deleted/status 15).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getActivePlanners()
+    {
+        return $this->planners()
+            ->where('status', '!=', '15')
+            ->get();
+    }
+
+    public function isApproved(): bool
+    {
+        $status = $this->relationLoaded('briefStatus')
+            ? $this->briefStatus
+            : $this->briefStatus()->first();
+
+        if (!$status) {
+            return false;
+        }
+
+        return strcasecmp((string) $status->slug, 'approve') === 0
+            || strcasecmp((string) $status->slug, 'approved') === 0
+            || strcasecmp(trim((string) $status->name), 'Approve') === 0
+            || strcasecmp(trim((string) $status->name), 'Approved') === 0;
     }
 
     /**
@@ -300,7 +782,7 @@ class Brief extends Model
             'uuid' => Str::uuid(),
             'brief_id' => $this->id,
             'assign_by_id' => $this->getCurrentUserId(),
-            'assign_to_id' => $changeData['assign_user_id']['new'] ?? $this->assign_user_id,
+            'assign_to_id' => $changeData['assign_user_id']['new'] ?? $this->assign_user_id ?? $this->getCurrentUserId(),
             'brief_status_id' => $changeData['brief_status_id']['new'] ?? $this->brief_status_id,
             'brief_status_time' => now(),
             'submission_date' => $changeData['submission_date']['new'] ?? $this->submission_date,

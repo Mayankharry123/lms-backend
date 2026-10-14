@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * BriefController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\BriefResource;
@@ -107,10 +113,11 @@ class BriefController extends Controller
      *
      * @return JsonResponse
      */
-    public function getLatestTwo(): JsonResponse
+    public function getLatestTwo(Request $request): JsonResponse
     {
         try {
-            $briefs = $this->briefService->getLatestTwoBriefs();
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
+            $briefs = $this->briefService->getLatestTwoBriefs($filters);
 
             return $this->responseService->success(
                 BriefResource::collection($briefs),
@@ -127,10 +134,11 @@ class BriefController extends Controller
      *
      * @return JsonResponse
      */
-    public function getLatestFive(): JsonResponse
+    public function getLatestFive(Request $request): JsonResponse
     {
         try {
-            $briefs = $this->briefService->getLatestFiveBriefs();
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
+            $briefs = $this->briefService->getLatestFiveBriefs($filters);
 
             // Format briefs with only required fields
             $formattedBriefs = $briefs->map(function ($brief) {
@@ -152,7 +160,7 @@ class BriefController extends Controller
                     'product_name' => $brief->product_name,
                     'brand_name' => isset($brief->brand) ? $brief->brand->name : null,
                     'comment' => $brief->comment,
-                    'submission_date' => $brief->submission_date ? $brief->submission_date->format('Y-m-d H:i:s A') : null,
+                    'submission_date' => $brief->submission_date ? $brief->submission_date->format('Y-m-d h:i:s A') : null,
                     'budget' => $brief->budget,
                     'left_time' => $leftTime,
                 ];
@@ -174,10 +182,11 @@ class BriefController extends Controller
      *
      * @return JsonResponse
      */
-    public function getPlannerDashboardCardData(): JsonResponse
+    public function getPlannerDashboardCardData(Request $request): JsonResponse
     {
         try {
-            $data = $this->briefService->getPlannerDashboardCardData();
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
+            $data = $this->briefService->getPlannerDashboardCardData($filters);
 
             return $this->responseService->success(
                 $data,
@@ -250,14 +259,25 @@ class BriefController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Authorization: Allow if Super Admin role OR created_by OR assigned_to
-            $isSuperAdmin = $user->hasRole('Super Admin');
+            // Authorization: Allow if Super Admin / Admin role OR has brief.view permission OR created_by OR assigned_to
+            /**
+             * Added brief view authorization for Super Admin/Admin, users with
+             * brief.view permission, brief creator, and assigned user.
+             */
+
+            $isSuperAdmin = $user->hasRole('Super Admin') || $user->hasRole('admin');
+            $hasViewPermission = $user->hasPermission('brief.view');
             $isCreatedBy = $user->id == $brief->created_by;
             $isAssignedTo = $user->id == $brief->assign_user_id;
 
-            if (!$isSuperAdmin && !$isCreatedBy && !$isAssignedTo) {
+            /**
+             * Updated brief creation to always assign the brief to the
+             * top-level planner-admin user within the relevant organisation.
+             */
+            
+            if (!$isSuperAdmin && !$hasViewPermission && !$isCreatedBy && !$isAssignedTo) {
                 return $this->responseService->forbidden(
-                    'You are not authorized to view this brief. Only Super Admin, the user who created this brief, or the user assigned to this brief can view it.'
+                    'You are not authorized to view this brief.'
                 );
             }
 
@@ -340,13 +360,9 @@ class BriefController extends Controller
             if (!isset($data['status'])) {
                 $data['status'] = '1';
             }
-            // Set brief_status_id default to 1 if not provided
-            if (!isset($data['brief_status_id']) || is_null($data['brief_status_id'])) {
-                $data['brief_status_id'] = 1;   
-            }
             // Fetch priority_id from brief status if not provided
             if (!isset($data['priority_id']) || is_null($data['priority_id'])) {
-                $briefStatus = BriefStatus::find($data['brief_status_id']);
+                $briefStatus = isset($data['brief_status_id']) ? BriefStatus::find($data['brief_status_id']) : null;
                 if ($briefStatus && $briefStatus->priority_id) {
                     $data['priority_id'] = $briefStatus->priority_id;
                 } else {
@@ -354,7 +370,17 @@ class BriefController extends Controller
                 }
             }
 
+            // assign_user_id is filled in BriefService when it is empty.
             $brief = $this->briefService->createBrief($data);
+            $brief->load([
+                'contactPerson.organisation',
+                'brand',
+                'agency',
+                'assignedUser',
+                'createdByUser',
+                'briefStatus',
+                'priority',
+            ]);
 
             return $this->responseService->success(
                 new BriefResource($brief),
@@ -445,13 +471,9 @@ class BriefController extends Controller
                 );
                 $data['attachment'] = $uploaded['path'];
             }
-            // Set brief_status_id default to 1 if not provided
-            if (!isset($data['brief_status_id']) || is_null($data['brief_status_id'])) {
-                $data['brief_status_id'] = 1;
-            }
             // Fetch priority_id from brief status if not provided
             if (!isset($data['priority_id']) || is_null($data['priority_id'])) {
-                $briefStatus = BriefStatus::find($data['brief_status_id']);
+                $briefStatus = isset($data['brief_status_id']) ? BriefStatus::find($data['brief_status_id']) : null;
                 if ($briefStatus && $briefStatus->priority_id) {
                     $data['priority_id'] = $briefStatus->priority_id;
                 } else {
@@ -727,8 +749,9 @@ class BriefController extends Controller
             ]);
 
             $limit = (int) $request->input('limit', 5);
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
 
-            $briefs = $this->briefService->getRecentBriefs($limit);
+            $briefs = $this->briefService->getRecentBriefs($limit, $filters);
 
             return $this->responseService->success(
                 RecentBriefResource::collection($briefs),
@@ -751,10 +774,11 @@ class BriefController extends Controller
      *
      * @return JsonResponse
      */
-    public function getBusinessForecast(): JsonResponse
+    public function getBusinessForecast(Request $request): JsonResponse
     {
         try {
-            $businessForecast = $this->briefService->getBusinessForecast();
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
+            $businessForecast = $this->briefService->getBusinessForecast($filters);
 
             return $this->responseService->success(
                 $businessForecast,

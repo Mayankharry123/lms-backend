@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * LeadResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
@@ -113,6 +119,13 @@ class LeadResource extends JsonResource
                 ];
             }),
 
+            'organisation' => $this->whenLoaded('organisation', function () {
+                return [
+                    'id' => $this->organisation->id ?? null,
+                    'name' => $this->organisation->name ?? null,
+                ];
+            }),
+
             'priority' => $this->whenLoaded('priority', function () {
                 return [
                     'id' => $this->priority->id ?? null,
@@ -131,6 +144,13 @@ class LeadResource extends JsonResource
                 return [
                     'id' => $this->department->id ?? null,
                     'name' => $this->department->name ?? null,
+                ];
+            }),
+
+            'source' => $this->whenLoaded('source', function () {
+                return [
+                    'id' => $this->source->id ?? null,
+                    'name' => $this->source->name ?? null,
                 ];
             }),
 

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * LeadSourceService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\LeadSourceRepositoryInterface;
@@ -11,7 +19,11 @@ use Exception;
 class LeadSourceService
 {
     protected $leadSourceRepository;
-
+    /**
+     * LeadSourceService constructor.
+     *
+     * @param LeadSourceRepositoryInterface $leadSourceRepository
+     */
     public function __construct(LeadSourceRepositoryInterface $leadSourceRepository)
     {
         $this->leadSourceRepository = $leadSourceRepository;

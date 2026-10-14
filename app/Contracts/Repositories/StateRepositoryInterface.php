@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface StateRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 interface StateRepositoryInterface 
@@ -38,4 +44,12 @@ interface StateRepositoryInterface
      * Delete a state (This will be a HARD delete)
      */
     public function delete(int $id);
+
+    /**
+     * Find states by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names);
 }

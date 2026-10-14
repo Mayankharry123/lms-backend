@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * BriefResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
@@ -24,6 +30,10 @@ class BriefResource extends JsonResource
             'mode_of_campaign' => $this->mode_of_campaign,
             'media_type' => $this->media_type,
             'budget' => $this->budget,
+            /**
+             * Added assignment user ID and brief comment fields to the brief response.
+             */
+            'assign_user_id' => $this->assign_user_id,
             'comment' => $this->comment,
             'attachment' => $this->attachment,
             'submission_date' => $this->formatSubmissionDate(),
@@ -41,6 +51,15 @@ class BriefResource extends JsonResource
                     'email' => $this->contactPerson->email,
                 ];
             }),
+            'organisation' => $this->whenLoaded('contactPerson', function () {
+                if ($this->contactPerson && $this->contactPerson->relationLoaded('organisation') && $this->contactPerson->organisation) {
+                    return [
+                        'id' => $this->contactPerson->organisation->id,
+                        'name' => $this->contactPerson->organisation->name,
+                    ];
+                }
+                return null;
+            }),
             'brand' => $this->whenLoaded('brand', function () {
                 return [
                     'id' => $this->brand->id,
@@ -54,9 +73,22 @@ class BriefResource extends JsonResource
                 ];
             }),
             'assigned_user' => $this->whenLoaded('assignedUser', function () {
+                if (!$this->assignedUser) {
+                    return null;
+                }
+
+                $role = $this->assignedUser->relationLoaded('roles')
+                    ? $this->assignedUser->roles->first()
+                    : $this->assignedUser->roles()->first();
+                $roleName = $role ? ($role->display_name ?: $role->name) : null;
+                $nameWithRole = $roleName
+                    ? "{$this->assignedUser->name} ({$roleName})"
+                    : $this->assignedUser->name;
+
                 return [
                     'id' => $this->assignedUser->id,
                     'name' => $this->assignedUser->name,
+                    'name_with_role' => $nameWithRole,
                     'email' => $this->assignedUser->email,
                 ];
             }),
@@ -72,6 +104,17 @@ class BriefResource extends JsonResource
                     'id' => $this->briefStatus->id,
                     'name' => $this->briefStatus->name,
                     'percentage' => $this->briefStatus->percentage,
+                ];
+            }),
+            'cost_status' => $this->whenLoaded('costSheetStatus', function () {
+                if (!$this->costSheetStatus) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->costSheetStatus->id,
+                    'name' => $this->costSheetStatus->name,
+                    'slug' => $this->costSheetStatus->slug,
                 ];
             }),
             'priority' => $this->whenLoaded('priority', function () {

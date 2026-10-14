@@ -229,11 +229,26 @@ class MissCampaignController extends Controller
                 'country_id' => 'required|integer|exists:countries,id',
                 'state_id' => 'nullable|integer|exists:states,id',
                 'city_id' => 'nullable|integer|exists:cities,id',
-                // 'assign_to' => 'nullable|integer|exists:users,id',
+                'assign_to' => 'nullable|integer|exists:users,id',
                 'image_path' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp,svg|max:51200',
             ];
 
+            $user = auth()->user();
+            $orgIds = \App\Support\UserAccessScope::getAccessibleOrganisationIds($user);
+
+            if (count($orgIds) > 1) {
+                $rules['organisation_id'] = 'required|integer|in:' . implode(',', $orgIds);
+            } elseif (count($orgIds) === 1) {
+                $rules['organisation_id'] = 'nullable|integer|in:' . $orgIds[0];
+            } else {
+                $rules['organisation_id'] = 'nullable|integer';
+            }
+
             $validatedData = $this->validate($request, $rules);
+
+            if (count($orgIds) === 1) {
+                $validatedData['organisation_id'] = $orgIds[0];
+            }
 
             // Validate location hierarchy consistency
             $locationErrors = $this->validateLocationHierarchy($validatedData);
@@ -251,12 +266,12 @@ class MissCampaignController extends Controller
                 $uploadResult = $this->missCampaignService->uploadImage($request->file('image_path'));
                 $validatedData['image_path'] = $uploadResult['path'] ?? null;
             }
-
         
             $leads = new Lead();
-            // $leads->name = $validatedData['name'];
+            $leads->name = $validatedData['name'];
             $leads->uuid = Str::uuid();
             $leads->brand_id = $validatedData['brand_id'];  
+            $leads->organisation_id = $validatedData['organisation_id'] ?? null;
             $leads->sub_source_id = $validatedData['lead_sub_source_id'];
             $leads->country_id = $validatedData['country_id'];
             $leads->state_id = $validatedData['state_id'];
@@ -266,7 +281,7 @@ class MissCampaignController extends Controller
             $leads->statuses = 6; // Assuming 6 represents a specific status for leads created from miss campaigns
             $leads->created_by = Auth::id();
             $leads->save();
-
+            
             $validatedData['leads_id'] = $leads->id;
             $campaign = $this->missCampaignService->createMissCampaign($validatedData);
             Lead::where('id', $leads->id)->update(['pre_lead_id' => $campaign->id]);
@@ -309,12 +324,27 @@ class MissCampaignController extends Controller
                 'country_id' => 'sometimes|required|integer|exists:countries,id',
                 'state_id' => 'sometimes|nullable|integer|exists:states,id',
                 'city_id' => 'sometimes|nullable|integer|exists:cities,id',
-                // 'assign_to' => 'sometimes|nullable|integer|exists:users,id',
+                'assign_to' => 'sometimes|nullable|integer|exists:users,id',
                 'image_path' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp,svg|max:51200',
                 'status' => 'sometimes|required|in:1,2,15',
             ];
 
+            $user = auth()->user();
+            $orgIds = \App\Support\UserAccessScope::getAccessibleOrganisationIds($user);
+
+            if (count($orgIds) > 1) {
+                $rules['organisation_id'] = 'sometimes|required|integer|in:' . implode(',', $orgIds);
+            } elseif (count($orgIds) === 1) {
+                $rules['organisation_id'] = 'sometimes|nullable|integer|in:' . $orgIds[0];
+            } else {
+                $rules['organisation_id'] = 'sometimes|nullable|integer';
+            }
+
             $validatedData = $this->validate($request, $rules);
+
+            if (count($orgIds) === 1) {
+                $validatedData['organisation_id'] = $orgIds[0];
+            }
 
             $campaign = $this->missCampaignService->getMissCampaign($id);
             if (!$campaign) {
@@ -365,6 +395,12 @@ class MissCampaignController extends Controller
             }
 
             $this->missCampaignService->updateMissCampaign($id, $validatedData);
+
+            if (isset($validatedData['organisation_id'])) {
+                Lead::where('pre_lead_id', $id)->update([
+                    'organisation_id' => $validatedData['organisation_id']
+                ]);
+            }
 
             // Fetch updated campaign with relationships
             $campaign = $this->missCampaignService->getMissCampaign($id);

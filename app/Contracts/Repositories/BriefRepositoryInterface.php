@@ -1,11 +1,10 @@
 <?php
-
 /**
- * Get brief logs with pagination.
- *
- * `@param` int $perPage
-+     * `@param` string|null $searchTerm Optional search term to filter logs.
- * `@return` LengthAwarePaginator
+ * Interface BriefRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
  */
 
 namespace App\Contracts\Repositories;
@@ -134,14 +133,14 @@ interface BriefRepositoryInterface
      *
      * @return Collection
      */
-    public function getLatestTwoBriefs();
+    public function getLatestTwoBriefs(array $filters = []);
 
     /**
      * Get the latest two briefs.
      *
      * @return Collection
      */
-    public function getLatestFiveBriefs();
+    public function getLatestFiveBriefs(array $filters = []);
 
     /**
      * Get recent briefs with all related information.
@@ -149,10 +148,16 @@ interface BriefRepositoryInterface
      * @param int $limit The number of briefs to retrieve.
      * @return Collection
      */
-    public function getRecentBriefs(int $limit = 5);
+    public function getRecentBriefs(int $limit = 5, array $filters = []);
 
 
-    public function getPlannerDashboardCardData();
+    /**
+     * Get planner dashboard card data.
+     *
+     * @param array $filters
+     * @return array
+     */
+    public function getPlannerDashboardCardData(array $filters = []);
 
     /**
      * Get brief logs with pagination.
@@ -167,7 +172,15 @@ interface BriefRepositoryInterface
      *
      * @return array
      */
-    public function getBusinessForecast(): array;
+    public function getBusinessForecast(array $filters = []): array;
 
     
+    /**
+     * Get brief count statistics for a given priority.
+     *
+     * @param int $priorityId
+     * @param array $filters
+     * @return array
+     */
+    public function getBriefCountStatsForPriority(int $priorityId, array $filters): array;
 }

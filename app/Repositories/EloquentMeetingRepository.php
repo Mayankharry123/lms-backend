@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * EloquentMeetingRepository
+ * 
+ * @author Achal Sharma
+ * @package App\Repositories
+ * @version 1.0.1
+ */
+
 namespace App\Repositories;
 
 use App\Contracts\Repositories\MeetingRepositoryInterface;
@@ -10,8 +18,16 @@ use Illuminate\Support\Str;
 
 class EloquentMeetingRepository implements MeetingRepositoryInterface
 {
+    /**
+     * @var Meeting
+     */
     protected $model;
 
+    /**
+     * EloquentMeetingRepository constructor.
+     *
+     * @param Meeting $model
+     */
     public function __construct(Meeting $model)
     {
         $this->model = $model;
@@ -24,9 +40,9 @@ class EloquentMeetingRepository implements MeetingRepositoryInterface
     /**
      * Fetch paginated list of meetings with optional search.
      */
-    public function getAllMeetings(int $perPage = 10, ?string $searchTerm = null): LengthAwarePaginator
+    public function getAllMeetings(int $perPage = 10, ?string $searchTerm = null, array $filters = []): LengthAwarePaginator
     {
-        $query = $this->model->with(['lead']);
+        $query = $this->model->with(['lead'])->whereNull('meetings.deleted_at');
 
         // Apply search filter if provided
         if ($searchTerm) {
@@ -37,7 +53,9 @@ class EloquentMeetingRepository implements MeetingRepositoryInterface
             });
         }
 
-        return $query->latest()->paginate($perPage);
+        \App\Support\DashboardFilters::applyMeetingDashboardFilters($query, $filters, 'meetings');
+
+        return $query->latest('meetings.meeting_start_date')->paginate($perPage);
     }
 
     /**
@@ -163,15 +181,33 @@ class EloquentMeetingRepository implements MeetingRepositoryInterface
         return $meeting->restore();
     }
 
+    /**
+     * Get recent meetings.
+     *
+     * @param int $limit
+     * @return mixed
+     */
     public function getRecentMeeting(int $limit = 2)
     {
     }
 
+    /**
+     * Get attendee email addresses by user IDs.
+     *
+     * @param array $attendeesId
+     * @return array
+     */
     public function getEmailIdsForAttendees(array $attendeesId): array
     {
         return \App\Models\User::whereIn('id', $attendeesId)->pluck('email')->toArray();
     }
 
+    /**
+     * Get lead emails by lead ID.
+     *
+     * @param int $id
+     * @return array
+     */
     public function getLeadidByEmail(int $id): array
     {
         return \App\Models\Lead::where('id', $id)->pluck('email')->toArray();

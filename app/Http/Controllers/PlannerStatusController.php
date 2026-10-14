@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PlannerStatusController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Models\PlannerStatus;
@@ -16,9 +22,22 @@ class PlannerStatusController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var PlannerStatusService
+     */
     protected PlannerStatusService $plannerStatusService;
+
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
 
+    /**
+     * Create a new PlannerStatusController instance.
+     *
+     * @param PlannerStatusService $plannerStatusService
+     * @param ResponseService $responseService
+     */
     public function __construct(PlannerStatusService $plannerStatusService, ResponseService $responseService)
     {
         $this->plannerStatusService = $plannerStatusService;

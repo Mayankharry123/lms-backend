@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * MeetingController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Services\LeadService;
@@ -58,8 +64,9 @@ class MeetingController extends Controller
         try {
             $perPage = (int) $request->input('per_page', 15);
             $search = $request->input('search', null);
+            $filters = \App\Support\DashboardFilters::fromRequest($request);
 
-            $meetings = $this->meetingService->getAllMeetings($perPage, $search);
+            $meetings = $this->meetingService->getAllMeetings($perPage, $search, $filters);
             return $this->responseService->paginated(
                 MeetingResource::collection($meetings),
                 'Meetings retrieved successfully'

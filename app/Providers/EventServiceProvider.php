@@ -1,10 +1,20 @@
 <?php
+/**
+ * EventServiceProvider
+ *
+ * @package App\Providers
+ * @author Achal Sharma
+ * @version 1.0.0
+ * @since 2026-10-08
+ */
 
 namespace App\Providers;
 
 use Laravel\Lumen\Providers\EventServiceProvider as ServiceProvider;
 use App\Observers\ActivityLogObserver;
 use App\Observers\PlannerObserver;
+use App\Observers\OperationObserver;
+use App\Observers\FinanceRecordObserver;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -45,6 +55,22 @@ class EventServiceProvider extends ServiceProvider
         \App\Events\MissCampaignAssignedEvent::class => [
             \App\Listeners\CreateMissCampaignAssignedNotification::class,
         ],
+
+        \App\Events\OperationAssignedEvent::class => [
+            \App\Listeners\CreateOperationAssignedNotification::class,
+        ],
+
+        \App\Events\OperationStatusChangedEvent::class => [
+            \App\Listeners\CreateOperationStatusNotification::class,
+        ],
+
+        \App\Events\FinanceRecordAssignedEvent::class => [
+            \App\Listeners\CreateFinanceRecordAssignedNotification::class,
+        ],
+
+        \App\Events\FinanceStatusChangedEvent::class => [
+            \App\Listeners\CreateFinanceStatusNotification::class,
+        ],
     ];
 
     /**
@@ -75,6 +101,12 @@ class EventServiceProvider extends ServiceProvider
 
         // Register the PlannerObserver to save planner history
         \App\Models\Planner::observe(PlannerObserver::class);
+
+        // Register the OperationObserver to save operation history
+        \App\Models\Operation::observe(OperationObserver::class);
+
+        // Register the FinanceRecordObserver to save finance record history
+        \App\Models\FinanceRecord::observe(FinanceRecordObserver::class);
     }
 
     /**

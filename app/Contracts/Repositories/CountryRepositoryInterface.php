@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface CountryRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 interface CountryRepositoryInterface 
@@ -33,5 +39,13 @@ interface CountryRepositoryInterface
      * Delete a country (This will be a HARD delete)
      */
     public function delete(int $id);
+
+    /**
+     * Find countries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names);
 }
 

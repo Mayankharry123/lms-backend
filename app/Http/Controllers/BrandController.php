@@ -16,6 +16,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\BrandResource;
+use App\Services\BrandImportService;
 use App\Services\BrandService;
 use App\Services\ResponseService;
 use App\Traits\ValidatesRequests;
@@ -24,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 use Illuminate\Validation\ValidationException;
 use DomainException;
@@ -43,15 +45,25 @@ class BrandController extends Controller
     protected BrandService $brandService;
 
     /**
+     * @var BrandImportService
+     */
+    protected BrandImportService $brandImportService;
+
+    /**
      * Create a new BrandController instance.
      *
      * @param ResponseService $responseService
      * @param BrandService $brandService
+     * @param BrandImportService $brandImportService
      */
-    public function __construct(ResponseService $responseService, BrandService $brandService)
-    {
+    public function __construct(
+        ResponseService $responseService,
+        BrandService $brandService,
+        BrandImportService $brandImportService
+    ) {
         $this->responseService = $responseService;
         $this->brandService = $brandService;
+        $this->brandImportService = $brandImportService;
     }
 
     /**
@@ -132,6 +144,11 @@ class BrandController extends Controller
                 'industry_id' => 'required|integer|exists:industries,id',
                 'country_id' => 'required|integer|exists:countries,id',
                 'website' => 'nullable|url|max:255',
+                'address' => 'nullable|string|max:1000',
+                'gst_no' => 'nullable',
+                'gst_number' => 'nullable|string|max:50',
+                'gst_numbers' => 'nullable|array',
+                'gst_numbers.*' => 'string|max:50',
                 'postal_code' => 'nullable|string|max:20',
                 'state_id' => 'required|integer|exists:states,id',
                 'city_id' => 'required|integer|exists:cities,id',
@@ -145,6 +162,37 @@ class BrandController extends Controller
 
             // Trim whitespace from name
             $validatedData['name'] = trim($validatedData['name']);
+
+            // Normalize GST numbers and Address
+            $gstNumbers = [];
+            $primaryGst = null;
+
+            if ($request->has('gst_numbers') && is_array($request->input('gst_numbers'))) {
+                $gstNumbers = array_values(array_filter(array_map('trim', $request->input('gst_numbers'))));
+                $primaryGst = $gstNumbers[0] ?? null;
+            } elseif ($request->has('gst_no')) {
+                $rawGst = $request->input('gst_no');
+                if (is_array($rawGst)) {
+                    $gstNumbers = array_values(array_filter(array_map('trim', $rawGst)));
+                    $primaryGst = $gstNumbers[0] ?? null;
+                } elseif (is_string($rawGst) && trim($rawGst) !== '') {
+                    $primaryGst = trim($rawGst);
+                    $gstNumbers = [$primaryGst];
+                }
+            } elseif ($request->has('gst_number') && is_string($request->input('gst_number')) && trim($request->input('gst_number')) !== '') {
+                $primaryGst = trim($request->input('gst_number'));
+                $gstNumbers = [$primaryGst];
+            }
+
+            if ($primaryGst !== null) {
+                $validatedData['gst_no'] = $primaryGst;
+            }
+            if (!empty($gstNumbers)) {
+                $validatedData['gst_numbers'] = $gstNumbers;
+            }
+            if ($request->has('address')) {
+                $validatedData['address'] = $request->input('address') ? trim((string) $request->input('address')) : null;
+            }
 
             // Add system-generated fields
             // Generate a temporary unique slug to avoid constraint violations
@@ -223,6 +271,11 @@ class BrandController extends Controller
                 'industry_id' => 'sometimes|required|integer|exists:industries,id',
                 'country_id' => 'sometimes|required|integer|exists:countries,id',
                 'website' => 'sometimes|nullable|url|max:255',
+                'address' => 'sometimes|nullable|string|max:1000',
+                'gst_no' => 'sometimes|nullable',
+                'gst_number' => 'sometimes|nullable|string|max:50',
+                'gst_numbers' => 'sometimes|nullable|array',
+                'gst_numbers.*' => 'string|max:50',
                 'postal_code' => 'sometimes|nullable|string|max:20',
                 'state_id' => 'sometimes|required|integer|exists:states,id',
                 'city_id' => 'sometimes|required|integer|exists:cities,id',
@@ -239,6 +292,37 @@ class BrandController extends Controller
             if ($request->has('name')) {
                 $validatedData['name'] = trim($validatedData['name']);
                 $validatedData['slug'] = Str::slug($validatedData['name']);
+            }
+
+            // Normalize GST numbers and Address
+            if ($request->has('gst_numbers') || $request->has('gst_no') || $request->has('gst_number')) {
+                $gstNumbers = [];
+                $primaryGst = null;
+
+                if ($request->has('gst_numbers') && is_array($request->input('gst_numbers'))) {
+                    $gstNumbers = array_values(array_filter(array_map('trim', $request->input('gst_numbers'))));
+                    $primaryGst = $gstNumbers[0] ?? null;
+                } elseif ($request->has('gst_no')) {
+                    $rawGst = $request->input('gst_no');
+                    if (is_array($rawGst)) {
+                        $gstNumbers = array_values(array_filter(array_map('trim', $rawGst)));
+                        $primaryGst = $gstNumbers[0] ?? null;
+                    } elseif (is_string($rawGst)) {
+                        $primaryGst = trim($rawGst) !== '' ? trim($rawGst) : null;
+                        $gstNumbers = $primaryGst ? [$primaryGst] : [];
+                    }
+                } elseif ($request->has('gst_number')) {
+                    $raw = (string) $request->input('gst_number');
+                    $primaryGst = trim($raw) !== '' ? trim($raw) : null;
+                    $gstNumbers = $primaryGst ? [$primaryGst] : [];
+                }
+
+                $validatedData['gst_no'] = $primaryGst;
+                $validatedData['gst_numbers'] = $gstNumbers;
+            }
+
+            if ($request->has('address')) {
+                $validatedData['address'] = $request->input('address') ? trim((string) $request->input('address')) : null;
             }
 
             $this->brandService->updateBrand($id, $validatedData);
@@ -280,6 +364,106 @@ class BrandController extends Controller
             $this->brandService->deleteBrand($id);
 
             return $this->responseService->deleted('Brand deleted successfully');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Import brands from an Excel file.
+     *
+     * POST /brands/import
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function import(Request $request): JsonResponse
+    {
+        try {
+            $this->validate($request, [
+                'file' => 'required|file|mimes:xlsx,xls|max:51200',
+            ], [
+                'file.required' => 'Excel file is required.',
+                'file.file' => 'The uploaded file is invalid.',
+                'file.mimes' => 'The file must be a valid Excel file (.xlsx or .xls).',
+                'file.max' => 'The Excel file may not be greater than 50 MB.',
+            ]);
+
+            $result = $this->brandImportService->import(
+                $request->file('file'),
+                Auth::id()
+            );
+
+            $message = ($result['status'] ?? '') === 'failed'
+                ? 'Brand Excel import failed.'
+                : 'Brand import completed.';
+
+            if (($result['status'] ?? '') === 'failed') {
+                return $this->responseService->apiResponse(
+                    false,
+                    $result,
+                    $message,
+                    ResponseService::HTTP_UNPROCESSABLE_ENTITY,
+                    null,
+                    'IMPORT_FAILED'
+                );
+            }
+
+            return $this->responseService->success($result, $message);
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError($e->errors(), 'Validation failed');
+        } catch (DomainException $e) {
+            return $this->responseService->validationError(
+                ['file' => [$e->getMessage()]],
+                $e->getMessage()
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Download a demo Excel template for brand import.
+     *
+     * GET /brands/import-template
+     *
+     * @return StreamedResponse|JsonResponse
+     */
+    public function importTemplate(): StreamedResponse|JsonResponse
+    {
+        try {
+            $contents = $this->brandService->generateBrandImportTemplate();
+            $filename = 'brand-import-template.xlsx';
+
+            return response()->streamDownload(
+                function () use ($contents) {
+                    echo $contents;
+                },
+                $filename,
+                [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'Cache-Control' => 'no-store, no-cache, must-revalidate',
+                ]
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Download the failed-records Excel generated by a brand import.
+     *
+     * GET /brands/import-failed-files/{token}
+     *
+     * @param string $token
+     * @return StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse|JsonResponse
+     */
+    public function downloadFailedRecords(string $token)
+    {
+        try {
+            return $this->brandImportService->downloadFailedRecordsFile($token);
+        } catch (DomainException $e) {
+            return $this->responseService->notFound($e->getMessage());
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
         }
@@ -332,6 +516,32 @@ class BrandController extends Controller
             return $this->responseService->success(
                 $agencies,
                 'Agencies retrieved successfully'
+            );
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get GST number and address details by Brand ID.
+     *
+     * GET /brands/{id}/gst-address
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function getGstAndAddress(int $id): JsonResponse
+    {
+        try {
+            $details = $this->brandService->getBrandBillingDetails($id);
+
+            if (!$details) {
+                return $this->responseService->notFound('Brand not found');
+            }
+
+            return $this->responseService->success(
+                $details,
+                'Brand GST and address details retrieved successfully'
             );
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);

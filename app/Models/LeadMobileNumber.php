@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * LeadMobileNumber
+ * 
+ * @author Achal Sharma
+ * @package App\Models
+ * @version 1.0.1
+ */
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -44,5 +50,10 @@ class LeadMobileNumber extends Model
     public function lead()
     {
         return $this->belongsTo(Lead::class, 'lead_id');
+    }
+
+    public static function deleteForLead(int $leadId): void
+    {
+        self::where('lead_id', $leadId)->delete();
     }
 }

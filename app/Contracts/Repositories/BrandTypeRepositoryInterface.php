@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface BrandTypeRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use Illuminate\Support\Collection;
@@ -57,4 +63,12 @@ interface BrandTypeRepositoryInterface
      * @return int
      */
     public function getBrandsCount(int $id): int;
+
+    /**
+     * Find non-deleted brand types by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return Collection
+     */
+    public function findByNames(array $names): Collection;
 }

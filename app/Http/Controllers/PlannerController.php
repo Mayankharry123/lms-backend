@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PlannerController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\PlannerResource;
@@ -86,6 +92,128 @@ class PlannerController extends Controller
     }
 
     /**
+     * Get submitted plans with pagination.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getSubmittedPlans(Request $request): JsonResponse
+    {
+        try {
+            $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1',
+                'organisation_id' => 'nullable|integer|exists:organisations,id',
+                'organisation_ids' => 'nullable|array',
+                'organisation_ids.*' => 'integer|exists:organisations,id',
+                'department_id' => 'nullable|integer|exists:departments,id',
+                'department_ids' => 'nullable|array',
+                'department_ids.*' => 'integer|exists:departments,id',
+                'brief_id' => 'nullable|integer|exists:briefs,id',
+                'created_by' => 'nullable|integer|exists:users,id',
+                'planner_status_id' => 'nullable|integer|exists:planner_statuses,id',
+                'status' => 'nullable|in:1,2,15',
+                'date_from' => 'nullable|date_format:Y-m-d',
+                'date_to' => 'nullable|date_format:Y-m-d',
+                'search' => 'nullable|string|max:255',
+            ]);
+
+            $perPage = (int) ($request->input('limit') ?? $request->input('per_page') ?? 5);
+            $filters = array_filter([
+                'organisation_id' => $request->input('organisation_id'),
+                'organisation_ids' => $request->input('organisation_ids'),
+                'department_id' => $request->input('department_id'),
+                'department_ids' => $request->input('department_ids'),
+                'brief_id' => $request->input('brief_id'),
+                'created_by' => $request->input('created_by'),
+                'planner_status_id' => $request->input('planner_status_id'),
+                'status' => $request->input('status'),
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+                'search' => $request->input('search'),
+            ], fn($value) => $value !== null && $value !== '');
+
+            $submittedPlans = $this->plannerService->getSubmittedPlans($filters, $perPage);
+
+            return $this->responseService->paginated(
+                PlannerResource::collection($submittedPlans),
+                'Submitted plans retrieved successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError(
+                $e->errors(),
+                'Validation failed'
+            );
+        } catch (DomainException $e) {
+            return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get latest 5 submitted plans with organisation and department filtering.
+     *
+     * GET /planners/submitted-plans/latest-five
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getLatestFiveSubmittedPlans(Request $request): JsonResponse
+    {
+        try {
+            $this->validate($request, [
+                'per_page' => 'nullable|integer|min:1|max:50',
+                'limit' => 'nullable|integer|min:1|max:50',
+                'page' => 'nullable|integer|min:1',
+                'organisation_id' => 'nullable|integer|exists:organisations,id',
+                'organisation_ids' => 'nullable|array',
+                'organisation_ids.*' => 'integer|exists:organisations,id',
+                'department_id' => 'nullable|integer|exists:departments,id',
+                'department_ids' => 'nullable|array',
+                'department_ids.*' => 'integer|exists:departments,id',
+                'brief_id' => 'nullable|integer|exists:briefs,id',
+                'created_by' => 'nullable|integer|exists:users,id',
+                'planner_status_id' => 'nullable|integer|exists:planner_statuses,id',
+                'status' => 'nullable|in:1,2,15',
+                'date_from' => 'nullable|date_format:Y-m-d',
+                'date_to' => 'nullable|date_format:Y-m-d',
+                'search' => 'nullable|string|max:255',
+            ]);
+
+            $perPage = (int) ($request->input('per_page') ?? $request->input('limit') ?? 5);
+            $filters = array_filter([
+                'organisation_id' => $request->input('organisation_id'),
+                'organisation_ids' => $request->input('organisation_ids'),
+                'department_id' => $request->input('department_id'),
+                'department_ids' => $request->input('department_ids'),
+                'brief_id' => $request->input('brief_id'),
+                'created_by' => $request->input('created_by'),
+                'planner_status_id' => $request->input('planner_status_id'),
+                'status' => $request->input('status'),
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+                'search' => $request->input('search'),
+            ], fn($value) => $value !== null && $value !== '');
+
+            $submittedPlans = $this->plannerService->getSubmittedPlans($filters, $perPage);
+
+            return $this->responseService->paginated(
+                PlannerResource::collection($submittedPlans),
+                'Latest submitted plans retrieved successfully'
+            );
+        } catch (ValidationException $e) {
+            return $this->responseService->validationError(
+                $e->errors(),
+                'Validation failed'
+            );
+        } catch (DomainException $e) {
+            return $this->responseService->error($e->getMessage(), null, 422, 'DOMAIN_ERROR');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
      * Create planner for a specific brief.
      *
      * POST /briefs/{briefId}/planners
@@ -106,8 +234,8 @@ class PlannerController extends Controller
             $this->validate($request, [
                 'planner_status_id' => 'nullable|integer|exists:planner_statuses,id',
                 'submitted_plan' => 'nullable|array|max:2',
-                'submitted_plan.*' => 'file|mimes:xls,xlsx,ppt,pptx|max:10240',
-                'backup_plan' => 'nullable|file|mimes:xls,xlsx|max:10240',
+                'submitted_plan.*' => 'file|mimes:xls,xlsx,ppt,pptx|max:51200',
+                'backup_plan' => 'nullable|file|mimes:xls,xlsx|max:51200',
                 'status' => 'nullable|in:1,2',
             ]);
 
@@ -154,8 +282,8 @@ class PlannerController extends Controller
                 'brief_id' => 'required|integer|exists:briefs,id',
                 'planner_status_id' => 'nullable|integer|exists:planner_statuses,id',
                 'submitted_plan' => 'nullable|array|max:2',
-                'submitted_plan.*' => 'file|mimes:xls,xlsx,ppt,pptx|max:10240',
-                'backup_plan' => 'nullable|file|mimes:xls,xlsx|max:10240',
+                'submitted_plan.*' => 'file|mimes:xls,xlsx,ppt,pptx|max:51200',
+                'backup_plan' => 'nullable|file|mimes:xls,xlsx|max:51200',
                 'status' => 'nullable|in:1,2',
             ]);
 
@@ -224,8 +352,8 @@ class PlannerController extends Controller
             $this->validate($request, [
                 'brief_id' => 'nullable|integer|exists:briefs,id',
                 'submitted_plan' => 'nullable|array|max:2',
-                'submitted_plan.*' => 'file|mimes:xls,xlsx,ppt,pptx|max:10240',
-                'backup_plan' => 'nullable|file|mimes:xls,xlsx|max:10240',
+                'submitted_plan.*' => 'file|mimes:xls,xlsx,ppt,pptx|max:51200',
+                'backup_plan' => 'nullable|file|mimes:xls,xlsx|max:51200',
                 'status' => 'nullable|in:1,2',
             ]);
 
@@ -306,8 +434,8 @@ class PlannerController extends Controller
 
             $this->validate($request, [
                 'submitted_plan' => 'nullable|array|max:2',
-                'submitted_plan.*' => 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:10240',
-                'backup_plan' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:10240',
+                'submitted_plan.*' => 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:51200',
+                'backup_plan' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:51200',
                 'status' => 'nullable|in:1,2',
             ]);
 
@@ -449,7 +577,7 @@ class PlannerController extends Controller
         try {
             $this->validate($request, [
                 'files' => 'required|array|max:2',
-                'files.*' => 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:10240',
+                'files.*' => 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:51200',
             ]);
 
             $planner = $this->plannerService->addSubmittedPlanFiles($id, $request->file('files'));
@@ -485,7 +613,7 @@ class PlannerController extends Controller
     {
         try {
             $this->validate($request, [
-                'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:10240',
+                'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:51200',
             ]);
 
             $planner = $this->plannerService->uploadBackupPlanFile($id, $request->file('file'));
@@ -544,6 +672,132 @@ class PlannerController extends Controller
             );
         } catch (Throwable $e) {
             return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Get the approved backup plan for a given brief.
+     *
+     * GET /briefs/{briefId}/approved-backup-plan
+     */
+    public function getApprovedBackupPlanByBrief(Request $request, int $briefId): JsonResponse
+    {
+        try {
+            $planner = $this->plannerService->getApprovedBackupPlanByBriefId($briefId, auth()->user());
+
+            if (!$planner || empty($planner->backup_plan)) {
+                return $this->responseService->notFound('Approved backup plan not found for this brief');
+            }
+
+            $storedPath = $planner->backup_plan;
+            $downloadUrl = rtrim($request->root(), '/') . '/api/v1/briefs/' . $briefId . '/approved-backup-plan/download';
+            $fileUrl = $this->resolvePublicFileUrl($request, $storedPath);
+
+            return $this->responseService->success([
+                'planner_id' => $planner->id,
+                'brief_id' => $planner->brief_id,
+                'brief_name' => $planner->brief?->name,
+                'product_name' => $planner->brief?->product_name,
+                'planner_status_id' => $planner->planner_status_id,
+                'planner_status' => $planner->plannerStatus?->name,
+                'backup_plan' => $storedPath,
+                'backup_plan_url' => $fileUrl,
+                'download_url' => $downloadUrl,
+                'creator' => $planner->creator ? [
+                    'id' => $planner->creator->id,
+                    'name' => $planner->creator->name,
+                ] : null,
+                'created_at' => $planner->created_at?->format('Y-m-d H:i:s A'),
+                'updated_at' => $planner->updated_at?->format('Y-m-d H:i:s A'),
+            ], 'Approved backup plan retrieved successfully');
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Download the approved backup plan file for a brief.
+     *
+     * GET /briefs/{briefId}/approved-backup-plan/download
+     */
+    public function downloadApprovedBackupPlanByBrief(int $briefId)
+    {
+        try {
+            $planner = $this->plannerService->getApprovedBackupPlanByBriefId($briefId, auth()->user());
+
+            if (!$planner || empty($planner->backup_plan)) {
+                return $this->responseService->notFound('Approved backup plan not found for this brief');
+            }
+
+            $storedPath = $planner->backup_plan;
+            $fullPath = $this->resolveBackupPlanFilePath($storedPath);
+
+            if (!$fullPath || !file_exists($fullPath)) {
+                return $this->responseService->notFound('Backup plan file not found on server');
+            }
+
+            return response()->download($fullPath, basename($fullPath));
+        } catch (Throwable $e) {
+            return $this->responseService->handleException($e);
+        }
+    }
+
+    /**
+     * Resolve file path for backup plan file.
+     *
+     * @param string $storedPath
+     * @return string|null
+     */
+    protected function resolveBackupPlanFilePath(string $storedPath): ?string
+    {
+        try {
+            $storedPath = ltrim(str_replace('\\', '/', $storedPath), '/');
+            $candidates = [
+                storage_path('app/' . $storedPath),
+                storage_path('app/public/' . $storedPath),
+            ];
+
+            if (str_starts_with($storedPath, 'public/')) {
+                $candidates[] = storage_path('app/public/' . substr($storedPath, strlen('public/')));
+            }
+
+            $storageRoot = realpath(storage_path('app'));
+
+            foreach ($candidates as $candidate) {
+                if (!is_file($candidate)) {
+                    continue;
+                }
+
+                $realFile = realpath($candidate);
+
+                if ($storageRoot && $realFile && str_starts_with($realFile, $storageRoot)) {
+                    return $realFile;
+                }
+            }
+
+            return null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolve public file URL for a given relative path.
+     *
+     * @param Request $request
+     * @param string $path
+     * @return string|null
+     */
+    protected function resolvePublicFileUrl(Request $request, string $path): ?string
+    {
+        try {
+            $path = ltrim(str_replace('\\', '/', $path), '/');
+            if (str_starts_with($path, 'public/')) {
+                $path = substr($path, strlen('public/'));
+            }
+            return rtrim($request->root(), '/') . '/storage/' . $path;
+        } catch (Throwable $e) {
+            return null;
         }
     }
 }

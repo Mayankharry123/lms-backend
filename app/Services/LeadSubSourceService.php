@@ -1,4 +1,13 @@
 <?php
+
+/**
+ * LeadSubSourceService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 /*
  * LeadSubSourceService
  * -----------------------------------------
@@ -24,7 +33,11 @@ use InvalidArgumentException;
 class LeadSubSourceService
 {
     protected $leadSubSourceRepository;
-
+    /**
+     * LeadSubSourceService constructor.
+     *
+     * @param LeadSubSourceRepositoryInterface $leadSubSourceRepository
+     */
     public function __construct(LeadSubSourceRepositoryInterface $leadSubSourceRepository)
     {
         $this->leadSubSourceRepository = $leadSubSourceRepository;

@@ -34,7 +34,8 @@ class MediaTypeSeeder extends Seeder
         $types = [
             'ooh',
             'dooh',
-            'ctv'
+            'ctv',
+            'other',
         ];
 
         foreach ($types as $type) {

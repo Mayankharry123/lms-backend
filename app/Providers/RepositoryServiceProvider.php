@@ -47,6 +47,8 @@ use App\Contracts\Repositories\BrandTypeRepositoryInterface;
 
 use App\Repositories\BrandRepository;
 use App\Contracts\Repositories\BrandRepositoryInterface;
+use App\Contracts\Repositories\BrandImportRepositoryInterface;
+use App\Repositories\BrandImportRepository;
 
 use App\Repositories\RegionRepository;
 use App\Contracts\Repositories\RegionRepositoryInterface;
@@ -112,6 +114,42 @@ use App\Repositories\PlannerRepository;
 use App\Contracts\Repositories\PlannerStatusRepositoryInterface;
 use App\Repositories\PlannerStatusRepository;
 
+use App\Contracts\Repositories\OperationStatusRepositoryInterface;
+use App\Repositories\OperationStatusRepository;
+
+use App\Contracts\Repositories\OperationRepositoryInterface;
+use App\Repositories\OperationRepository;
+
+use App\Contracts\Repositories\OperationHistoryRepositoryInterface;
+use App\Repositories\OperationHistoryRepository;
+
+use App\Contracts\Repositories\FinanceStatusRepositoryInterface;
+use App\Repositories\FinanceStatusRepository;
+
+use App\Contracts\Repositories\CostSheetStatusRepositoryInterface;
+use App\Repositories\CostSheetStatusRepository;
+
+use App\Contracts\Repositories\FinanceRecordRepositoryInterface;
+use App\Repositories\FinanceRecordRepository;
+
+use App\Contracts\Repositories\FinanceRecordHistoryRepositoryInterface;
+use App\Repositories\FinanceRecordHistoryRepository;
+
+use App\Contracts\Repositories\PurchaseOrderRepositoryInterface;
+use App\Repositories\PurchaseOrderRepository;
+
+use App\Contracts\Repositories\ProformaInvoiceRepositoryInterface;
+use App\Repositories\ProformaInvoiceRepository;
+
+use App\Contracts\Repositories\VoucherTypeRepositoryInterface;
+use App\Repositories\VoucherTypeRepository;
+
+use App\Contracts\Repositories\VoucherRepositoryInterface;
+use App\Repositories\VoucherRepository;
+
+use App\Contracts\Repositories\PaymentModeTypeRepositoryInterface;
+use App\Repositories\PaymentModeTypeRepository;
+
 use App\Contracts\Repositories\UserParentRepositoryInterface;
 use App\Repositories\UserParentRepository;
 
@@ -126,6 +164,9 @@ use App\Repositories\OrganisationRepository;
 use App\Contracts\Repositories\LeadTypeRepositoryInterface;
 use App\Repositories\LeadTypeRepository;
 
+use App\Contracts\Repositories\DashboardRepositoryInterface;
+use App\Repositories\DashboardRepository;
+
 class RepositoryServiceProvider extends ServiceProvider
 {
     /**
@@ -135,6 +176,11 @@ class RepositoryServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->app->bind(
+            DashboardRepositoryInterface::class,
+            DashboardRepository::class
+        );
+
         $this->app->bind(
             IndustryRepositoryInterface::class,
             IndustryRepository::class
@@ -188,6 +234,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             BrandRepositoryInterface::class,
             BrandRepository::class
+        );
+
+        $this->app->bind(
+            BrandImportRepositoryInterface::class,
+            BrandImportRepository::class
         );
 
         $this->app->bind(
@@ -292,6 +343,51 @@ class RepositoryServiceProvider extends ServiceProvider
         );
 
         $this->app->bind(
+            OperationStatusRepositoryInterface::class,
+            OperationStatusRepository::class
+        );
+
+        $this->app->bind(
+            OperationRepositoryInterface::class,
+            OperationRepository::class
+        );
+
+        $this->app->bind(
+            OperationHistoryRepositoryInterface::class,
+            OperationHistoryRepository::class
+        );
+
+        $this->app->bind(
+            FinanceStatusRepositoryInterface::class,
+            FinanceStatusRepository::class
+        );
+
+        $this->app->bind(
+            CostSheetStatusRepositoryInterface::class,
+            CostSheetStatusRepository::class
+        );
+
+        $this->app->bind(
+            FinanceRecordRepositoryInterface::class,
+            FinanceRecordRepository::class
+        );
+
+        $this->app->bind(
+            FinanceRecordHistoryRepositoryInterface::class,
+            FinanceRecordHistoryRepository::class
+        );
+
+        $this->app->bind(
+            PurchaseOrderRepositoryInterface::class,
+            PurchaseOrderRepository::class
+        );
+
+        $this->app->bind(
+            ProformaInvoiceRepositoryInterface::class,
+            ProformaInvoiceRepository::class
+        );
+
+        $this->app->bind(
             UserParentRepositoryInterface::class,
             UserParentRepository::class
         );
@@ -314,6 +410,21 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             LeadTypeRepositoryInterface::class,
             LeadTypeRepository::class
+        );
+
+        $this->app->bind(
+            VoucherTypeRepositoryInterface::class,
+            VoucherTypeRepository::class
+        );
+
+        $this->app->bind(
+            VoucherRepositoryInterface::class,
+            VoucherRepository::class
+        );
+
+        $this->app->bind(
+            PaymentModeTypeRepositoryInterface::class,
+            PaymentModeTypeRepository::class
         );
     }
     /**

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * PermissionSeeder
+ * 
+ * @author Achal Sharma
+ * @package Database\Seeders
+ * @version 1.0.1
+ */
+
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -121,7 +129,20 @@ class PermissionSeeder extends Seeder
      * Extra permissions (not full CRUD) per module.
      */
     protected array $extraPermissions = [
-        'dashboard' => [],
+        'dashboard' => [
+            ['name' => 'dashboard.overview', 'display_name' => 'Dashboard – Overview Tab', 'description' => 'View overview tab, stats, and lists', 'url' => null],
+            ['name' => 'dashboard.sales', 'display_name' => 'Dashboard – Sales Tab', 'description' => 'View sales dashboard tab', 'url' => null],
+            ['name' => 'dashboard.planner', 'display_name' => 'Dashboard – Planner Tab', 'description' => 'View planner dashboard tab', 'url' => null],
+            ['name' => 'dashboard.overview.stats', 'display_name' => 'Dashboard – Overview Stats', 'description' => 'View overview KPI stat cards', 'url' => null],
+            ['name' => 'dashboard.overview.assignments', 'display_name' => 'Dashboard – Pending Assignments', 'description' => 'View pending assignments panel', 'url' => null],
+            ['name' => 'dashboard.overview.meetings', 'display_name' => 'Dashboard – Meetings', 'description' => 'View meetings panel', 'url' => null],
+            ['name' => 'dashboard.charts.leads', 'display_name' => 'Dashboard – Leads Chart', 'description' => 'View total leads chart', 'url' => null],
+            ['name' => 'dashboard.charts.pre-leads', 'display_name' => 'Dashboard – Pre Leads Chart', 'description' => 'View pre leads chart', 'url' => null],
+            ['name' => 'dashboard.charts.briefs', 'display_name' => 'Dashboard – Briefs Chart', 'description' => 'View briefs chart', 'url' => null],
+            ['name' => 'dashboard.charts.brief-budget', 'display_name' => 'Dashboard – Brief Budget Chart', 'description' => 'View brief budget chart', 'url' => null],
+            ['name' => 'dashboard.charts.pipeline', 'display_name' => 'Dashboard – Sales Pipeline Chart', 'description' => 'View sales pipeline chart', 'url' => null],
+            ['name' => 'dashboard.charts.brief-status', 'display_name' => 'Dashboard – Brief Status Chart', 'description' => 'View brief status chart', 'url' => null],
+        ],
         'leads' => [
             ['name' => 'leads.assign', 'display_name' => 'Assign Leads', 'description' => 'Assign leads to users', 'url' => null],
         ],
@@ -191,7 +212,11 @@ class PermissionSeeder extends Seeder
     ];
 
     protected array $permissionIdByName = [];
-
+    /**
+     * Run the database seeds.
+     *
+     * @return void
+     */
     public function run(): void
     {
         $now = now();
@@ -297,6 +322,14 @@ class PermissionSeeder extends Seeder
         }
     }
 
+    /**
+     * Insert a permission record and cache its ID.
+     *
+     * @param array $data
+     * @param int|null $parentId
+     * @param mixed $now
+     * @return int
+     */
     protected function insertPermission(array $data, ?int $parentId, $now): int
     {
         $name = $data['name'];
@@ -323,6 +356,12 @@ class PermissionSeeder extends Seeder
         return $id;
     }
 
+    /**
+     * Convert module slug to human-readable display name.
+     *
+     * @param string $module
+     * @return string
+     */
     protected function moduleDisplayName(string $module): string
     {
         return str_replace('-', ' ', ucwords($module, '-'));
@@ -403,6 +442,15 @@ class PermissionSeeder extends Seeder
             'brands' => ['read', 'create'],
             'notifications' => ['read', 'update'],
             'profile' => ['read', 'update'],
+        ]);
+
+        $userPermissions = array_merge($userPermissions, [
+            'dashboard.overview',
+            'dashboard.overview.stats',
+            'dashboard.overview.assignments',
+            'dashboard.overview.meetings',
+            'dashboard.charts.leads',
+            'dashboard.charts.pre-leads',
         ]);
 
         $assign($managerPermissions, 'manager');

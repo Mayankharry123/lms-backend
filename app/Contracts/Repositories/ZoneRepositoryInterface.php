@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface ZoneRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use App\Models\Zone;
@@ -50,4 +56,12 @@ interface ZoneRepositoryInterface
      * @return bool
      */
     public function delete(Zone $zone): bool;
+
+    /**
+     * Find non-deleted zones by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return Collection
+     */
+    public function findByNames(array $names): Collection;
 }

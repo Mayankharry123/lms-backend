@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * CityResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -24,10 +30,17 @@ class CityResource extends JsonResource
             'state_id' => $this->state_id,
             // 'created_at' => $this->created_at->format('Y-m-d H:i:s A'),
             // 'updated_at' => $this->updated_at->format('Y-m-d H:i:s A'),
-
+            /**
+             * Added country and state relationship data to the city response
+             * when the relationships are loaded.
+             */
             // Relationships
-            'country' => new CountryResource($this->whenLoaded('country')),
-            'state' => new StateResource($this->whenLoaded('state')),
+            'country' => $this->whenLoaded('country', function () {
+                return $this->country ? new CountryResource($this->country) : null;
+            }),
+            'state' => $this->whenLoaded('state', function () {
+                return $this->state ? new StateResource($this->state) : null;
+            }),
         ];
     }
 }

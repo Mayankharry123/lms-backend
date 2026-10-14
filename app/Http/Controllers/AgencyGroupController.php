@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * AgencyGroupController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers;
 
 use App\Http\Resources\AgencyResource;
@@ -15,15 +21,34 @@ class AgencyGroupController extends Controller
 {
     use ValidatesRequests;
 
+    /**
+     * @var ResponseService
+     */
     protected ResponseService $responseService;
+
+    /**
+     * @var AgencyGroupService
+     */
     protected AgencyGroupService $agencyGroupService;
 
+    /**
+     * Create a new AgencyGroupController instance.
+     *
+     * @param ResponseService $responseService
+     * @param AgencyGroupService $agencyGroupService
+     */
     public function __construct(ResponseService $responseService, AgencyGroupService $agencyGroupService)
     {
         $this->responseService = $responseService;
         $this->agencyGroupService = $agencyGroupService;
     }
 
+    /**
+     * Display a listing of agency groups.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -48,6 +73,12 @@ class AgencyGroupController extends Controller
         }
     }
 
+    /**
+     * Display the specified agency group.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function show(int $id): JsonResponse
     {
         try {
@@ -66,6 +97,12 @@ class AgencyGroupController extends Controller
         }
     }
 
+    /**
+     * Store a newly created agency group in storage.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         try {
@@ -90,6 +127,13 @@ class AgencyGroupController extends Controller
         }
     }
 
+    /**
+     * Update the specified agency group in storage.
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
     public function update(Request $request, int $id): JsonResponse
     {
         try {
@@ -112,6 +156,12 @@ class AgencyGroupController extends Controller
         }
     }
 
+    /**
+     * Remove the specified agency group from storage.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
     public function destroy(int $id): JsonResponse
     {
         try {

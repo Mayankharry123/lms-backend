@@ -1,23 +1,27 @@
 <?php
-
-namespace App\Http\Resources;
-
-use Illuminate\Http\Resources\Json\JsonResource;
-
 /**
- * Organisation Resource
+ * OrganisationResource
  * -----------------------------------------
  * Transforms organisation model data into a structured API response,
  * including id, name, slug, status, and formatted timestamps.
  *
  * @package App\Http\Resources
  * @author Achal Sharma
- * @version 1.0.0
+ * @version 1.0.1
  * @since 2026-05-05
  */
+namespace App\Http\Resources;
+
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class OrganisationResource extends JsonResource
 {
+    /**
+     * Transform the resource into an array.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return array<string, mixed>
+     */
     public function toArray($request): array
     {
         return [

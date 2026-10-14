@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * LeadService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\LeadRepositoryInterface;
@@ -8,6 +16,7 @@ use App\Models\LeadMobileNumber;
 use App\Models\LeadAssignHistory;
 use DomainException;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -75,6 +84,41 @@ class LeadService
         } catch (Exception $e) {
             Log::error('Unexpected error fetching lead', ['id' => $id, 'exception' => $e]);
             throw new DomainException('Unexpected error while fetching lead.');
+        }
+    }
+
+    /**
+     * Organisation stored on a contact person (lead).
+     *
+     * @param int $contactPersonId
+     * @return int|null
+     * @throws ModelNotFoundException
+     * @throws DomainException
+     */
+    public function getOrganisationIdForContactPerson(int $contactPersonId): ?int
+    {
+        try {
+            $lead = Lead::query()->find($contactPersonId);
+
+            if (!$lead || (string) $lead->status === '15') {
+                throw (new ModelNotFoundException())->setModel(Lead::class, [$contactPersonId]);
+            }
+
+            return $lead->organisation_id ? (int) $lead->organisation_id : null;
+        } catch (ModelNotFoundException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error resolving contact person organisation', [
+                'contact_person_id' => $contactPersonId,
+                'exception' => $e,
+            ]);
+            throw new DomainException('Database error while fetching contact person.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error resolving contact person organisation', [
+                'contact_person_id' => $contactPersonId,
+                'exception' => $e,
+            ]);
+            throw new DomainException('Unexpected error while fetching contact person.');
         }
     }
 
@@ -223,6 +267,27 @@ class LeadService
         }
     }
 
+    /**
+     * Get lead count statistics for a priority.
+     *
+     * @param int $priorityId
+     * @param array $filters
+     * @return array
+     * @throws DomainException
+     */
+    public function getLeadCountStatsForPriority(int $priorityId, array $filters): array
+    {
+        try {
+            return $this->leadRepository->getLeadCountStatsForPriority($priorityId, $filters);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching lead count stats for priority', ['priority_id' => $priorityId, 'exception' => $e]);
+            throw new DomainException('Database error while fetching lead count stats for priority.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching lead count stats for priority', ['priority_id' => $priorityId, 'exception' => $e]);
+            throw new DomainException('Unexpected error while fetching lead count stats for priority.');
+        }
+    }
+
     // ============================================================================
     // WRITE OPERATIONS
     // ============================================================================
@@ -285,6 +350,42 @@ class LeadService
         } catch (Exception $e) {
             Log::error('Unexpected error updating lead', ['id' => $id, 'data' => $data, 'exception' => $e]);
             throw new DomainException('Unexpected error while updating lead.');
+        }
+    }
+
+    /**
+     * Update lead activity fields (comment, call_status_id, and optional reminder).
+     *
+     * @param int $id
+     * @param array<string, mixed> $data
+     * @return array{lead: Lead, history: LeadAssignHistory}
+     * @throws DomainException
+     */
+    public function updateLeadActivity(int $id, array $data): array
+    {
+        try {
+            unset($data['lead_id']);
+
+            $allowed = array_intersect_key($data, array_flip([
+                'comment',
+                'call_status_id',
+                'reminder',
+                'reminder_at',
+                'reminder_before',
+                'reminder_before_unit',
+            ]));
+
+            return $this->leadRepository->updateLeadActivity($id, $allowed);
+        } catch (DomainException $e) {
+            throw $e;
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Database error updating lead activity', ['id' => $id, 'data' => $data, 'exception' => $e]);
+            throw new DomainException('Database error while updating lead activity.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error updating lead activity', ['id' => $id, 'data' => $data, 'exception' => $e]);
+            throw new DomainException('Unexpected error while updating lead activity.');
         }
     }
 
@@ -380,7 +481,7 @@ class LeadService
                 $previousCallStatusId = $lead ? $lead->call_status : null;
                 $previousLeadStatus = $lead ? $lead->lead_status : null;
 
-                // Restrict update if last call status was updated within 1 hour
+                // Restrict update if last call status was updated within 10 minutes
                 // Use lockForUpdate to prevent concurrent modifications
                 $lastHistory = \App\Models\LeadAssignHistory::where('lead_id', $leadId)
                     ->orderByDesc('last_call_status_date_time')
@@ -388,8 +489,8 @@ class LeadService
                     ->first();
                 if ($lastHistory && $lastHistory->last_call_status_date_time) {
                     $lastUpdate = $lastHistory->last_call_status_date_time;
-                    if (now()->diffInMinutes($lastUpdate) < 60) {
-                        throw new DomainException('Call status can only be updated once every 1 hour.');
+                    if (now()->diffInMinutes($lastUpdate) < 10) {
+                        throw new DomainException('Call status can only be updated once every 10 minutes.');
                     }
                 }
 
@@ -505,10 +606,10 @@ class LeadService
      * @return LengthAwarePaginator
      * @throws DomainException
      */
-    public function getPendingLeads(int $perPage = 10): LengthAwarePaginator
+    public function getPendingLeads(int $perPage = 10, array $filters = []): LengthAwarePaginator
     {
         try {
-            return $this->leadRepository->getPendingLeads($perPage);
+            return $this->leadRepository->getPendingLeads($perPage, $filters);
         } catch (QueryException $e) {
             Log::error('Database error fetching pending leads', ['exception' => $e]);
             throw new DomainException('Database error while fetching pending leads.');
@@ -536,10 +637,7 @@ class LeadService
             }
 
             // Get the lead assign history
-            return \App\Models\LeadAssignHistory::where('lead_id', $leadId)
-                ->with(['assignedUser', 'currentUser', 'priority', 'status', 'callStatus'])
-                ->orderBy('created_at', 'desc')
-                ->paginate($perPage);
+            return $this->leadRepository->getLeadHistory($leadId, $perPage);
         } catch (QueryException $e) {
             Log::error('Database error fetching lead history', ['lead_id' => $leadId, 'exception' => $e]);
             throw new DomainException('Database error while fetching lead history.');
@@ -625,10 +723,10 @@ class LeadService
      * @return Collection
      * @throws DomainException
      */
-    public function getLatestTwoFollowUpLeads()
+    public function getLatestTwoFollowUpLeads(array $filters = [])
     {
         try {
-            return $this->leadRepository->getLatestTwoFollowUpLeads();
+            return $this->leadRepository->getLatestTwoFollowUpLeads($filters);
         } catch (QueryException $e) {
             Log::error('Database error fetching latest two follow-up leads', ['exception' => $e]);
             throw new DomainException('Database error while fetching latest follow-up leads.');
@@ -645,10 +743,10 @@ class LeadService
      * @throws DomainException
      */
 
-    public function getLatestTwoMeetingScheduledLeads()
+    public function getLatestTwoMeetingScheduledLeads(array $filters = [])
     {
         try {
-            return $this->leadRepository->getLatestTwoMeetingScheduledLeads();
+            return $this->leadRepository->getLatestTwoMeetingScheduledLeads($filters);
         } catch (QueryException $e) {
             Log::error('Database error fetching latest two  meeting scheduled leads', ['exception' => $e]);
             throw new DomainException('Database error while fetching latest meeting scheduled leads.');
@@ -782,6 +880,17 @@ class LeadService
     }
 
     /**
+     * Get the latest two leads.
+     *
+     * @param array $filters
+     * @return \Illuminate\Support\Collection
+     */
+    public function getLatestTwoLeads(array $filters = [])
+    {
+        return $this->leadRepository->getLatestTwoLeads($filters);
+    }
+
+    /**
      * Fire lead status changed notification when lead_status column changes.
      */
     protected function dispatchLeadStatusChangedEvent(int $leadId, ?int $previousLeadStatus): void
@@ -793,6 +902,47 @@ class LeadService
         }
 
         event(new LeadStatusChangedEvent($leadId, (int) $lead->lead_status));
+    }
+
+    /**
+     * Get lead performance data for a specific assigned user.
+     *
+     * @param int $userId
+     * @return Collection
+     * @throws DomainException
+     */
+    public function getUserLeadPerformance(int $userId, array $filters = []): Collection
+    {
+        try {
+            return $this->leadRepository->getUserLeadPerformance($userId, $filters);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching user lead performance', ['user_id' => $userId, 'exception' => $e]);
+            throw new DomainException('Database error while fetching user lead performance.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching user lead performance', ['user_id' => $userId, 'exception' => $e]);
+            throw new DomainException('Unexpected error while fetching user lead performance.');
+        }
+    }
+
+    /**
+     * Get assign-history comments for a lead in pages of 9.
+     *
+     * @param int $leadId
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     * @throws DomainException
+     */
+    public function getAssignHistoryByLeadId(int $leadId, int $perPage = 9): LengthAwarePaginator
+    {
+        try {
+            return $this->leadRepository->getAssignHistoryByLeadId($leadId, $perPage);
+        } catch (QueryException $e) {
+            Log::error('Database error fetching lead assign history', ['lead_id' => $leadId, 'exception' => $e]);
+            throw new DomainException('Database error while fetching lead assign history.');
+        } catch (Exception $e) {
+            Log::error('Unexpected error fetching lead assign history', ['lead_id' => $leadId, 'exception' => $e]);
+            throw new DomainException('Unexpected error while fetching lead assign history.');
+        }
     }
 }
 

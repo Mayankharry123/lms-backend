@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface PlannerRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use App\Models\Planner;
@@ -99,4 +105,13 @@ interface PlannerRepositoryInterface extends BaseRepositoryInterface
      * @return Planner|null
      */
     public function getPlannerByUuid(string $uuid): ?Planner;
+
+    /**
+     * Get approved backup plan for a brief.
+     *
+     * @param int $briefId
+     * @param mixed $user
+     * @return Planner|null
+     */
+    public function getApprovedBackupPlanByBriefId(int $briefId, $user = null): ?Planner;
 }

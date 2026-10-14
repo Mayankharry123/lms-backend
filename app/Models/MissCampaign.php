@@ -13,6 +13,7 @@
 
 namespace App\Models;
 
+use App\Support\UserAccessScope;
 use App\Traits\HandlesFileUploads;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -177,6 +178,14 @@ class MissCampaign extends BaseModel
     }
 
     /**
+     * Linked lead created from this pre-lead / miss campaign.
+     */
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class, 'leads_id');
+    }
+
+    /**
      * Scope to filter miss campaigns accessible to the given user.
      * Super Admin can view all campaigns.
      * Others can see campaigns where they are the assign_by or assign_to.
@@ -188,23 +197,21 @@ class MissCampaign extends BaseModel
     public function scopeAccessibleToUser(\Illuminate\Database\Eloquent\Builder $query, $user = null): \Illuminate\Database\Eloquent\Builder
     {
         $currentUser = $user ?: auth()->user();
-        $hisChilds = User::with('children')->find($currentUser->id)->toArray(); 
-        $user = array_merge([$currentUser->id], $this->makeArrayUsers($hisChilds['children'] ?? []));
-        
-        // Others can see campaigns where they are the assign_by or assign_to
-        return $query->where(function (\Illuminate\Database\Eloquent\Builder $q) use ($user) {
-            $q->whereIn('assign_by', $user)
-              ->orWhereIn('assign_to', $user);
-        });
-    }
 
-    private function makeArrayUsers(array $user): array
-    {
-        $users = [];
-        foreach ($user as $u) {
-            $users[] = $u['id'];
+        if (!$currentUser) {
+            return $query->whereRaw('0 = 1');
         }
-        return $users;
+
+        if (UserAccessScope::hasGlobalRecordAccess($currentUser)) {
+            return $query;
+        }
+
+        $visibleUserIds = UserAccessScope::getVisibleUserIds($currentUser);
+
+        return $query->where(function (\Illuminate\Database\Eloquent\Builder $q) use ($visibleUserIds) {
+            $q->whereIn('assign_by', $visibleUserIds)
+              ->orWhereIn('assign_to', $visibleUserIds);
+        });
     }
 
 }

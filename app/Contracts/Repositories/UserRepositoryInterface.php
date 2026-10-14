@@ -1,9 +1,16 @@
 <?php
-
+/**
+ * Interface UserRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 interface UserRepositoryInterface
 {
@@ -89,4 +96,49 @@ interface UserRepositoryInterface
      * @return array
      */
     public function getStatistics(): array;
+
+    /**
+     * Sync user departments.
+     *
+     * @param int $userId
+     * @param array $departmentIds
+     * @return void
+     */
+    public function syncDepartments(int $userId, array $departmentIds): void;
+
+    /**
+     * Active users in an organisation whose role slug is planner-admin.
+     * Matches users.organisation_id and the organisation_user pivot.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActivePlannerAdminsByOrganisation(int $organisationId): Collection;
+
+    /**
+     * Active users in an organisation whose role slug is ops-admin.
+     * Matches users.organisation_id and the organisation_user pivot.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActiveOpsAdminsByOrganisation(int $organisationId): Collection;
+
+    /**
+     * Active users in an organisation whose role slug is finance-admin.
+     * Matches users.organisation_id and the organisation_user pivot.
+     *
+     * @param int $organisationId
+     * @return Collection<int, User>
+     */
+    public function findActiveFinanceAdminsByOrganisation(int $organisationId): Collection;
+
+    /**
+     * Get all users without any filter or access scope.
+     *
+     * @param array $filters
+     * @param int|null $perPage
+     * @return \Illuminate\Database\Eloquent\Collection<int, User>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<User>
+     */
+    public function getAllWithoutFilter(array $filters = [], ?int $perPage = null);
 }

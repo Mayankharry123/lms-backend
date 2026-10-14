@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * AuthController
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Controllers\Api
+ * @version 1.0.1
+ */
 namespace App\Http\Controllers\Api;
 
 use App\Models\LoginLog;

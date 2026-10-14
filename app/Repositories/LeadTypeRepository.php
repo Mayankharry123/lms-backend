@@ -20,13 +20,28 @@ use App\Models\LeadType;
 
 class LeadTypeRepository implements LeadTypeRepositoryInterface
 {
+    /**
+     * @var LeadType
+     */
     protected LeadType $model;
 
+    /**
+     * LeadTypeRepository constructor.
+     *
+     * @param LeadType $leadType
+     */
     public function __construct(LeadType $leadType)
     {
         $this->model = $leadType;
     }
 
+    /**
+     * Get all lead types with pagination and optional search filter.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
     public function getAllLeadTypes(int $perPage = 10, ?string $searchTerm = null)
     {
         $query = $this->model->newQuery();
@@ -38,6 +53,11 @@ class LeadTypeRepository implements LeadTypeRepositoryInterface
         return $query->orderBy('created_at', 'asc')->paginate($perPage);
     }
 
+    /**
+     * List all lead types (id, name) ordered by name.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
     public function listLeadTypes()
     {
         return $this->model
@@ -46,11 +66,23 @@ class LeadTypeRepository implements LeadTypeRepositoryInterface
             ->get();
     }
 
+    /**
+     * Get a lead type by ID.
+     *
+     * @param int $id
+     * @return LeadType
+     */
     public function getLeadTypeById(int $id)
     {
         return $this->model->findOrFail($id);
     }
 
+    /**
+     * Create a new lead type.
+     *
+     * @param array $data
+     * @return LeadType
+     */
     public function createLeadType(array $data)
     {
         return $this->model->create($data);

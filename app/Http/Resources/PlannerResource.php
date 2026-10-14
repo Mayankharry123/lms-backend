@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * PlannerResource
+ * 
+ * @author Achal Sharma
+ * @package App\Http\Resources
+ * @version 1.0.1
+ */
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
@@ -19,6 +25,15 @@ class PlannerResource extends JsonResource
         return [
             // Basic Information
             'id' => $this->id,
+            'planner_id' => $this->id,
+            'planner_name' => $this->creator?->name ?? $this->brief?->assignedUser?->name ?? null,
+            'planner_user_id' => $this->creator?->id ?? $this->brief?->assign_user_id ?? null,
+            'planner' => [
+                'id' => $this->id,
+                'user_id' => $this->creator?->id ?? $this->brief?->assign_user_id ?? null,
+                'name' => $this->creator?->name ?? $this->brief?->assignedUser?->name ?? null,
+                'email' => $this->creator?->email ?? $this->brief?->assignedUser?->email ?? null,
+            ],
            // 'uuid' => $this->uuid,
             'status' => $this->status,
             'status_label' => $this->getStatusLabel(),
@@ -30,8 +45,24 @@ class PlannerResource extends JsonResource
                     'uuid' => $this->brief->uuid,
                     'name' => $this->brief->name,
                     'product_name' => $this->brief->product_name,
+                    'assigned_user' => $this->brief->assignedUser ? [
+                        'id' => $this->brief->assignedUser->id,
+                        'name' => $this->brief->assignedUser->name,
+                        'email' => $this->brief->assignedUser->email,
+                    ] : null,
+                    'organisation' => $this->brief->contactPerson?->organisation ? [
+                        'id' => $this->brief->contactPerson->organisation->id,
+                        'name' => $this->brief->contactPerson->organisation->name,
+                    ] : null,
+                    'department' => $this->brief->contactPerson?->department ? [
+                        'id' => $this->brief->contactPerson->department->id,
+                        'name' => $this->brief->contactPerson->department->name,
+                    ] : null,
                 ];
             }),
+
+            'organisation' => $this->getOrganisationData(),
+            'department' => $this->getDepartmentData(),
 
             'created_by' => $this->whenLoaded('creator', function () {
                 return [
@@ -152,5 +183,54 @@ class PlannerResource extends JsonResource
             '15' => 'Deleted',
             default => 'Unknown',
         };
+    }
+
+    /**
+     * Get organisation data for the planner.
+     *
+     * @return array|null
+     */
+    private function getOrganisationData(): ?array
+    {
+        if ($this->relationLoaded('brief') && $this->brief?->contactPerson?->organisation) {
+            return [
+                'id' => $this->brief->contactPerson->organisation->id,
+                'name' => $this->brief->contactPerson->organisation->name,
+            ];
+        }
+
+        if ($this->relationLoaded('creator') && $this->creator?->organisation) {
+            return [
+                'id' => $this->creator->organisation->id,
+                'name' => $this->creator->organisation->name,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get department data for the planner.
+     *
+     * @return array|null
+     */
+    private function getDepartmentData(): ?array
+    {
+        if ($this->relationLoaded('brief') && $this->brief?->contactPerson?->department) {
+            return [
+                'id' => $this->brief->contactPerson->department->id,
+                'name' => $this->brief->contactPerson->department->name,
+            ];
+        }
+
+        if ($this->relationLoaded('creator') && $this->creator?->relationLoaded('departments') && $this->creator?->departments?->isNotEmpty()) {
+            $dept = $this->creator->departments->first();
+            return [
+                'id' => $dept->id,
+                'name' => $dept->name,
+            ];
+        }
+
+        return null;
     }
 }

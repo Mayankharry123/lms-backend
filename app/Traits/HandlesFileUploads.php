@@ -16,9 +16,9 @@ trait HandlesFileUploads
      */
     protected array $defaultFileSizeLimits = [
         'image' => 5120,      // 5MB
-        'pdf' => 10240,       // 10MB
+        'pdf' => 51200,       // 50MB
         'video' => 51200,     // 50MB
-        'document' => 10240,  // 10MB
+        'document' => 51200,  // 50MB
     ];
 
     /**

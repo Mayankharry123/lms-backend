@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * GoogleCalendarService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 /*
     * Author: Sanjay Kumar
     * Email: sanjay.jangid@dgtoohl.com
@@ -21,8 +29,14 @@ use GuzzleHttp\Client as GuzzleClient;
 
 class GoogleCalendarService
 {
+    /**
+     * @var Client
+     */
     protected Client $client;
 
+    /**
+     * GoogleCalendarService constructor.
+     */
     public function __construct()
     {
         $this->client = new Client();
@@ -44,13 +58,24 @@ class GoogleCalendarService
        AUTH
     =============================== */
 
-    /** First-time Google login */
+    /**
+     * Generate first-time Google login authorization URL.
+     *
+     * @return string
+     */
     public function getAuthUrl(): string
     {
         return $this->client->createAuthUrl();
     }
 
-    /** Save token after Google callback */
+    /**
+     * Save OAuth access token after Google authorization callback.
+     *
+     * @param string $code
+     * @param int $userId
+     * @return void
+     * @throws Exception
+     */
     public function saveToken(string $code, int $userId = 1): void
     {
         $token = $this->client->fetchAccessTokenWithAuthCode($code);
@@ -69,6 +94,13 @@ class GoogleCalendarService
        CALENDAR CLIENT (AUTO LOGIN + REFRESH)
     =============================== */
 
+    /**
+     * Get initialized Google Calendar client instance with auto-login and token refresh.
+     *
+     * @param int $userId
+     * @return Calendar
+     * @throws Exception
+     */
     protected function getCalendar(int $userId): Calendar
     {
         $googleCalendar = GoogleCalender::where('user_id', $userId)->first();
@@ -112,6 +144,14 @@ class GoogleCalendarService
     }
 
    
+    /**
+     * Create event in Google Calendar (legacy implementation).
+     *
+     * @param array $data
+     * @param int $userId
+     * @return array
+     * @throws Exception
+     */
     public function createEventOld(array $data, int $userId = 1): array
     {        
         $calendar = $this->getCalendar($userId);
@@ -138,6 +178,14 @@ class GoogleCalendarService
         ];
     }
 
+    /**
+     * Create event in Google Calendar with optional Google Meet link.
+     *
+     * @param array $data
+     * @param int $userId
+     * @return array
+     * @throws Exception
+     */
     public function createEvent(array $data, int $userId = 1): array
     {
         $calendar = $this->getCalendar($userId);
@@ -182,6 +230,12 @@ class GoogleCalendarService
     }
 
 
+    /**
+     * Format email addresses into Google Calendar attendee structures.
+     *
+     * @param array $emails
+     * @return array
+     */
     protected function formatAttendees(array $emails = []): array
     {
         $attendees = [];
@@ -196,6 +250,15 @@ class GoogleCalendarService
     }
 
 
+    /**
+     * Update an existing Google Calendar event.
+     *
+     * @param string $eventId
+     * @param array $data
+     * @param int $userId
+     * @return array
+     * @throws Exception
+     */
     public function updateEvent(string $eventId, array $data, int $userId = 1): array
     {
         $calendar = $this->getCalendar($userId);
@@ -229,6 +292,14 @@ class GoogleCalendarService
         ];
     }
 
+    /**
+     * Delete an event from Google Calendar.
+     *
+     * @param string $eventId
+     * @param int $userId
+     * @return bool
+     * @throws Exception
+     */
     public function deleteEvent(string $eventId, int $userId = 1): bool
     {
         $calendar = $this->getCalendar($userId);

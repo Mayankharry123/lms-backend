@@ -1,5 +1,11 @@
 <?php
-
+/**
+ * Interface IndustryRepositoryInterface
+ * 
+ * @author Achal Sharma
+ * @package App\Contracts\Repositories
+ * @version 1.0.1
+ */
 namespace App\Contracts\Repositories;
 
 use App\Models\Industry;
@@ -35,4 +41,12 @@ interface IndustryRepositoryInterface
      * @param int $id
      */
     public function deleteIndustry($id);
+
+    /**
+     * Find non-deleted industries by name (case-insensitive).
+     *
+     * @param array<int, string> $names
+     * @return \Illuminate\Support\Collection
+     */
+    public function findByNames(array $names);
 }

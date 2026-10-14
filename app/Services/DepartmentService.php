@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * DepartmentService
+ * 
+ * @author Achal Sharma
+ * @package App\Services
+ * @version 1.0.1
+ */
+
 namespace App\Services;
 
 use App\Contracts\Repositories\DepartmentRepositoryInterface;
@@ -10,17 +18,33 @@ use Exception;
 
 class DepartmentService
 {
+    /**
+     * @var DepartmentRepositoryInterface
+     */
     protected $departmentRepository;
 
+    /**
+     * DepartmentService constructor.
+     *
+     * @param DepartmentRepositoryInterface $departmentRepository
+     */
     public function __construct(DepartmentRepositoryInterface $departmentRepository)
     {
         $this->departmentRepository = $departmentRepository;
     }
 
-    public function getAllDepartments(int $perPage = 10,?string $searchTerm = null) // <-- Parameter added
+    /**
+     * Get all departments with pagination and optional search filter.
+     *
+     * @param int $perPage
+     * @param string|null $searchTerm
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     * @throws DomainException
+     */
+    public function getAllDepartments(int $perPage = 10, ?string $searchTerm = null)
     {
         try {
-            return $this->departmentRepository->getAllDepartments($perPage, $searchTerm); // <-- Parameter passed
+            return $this->departmentRepository->getAllDepartments($perPage, $searchTerm);
         } catch (QueryException $e) {
             throw new DomainException('Database error while fetching departments: ' . $e->getMessage());
         } catch (Exception $e) {
@@ -28,6 +52,13 @@ class DepartmentService
         }
     }
 
+    /**
+     * Create a new department.
+     *
+     * @param array $data
+     * @return \App\Models\Department
+     * @throws DomainException
+     */
     public function createNewDepartment(array $data)
     {
         try {
@@ -48,6 +79,13 @@ class DepartmentService
         }
     }
 
+    /**
+     * Get a department by ID.
+     *
+     * @param int $id
+     * @return \App\Models\Department
+     * @throws DomainException
+     */
     public function getDepartment($id)
     {
         try {
@@ -63,6 +101,14 @@ class DepartmentService
         }
     }
 
+    /**
+     * Update a department by ID.
+     *
+     * @param int $id
+     * @param array $data
+     * @return \App\Models\Department
+     * @throws DomainException
+     */
     public function updateDepartment($id, array $data)
     {
         try {
@@ -85,6 +131,13 @@ class DepartmentService
         }
     }
 
+    /**
+     * Delete a department by ID.
+     *
+     * @param int $id
+     * @return bool|null
+     * @throws DomainException
+     */
     public function deleteDepartment($id)
     {
         try {
@@ -101,6 +154,14 @@ class DepartmentService
         }
     }
 
+    /**
+     * Generate a unique slug for a department.
+     *
+     * @param string $name
+     * @param int|null $excludeId
+     * @return string
+     * @throws DomainException
+     */
     private function createUniqueSlug(string $name, $excludeId = null): string
     {
         $slug = Str::slug($name);
