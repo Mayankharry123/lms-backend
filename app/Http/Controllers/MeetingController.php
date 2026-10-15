@@ -62,6 +62,8 @@ class MeetingController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            $this->meetingService->completeExpiredMeetings();
+
             $perPage = (int) $request->input('per_page', 15);
             $search = $request->input('search', null);
             $filters = \App\Support\DashboardFilters::fromRequest($request);
