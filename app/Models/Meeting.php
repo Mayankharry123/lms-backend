@@ -11,6 +11,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Collection;
+use Carbon\Carbon;
 
 class Meeting extends Model
 {
@@ -99,5 +100,39 @@ class Meeting extends Model
         }
 
         return ['all' => $allMeetings, 'meeting' => $meeting];
+    }
+
+    /**
+     * Scope a query to only include active (non-completed) meetings whose end date has passed.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeExpiredActive($query)
+    {
+        return $query->where('status', '!=', '15')
+            ->whereNotNull('meeting_end_date')
+            ->where('meeting_end_date', '<=', Carbon::now());
+    }
+
+    /**
+     * Fetch all expired active meetings.
+     *
+     * @return Collection<int, self>
+     */
+    public static function getExpiredActiveMeetings(): Collection
+    {
+        return self::expiredActive()->get();
+    }
+
+    /**
+     * Mark a meeting as completed (status = 15).
+     *
+     * @param int $id
+     * @return bool
+     */
+    public static function markMeetingCompleted(int $id): bool
+    {
+        return (bool) self::where('id', $id)->update(['status' => '15']);
     }
 }

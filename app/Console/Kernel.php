@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         \App\Console\Commands\ImportGeographyDump::class,
         \App\Console\Commands\StorageLinkCommand::class,
+        \App\Console\Commands\CompleteExpiredMeetings::class,
     ];
 
     /**
@@ -25,6 +26,6 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        //
+        $schedule->command('meetings:complete-expired')->everyFiveMinutes();
     }
 }

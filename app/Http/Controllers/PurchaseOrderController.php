@@ -57,6 +57,7 @@ class PurchaseOrderController extends Controller
                 'user_ids' => 'nullable',
                 'assign_to' => 'nullable|integer|min:1',
                 'assign_by' => 'nullable|integer|min:1',
+                'created_by' => 'nullable|integer|min:1',
             ]);
 
             $perPage = (int) ($validated['per_page'] ?? 15);
@@ -69,6 +70,7 @@ class PurchaseOrderController extends Controller
                 'user_ids' => $validated['user_ids'] ?? null,
                 'assign_to' => $validated['assign_to'] ?? null,
                 'assign_by' => $validated['assign_by'] ?? null,
+                'created_by' => $validated['created_by'] ?? null,
             ], fn ($value) => $value !== null && $value !== '');
             $purchaseOrders = $this->purchaseOrderService->list($perPage, $filters, Auth::user());
 
@@ -120,6 +122,8 @@ class PurchaseOrderController extends Controller
                 'publisher_id' => 'required|integer|min:1',
                 'publisher_address_id' => 'nullable|integer|min:1',
                 'finance_record_id' => 'required|integer|min:1',
+                'created_by' => 'nullable|integer|exists:users,id',
+                'assign_to' => 'nullable|integer|exists:users,id',
                 'campaign' => 'nullable|string|max:255',
                 'period' => 'nullable|string|max:255',
                 'orders' => 'required|array|min:1',

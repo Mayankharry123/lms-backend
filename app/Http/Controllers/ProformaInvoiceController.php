@@ -61,6 +61,8 @@ class ProformaInvoiceController extends Controller
                 'brand_id',
                 'created_by',
                 'assign_to',
+                'brief_id',
+                'planner_id',
                 'status',
                 'from_date',
                 'to_date',
@@ -114,6 +116,8 @@ class ProformaInvoiceController extends Controller
 
             $validated = $this->validate($request, [
                 'brand_id' => 'required|integer|exists:brands,id',
+                'brief_id' => 'nullable|integer|exists:briefs,id',
+                'planner_id' => 'nullable|integer|exists:planners,id',
                 'brand_name' => 'nullable|string|max:255',
                 'client_name' => 'nullable|string|max:255',
                 'gst_no' => 'nullable|string|max:50',
@@ -188,6 +192,8 @@ class ProformaInvoiceController extends Controller
 
             $validated = $this->validate($request, [
                 'brand_id' => 'nullable|integer|exists:brands,id',
+                'brief_id' => 'nullable|integer|exists:briefs,id',
+                'planner_id' => 'nullable|integer|exists:planners,id',
                 'brand_name' => 'nullable|string|max:255',
                 'client_name' => 'nullable|string|max:255',
                 'gst_no' => 'nullable|string|max:50',

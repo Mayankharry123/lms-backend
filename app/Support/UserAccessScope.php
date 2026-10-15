@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\User;
+use App\Support\DashboardFilters;
 
 class UserAccessScope
 {
@@ -44,6 +45,31 @@ class UserAccessScope
     public static function hasGlobalRecordAccess(User $user): bool
     {
         return self::isSuperAdmin($user) && !empty(self::getAccessibleOrganisationIds($user));
+    }
+
+    /**
+     * Check if a user can access a record associated with any of the given user IDs (e.g. created_by, assign_to, assign_by).
+     *
+     * @param User $user Authenticated user
+     * @param int|null ...$recordUserIds User IDs tied to the record
+     * @return bool
+     */
+    public static function canAccessRecord(User $user, ?int ...$recordUserIds): bool
+    {
+        if (self::isSuperAdmin($user) || self::hasGlobalRecordAccess($user)) {
+            return true;
+        }
+
+        $visibleUserIds = self::getVisibleUserIds($user);
+        $recordUserIds = array_values(array_filter(array_map('intval', $recordUserIds), fn ($id) => $id > 0));
+
+        foreach ($recordUserIds as $id) {
+            if ($id === (int) $user->id || in_array($id, $visibleUserIds, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -148,7 +174,7 @@ class UserAccessScope
             return [(int) $user->id];
         }
 
-        $orgUserIds = \App\Support\DashboardFilters::getOrganisationUserIds($userOrgIds);
+        $orgUserIds = DashboardFilters::getOrganisationUserIds($userOrgIds);
         
         if (empty($orgUserIds)) {
             return [(int) $user->id];

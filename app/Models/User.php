@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Traits\NotificationTrait;
+use App\Support\UserAccessScope;
 
 class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
@@ -181,15 +182,35 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @param array<int, string> $excludedRoleSlugs Role slugs omitted at every level. Their children are omitted too.
      * @return array
      */
-    public function getChildTreeByOrganisation($organisationId, array $leadFilters = [], array $zoneIds = [], array $excludedRoleSlugs = []): array
-    {
+
+    public function getChildTreeByOrganisation(
+        $organisationId,
+        array $leadFilters = [],
+        array $zoneIds = [],
+        array $excludedRoleSlugs = [],
+        array $allowedRoleSlugs = [],
+        array $allowedDepartmentSlugs = [],
+        array $excludedDepartmentSlugs = [],
+        array $allowedRoleIds = [],
+        array $allowedDepartmentIds = []
+    ): array {
         $organisationIds = is_array($organisationId) ? $organisationId : [$organisationId];
         $excludedRoleSlugs = array_values(array_filter($excludedRoleSlugs, fn ($slug) => is_string($slug) && $slug !== ''));
+        $allowedRoleSlugs = array_values(array_filter($allowedRoleSlugs, fn ($slug) => is_string($slug) && $slug !== ''));
+        $allowedDepartmentSlugs = array_values(array_filter($allowedDepartmentSlugs, fn ($slug) => is_string($slug) && $slug !== ''));
+        $excludedDepartmentSlugs = array_values(array_filter($excludedDepartmentSlugs, fn ($slug) => is_string($slug) && $slug !== ''));
+        $allowedRoleIds = array_values(array_filter(array_map('intval', $allowedRoleIds), fn ($id) => $id > 0));
+        $allowedDepartmentIds = array_values(array_filter(array_map('intval', $allowedDepartmentIds), fn ($id) => $id > 0));
 
         $children = $this->children()
             ->when($excludedRoleSlugs !== [], function ($query) use ($excludedRoleSlugs) {
                 $query->whereDoesntHave('roles', function ($roleQuery) use ($excludedRoleSlugs) {
                     $roleQuery->whereIn('roles.slug', $excludedRoleSlugs);
+                });
+            })
+            ->when($excludedDepartmentSlugs !== [], function ($query) use ($excludedDepartmentSlugs) {
+                $query->whereDoesntHave('departments', function ($deptQuery) use ($excludedDepartmentSlugs) {
+                    $deptQuery->whereIn('departments.slug', $excludedDepartmentSlugs);
                 });
             })
             ->when(!empty($organisationIds) || !empty($zoneIds), function ($query) use ($organisationIds, $zoneIds) {
@@ -214,6 +235,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
             ->when(!empty($leadFilters['name']), function ($query) use ($leadFilters) {
                 $query->where('users.name', 'LIKE', '%' . $leadFilters['name'] . '%');
             })
+            ->with(['roles:id,name,slug', 'departments:id,name,slug'])
             ->select('users.id', 'users.name', 'users.email')
             ->withCount(['assignedLeads as assigned_leads_count' => function ($query) use ($leadFilters) {
                 foreach (['call_status', 'lead_status', 'priority'] as $column) {
@@ -234,15 +256,48 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
             ->orderBy('users.name', 'asc')
             ->get();
         
+        $hasAllowedFilters = !empty($allowedRoleSlugs) || !empty($allowedDepartmentSlugs) || !empty($allowedRoleIds) || !empty($allowedDepartmentIds);
+
         $tree = [];
         foreach ($children as $child) {
-            $tree[] = [
-                'id' => $child->id,
-                'name' => $child->name,
-                'email' => $child->email,
-                'assigned_leads_count' => $child->assigned_leads_count,
-                'children' => $child->getChildTreeByOrganisation($organisationIds, $leadFilters, $zoneIds, $excludedRoleSlugs)
-            ];
+            $nestedChildren = $child->getChildTreeByOrganisation(
+                $organisationIds,
+                $leadFilters,
+                $zoneIds,
+                $excludedRoleSlugs,
+                $allowedRoleSlugs,
+                $allowedDepartmentSlugs,
+                $excludedDepartmentSlugs,
+                $allowedRoleIds,
+                $allowedDepartmentIds
+            );
+
+            $matchesAllowed = true;
+            if ($hasAllowedFilters) {
+                $userRoleSlugs = $child->roles->pluck('slug')->toArray();
+                $userDeptSlugs = $child->departments->pluck('slug')->toArray();
+                $userRoleIds = $child->roles->pluck('id')->toArray();
+                $userDeptIds = $child->departments->pluck('id')->toArray();
+
+                $matchesAllowed = (!empty($allowedRoleSlugs) && !empty(array_intersect($userRoleSlugs, $allowedRoleSlugs)))
+                    || (!empty($allowedDepartmentSlugs) && !empty(array_intersect($userDeptSlugs, $allowedDepartmentSlugs)))
+                    || (!empty($allowedRoleIds) && !empty(array_intersect($userRoleIds, $allowedRoleIds)))
+                    || (!empty($allowedDepartmentIds) && !empty(array_intersect($userDeptIds, $allowedDepartmentIds)));
+            }
+
+            if ($matchesAllowed) {
+                $tree[] = [
+                    'id' => $child->id,
+                    'name' => $child->name,
+                    'email' => $child->email,
+                    'assigned_leads_count' => $child->assigned_leads_count,
+                    'children' => $nestedChildren
+                ];
+            } elseif (!empty($nestedChildren)) {
+                foreach ($nestedChildren as $descendant) {
+                    $tree[] = $descendant;
+                }
+            }
         }
         
         return $tree;
@@ -409,7 +464,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
 
         return $query->whereIn(
             'users.id',
-            \App\Support\UserAccessScope::getStrictDescendantsInOrganisation($user)
+            UserAccessScope::getStrictDescendantsInOrganisation($user)
         );
     }
 

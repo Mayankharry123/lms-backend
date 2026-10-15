@@ -339,6 +339,10 @@ trait HandlesFileUploads
      */
     protected function generateFileUrl(string $path, string $disk): string
     {
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
         $diskConfig = config("filesystems.disks.{$disk}", []);
         $driver = $diskConfig['driver'] ?? 'local';
 
@@ -350,9 +354,8 @@ trait HandlesFileUploads
 
             if (!empty($diskUrl)) {
 
-                // Agar relative URL hai to domain add karo
                 if (!Str::startsWith($diskUrl, ['http://', 'https://'])) {
-                    $baseUrl = rtrim(config('app.url', 'http://localhost'), '/');
+                    $baseUrl = rtrim((string) (config('app.url') ?: env('APP_URL', 'http://localhost')), '/');
                     return $baseUrl . '/' . ltrim($diskUrl, '/');
                 }
 
@@ -361,7 +364,7 @@ trait HandlesFileUploads
         } catch (Exception $e) {
         }
 
-        $baseUrl = rtrim(config('app.url', 'http://localhost'), '/');
+        $baseUrl = rtrim((string) (config('app.url') ?: env('APP_URL', 'http://localhost')), '/');
 
         if ($driver === 's3') {
             if (isset($diskConfig['url'])) {

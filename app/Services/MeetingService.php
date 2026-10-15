@@ -28,13 +28,22 @@ class MeetingService
     protected MeetingRepositoryInterface $repository;
 
     /**
+     * @var LeadService
+     */
+    protected LeadService $leadService;
+
+    /**
      * Create a new MeetingService instance.
      *
      * @param MeetingRepositoryInterface $repository
+     * @param LeadService $leadService
      */
-    public function __construct(MeetingRepositoryInterface $repository)
-    {
+    public function __construct(
+        MeetingRepositoryInterface $repository,
+        LeadService $leadService
+    ) {
         $this->repository = $repository;
+        $this->leadService = $leadService;
     }
 
     // ============================================================================
@@ -344,5 +353,46 @@ class MeetingService
             Log::error('Unexpected error fetching lead ID by email', ['lead_id' => $leadId, 'exception' => $e]);
             throw new DomainException('Unexpected error while fetching lead ID by email.');
         }
-    }   
+    }
+
+    /**
+     * Automatically mark expired scheduled/in-progress meetings as completed (status = 15)
+     * and transition connected leads to "Meeting Done".
+     *
+     * @return int Number of meetings transitioned
+     */
+    public function completeExpiredMeetings(): int
+    {
+        try {
+            $expiredMeetings = $this->repository->getExpiredActiveMeetings();
+
+            if ($expiredMeetings->isEmpty()) {
+                return 0;
+            }
+
+            $count = 0;
+
+            foreach ($expiredMeetings as $meeting) {
+                $this->repository->markMeetingCompleted((int) $meeting->id);
+                $count++;
+
+                if ($meeting->lead_id) {
+                    try {
+                        $this->leadService->applyMeetingCompleteWorkflow((int) $meeting->lead_id);
+                    } catch (\Throwable $e) {
+                        Log::error('Error applying meeting complete workflow for lead', [
+                            'meeting_id' => $meeting->id,
+                            'lead_id' => $meeting->lead_id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+            }
+
+            return $count;
+        } catch (\Throwable $e) {
+            Log::error('Error completing expired meetings', ['error' => $e->getMessage()]);
+            return 0;
+        }
+    }
 }
