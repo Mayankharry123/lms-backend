@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Throwable;
 use Illuminate\Validation\ValidationException;
+use App\Support\UserAccessScope;
 
 
 class BriefController extends Controller
@@ -259,23 +260,16 @@ class BriefController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Authorization: Allow if Super Admin / Admin role OR has brief.view permission OR created_by OR assigned_to
-            /**
-             * Added brief view authorization for Super Admin/Admin, users with
-             * brief.view permission, brief creator, and assigned user.
-             */
+            // Authorization: Allow if Super Admin, brief.view permission, created_by, assigned_to, or if record belongs to a child/descendant user
+            $canAccess = UserAccessScope::canAccessRecord(
+                $user,
+                $brief->created_by,
+                $brief->assign_user_id,
+                $brief->contactPerson?->created_by,
+                $brief->contactPerson?->current_assign_user
+            ) || $user->hasRole('admin') || $user->hasPermission('brief.view');
 
-            $isSuperAdmin = $user->hasRole('Super Admin') || $user->hasRole('admin');
-            $hasViewPermission = $user->hasPermission('brief.view');
-            $isCreatedBy = $user->id == $brief->created_by;
-            $isAssignedTo = $user->id == $brief->assign_user_id;
-
-            /**
-             * Updated brief creation to always assign the brief to the
-             * top-level planner-admin user within the relevant organisation.
-             */
-            
-            if (!$isSuperAdmin && !$hasViewPermission && !$isCreatedBy && !$isAssignedTo) {
+            if (!$canAccess) {
                 return $this->responseService->forbidden(
                     'You are not authorized to view this brief.'
                 );
