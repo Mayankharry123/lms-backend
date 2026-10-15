@@ -74,6 +74,21 @@ interface MeetingRepositoryInterface
      */
     public function getByStatus(string $status): Collection;
 
+    /**
+     * Fetch all active meetings whose end time has passed.
+     *
+     * @return Collection
+     */
+    public function getExpiredActiveMeetings(): Collection;
+
+    /**
+     * Mark a meeting as completed (status = 15).
+     *
+     * @param int $id The meeting ID.
+     * @return bool
+     */
+    public function markMeetingCompleted(int $id): bool;
+
     // ============================================================================
     // WRITE OPERATIONS
     // ============================================================================

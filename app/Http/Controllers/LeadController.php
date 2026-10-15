@@ -15,6 +15,7 @@ use App\Http\Resources\UserLeadPerformanceResource;
 use App\Models\Lead;
 use App\Services\LeadService;
 use App\Services\ResponseService;
+use App\Support\UserAccessScope;
 use App\Traits\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -330,14 +331,16 @@ class LeadController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Authorization: Allow if Super Admin role OR created_by OR current_assign_user
-            $isSuperAdmin = $user->hasRole('Super Admin');
-            $isCreatedBy = $user->id == $lead->created_by;
-            $isAssignedTo = $user->id == $lead->current_assign_user;
+            // Authorization: Allow if Super Admin, created_by, current_assign_user, or if lead belongs to a child/descendant user
+            $canAccess = UserAccessScope::canAccessRecord(
+                $user,
+                $lead->created_by,
+                $lead->current_assign_user
+            );
 
-            if (!$isSuperAdmin && !$isCreatedBy && !$isAssignedTo) {
+            if (!$canAccess) {
                 return $this->responseService->forbidden(
-                    'You are not authorized to view this lead. Only Super Admin, the user who created this lead, or the user assigned to this lead can view it.'
+                    'You are not authorized to view this lead.'
                 );
             }
 
@@ -392,7 +395,7 @@ class LeadController extends Controller
             ];
 
             $user = auth()->user();
-            $orgIds = \App\Support\UserAccessScope::getAccessibleOrganisationIds($user);
+            $orgIds = UserAccessScope::getAccessibleOrganisationIds($user);
 
             if (count($orgIds) > 1) {
                 $rules['organisation_id'] = 'required|integer|in:' . implode(',', $orgIds);
@@ -504,7 +507,7 @@ class LeadController extends Controller
             ];
 
             $user = auth()->user();
-            $orgIds = \App\Support\UserAccessScope::getAccessibleOrganisationIds($user);
+            $orgIds = UserAccessScope::getAccessibleOrganisationIds($user);
 
             if (count($orgIds) > 1) {
                 $rules['organisation_id'] = 'sometimes|required|integer|in:' . implode(',', $orgIds);

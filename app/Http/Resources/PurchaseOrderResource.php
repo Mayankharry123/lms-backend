@@ -37,7 +37,14 @@ class PurchaseOrderResource extends JsonResource
             'planner_name' => $planner && $planner->relationLoaded('creator') ? $planner->creator?->name : null,
             'submitted_date' => $financeRecord?->created_at?->format('Y-m-d H:i:s A'),
             'assign_by' => $this->userPayload($financeRecord, 'assignedBy'),
-            'assign_to' => $this->userPayload($financeRecord, 'assignedTo'),
+            'assign_to' => $this->relationLoaded('assignedTo') && $this->assignedTo
+                ? ['id' => $this->assignedTo->id, 'name' => $this->assignedTo->name]
+                : $this->userPayload($financeRecord, 'assignedTo'),
+            'assign_to_id' => $this->assign_to ? (int) $this->assign_to : $financeRecord?->assign_to,
+            'created_by' => $this->relationLoaded('creator') && $this->creator
+                ? ['id' => $this->creator->id, 'name' => $this->creator->name]
+                : ($this->created_by ? ['id' => (int) $this->created_by, 'name' => null] : null),
+            'created_by_id' => $this->created_by ? (int) $this->created_by : null,
             'cost_sheet_status' => $brief && $brief->relationLoaded('costSheetStatus') && $brief->costSheetStatus
                 ? [
                     'id' => $brief->costSheetStatus->id,

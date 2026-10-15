@@ -14,8 +14,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\MissCampaignResource;
+use App\Models\Lead;
 use App\Services\MissCampaignService;
 use App\Services\ResponseService;
+use App\Support\UserAccessScope;
 use App\Traits\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +25,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Throwable;
 use Illuminate\Validation\ValidationException;
-use App\Models\Lead;
 
 class MissCampaignController extends Controller
 {
@@ -186,14 +187,19 @@ class MissCampaignController extends Controller
                 return $this->responseService->unauthorized('User not authenticated');
             }
 
-            // Authorization: Allow if Super Admin role OR assign_by OR assign_to
-            $isSuperAdmin = $user->hasRole('Super Admin');
-            $isAssignBy = $user->id == $campaign->assign_by;
-            $isAssignTo = $user->id == $campaign->assign_to;
+            // Authorization: Allow if Super Admin, assign_by, assign_to, or if campaign belongs to a child/descendant user
+            $lead = $campaign->lead;
+            $canAccess = UserAccessScope::canAccessRecord(
+                $user,
+                $campaign->assign_by,
+                $campaign->assign_to,
+                $lead?->created_by,
+                $lead?->current_assign_user
+            );
 
-            if (!$isSuperAdmin && !$isAssignBy && !$isAssignTo) {
+            if (!$canAccess) {
                 return $this->responseService->forbidden(
-                    'You are not authorized to view this miss campaign. Only Super Admin, the user who assigned this campaign, or the user assigned to this campaign can view it.'
+                    'You are not authorized to view this miss campaign.'
                 );
             }
 
@@ -234,7 +240,7 @@ class MissCampaignController extends Controller
             ];
 
             $user = auth()->user();
-            $orgIds = \App\Support\UserAccessScope::getAccessibleOrganisationIds($user);
+            $orgIds = UserAccessScope::getAccessibleOrganisationIds($user);
 
             if (count($orgIds) > 1) {
                 $rules['organisation_id'] = 'required|integer|in:' . implode(',', $orgIds);
@@ -330,7 +336,7 @@ class MissCampaignController extends Controller
             ];
 
             $user = auth()->user();
-            $orgIds = \App\Support\UserAccessScope::getAccessibleOrganisationIds($user);
+            $orgIds = UserAccessScope::getAccessibleOrganisationIds($user);
 
             if (count($orgIds) > 1) {
                 $rules['organisation_id'] = 'sometimes|required|integer|in:' . implode(',', $orgIds);

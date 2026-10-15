@@ -35,7 +35,7 @@ class BriefResource extends JsonResource
              */
             'assign_user_id' => $this->assign_user_id,
             'comment' => $this->comment,
-            'attachment' => $this->attachment,
+            'attachment_url' => $this->attachment ? $this->getFileUrl($this->attachment) : null,
             'submission_date' => $this->formatSubmissionDate(),
             'status' => $this->status,
             'left_time' => $this->calculateLeftTime(),

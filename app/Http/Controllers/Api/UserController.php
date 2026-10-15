@@ -768,15 +768,17 @@ class UserController extends Controller
             }
 
             $organisationIds = $request->input('organisation_id')
-                ?? $request->input('organisation_user');
+                ?? $request->input('organization_id')
+                ?? $request->input('organisation_user')
+                ?? $request->input('organization_user');
             $zoneIds = $request->input('zone_ids') ?? $request->input('zone_id');
 
-            // Preserve duplicate query parameters such as organisation_id=1&organisation_id=2.
+            // Preserve duplicate query parameters such as organisation_id=1&organisation_id=2 or organization_id=1.
             $rawOrganisationIds = [];
             foreach (explode('&', (string) $request->getQueryString()) as $parameter) {
                 [$key, $value] = array_pad(explode('=', $parameter, 2), 2, null);
                 $key = urldecode((string) $key);
-                if (in_array(rtrim($key, '[]'), ['organisation_id', 'organisation_user'], true)) {
+                if (in_array(rtrim($key, '[]'), ['organisation_id', 'organization_id', 'organisation_user', 'organization_user'], true)) {
                     $rawOrganisationIds[] = urldecode((string) $value);
                 }
             }
@@ -829,8 +831,7 @@ class UserController extends Controller
             ];
 
             // Get all descendants in nested tree format filtered by organisation.
-            // Planner roles are omitted at every level, including their nested children.
-            $childTree = $user->getChildTreeByOrganisation($organisationIds, $leadFilters, $zoneIds, ['planner-admin', 'planner']);
+            $childTree = $this->getSalesChildTree($user, $organisationIds, $request, $leadFilters, $zoneIds);
 
             $perPage = max(1, (int) $request->input('per_page', 5));
             $currentPage = max(1, (int) $request->input('page', 1));
@@ -882,8 +883,7 @@ class UserController extends Controller
             }
 
             // Get all descendants of the current logged-in user in nested tree format filtered by the lead's organisation.
-            // Planner roles are omitted at every level, including their nested children.
-            $childTree = $user->getChildTreeByOrganisation($organisationId, [], [], ['planner-admin', 'planner']);
+            $childTree = $this->getSalesChildTree($user, $organisationId, $request);
             
             return $this->responseService->success(
                 $childTree,
@@ -921,7 +921,7 @@ class UserController extends Controller
             }
 
             // Get all descendants of the AUTH user in nested tree format filtered by the lead's organisation
-            $childTree = $user->getChildTreeByOrganisation($organisationId);
+            $childTree = $this->getSalesChildTree($user, $organisationId, $request);
             
             return $this->responseService->success(
                 $childTree,
@@ -963,7 +963,7 @@ class UserController extends Controller
             $organisationId = $lead->organisation_id;
 
             // Get all descendants of the current logged-in user in nested tree format filtered by the organisation
-            $childTree = $user->getChildTreeByOrganisation($organisationId);
+            $childTree = $this->getSalesChildTree($user, $organisationId, $request);
             
             return $this->responseService->success(
                 $childTree,
@@ -1004,7 +1004,7 @@ class UserController extends Controller
             $organisationId = $lead->organisation_id;
 
             // Get all descendants of the AUTH user in nested tree format filtered by the lead's organisation
-            $childTree = $user->getChildTreeByOrganisation($organisationId);
+            $childTree = $this->getSalesChildTree($user, $organisationId, $request);
             
             return $this->responseService->success(
                 $childTree,
@@ -1013,6 +1013,94 @@ class UserController extends Controller
         } catch (\Exception $e) {
             return $this->responseService->serverError('Failed to retrieve child users for brief: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Build sales child user tree with default non-sales exclusion and optional role/department filters.
+     *
+     * @param \App\Models\User $user
+     * @param int|array<int> $organisationIds
+     * @param Request $request
+     * @param array<string, mixed> $leadFilters
+     * @param array<int> $zoneIds
+     * @return array
+     */
+    private function getSalesChildTree($user, $organisationIds, Request $request, array $leadFilters = [], array $zoneIds = []): array
+    {
+        // Exclude non-sales roles and departments so only sales hierarchy (Sales Admin, Sales User) is returned.
+        $excludedRoleSlugs = ['planner-admin', 'planner', 'ops-admin', 'ops-user', 'finance-admin', 'finance-user'];
+        $excludedDepartmentSlugs = ['planner-admin', 'planner-user', 'planner', 'ops-admin', 'ops-user', 'operations', 'finance-admin', 'finance-user', 'finance'];
+
+        $allowedRoleSlugs = [];
+        $allowedDepartmentSlugs = [];
+        $allowedRoleIds = [];
+        $allowedDepartmentIds = [];
+
+        // Parse ID filters
+        $roleIdInputs = $request->input('role_id') ?? $request->input('role_ids');
+        if (!empty($roleIdInputs)) {
+            $ids = is_array($roleIdInputs) ? $roleIdInputs : explode(',', (string) $roleIdInputs);
+            $allowedRoleIds = array_values(array_filter(array_map('intval', $ids), fn($id) => $id > 0));
+        }
+
+        $deptIdInputs = $request->input('department_id') ?? $request->input('department_ids');
+        if (!empty($deptIdInputs)) {
+            $ids = is_array($deptIdInputs) ? $deptIdInputs : explode(',', (string) $deptIdInputs);
+            $allowedDepartmentIds = array_values(array_filter(array_map('intval', $ids), fn($id) => $id > 0));
+        }
+
+        // Parse slug/role/department filters (e.g. sales-admin, sales-user)
+        $slugInputs = [];
+        foreach (['role', 'roles', 'role_slug', 'role_slugs', 'department', 'departments', 'department_slug', 'department_slugs', 'user_type', 'type', 'sales_role'] as $param) {
+            $val = $request->input($param);
+            if (!empty($val)) {
+                $items = is_array($val) ? $val : explode(',', (string) $val);
+                foreach ($items as $item) {
+                    $cleaned = str_replace('_', '-', strtolower(trim((string) $item)));
+                    if ($cleaned !== '') {
+                        $slugInputs[] = $cleaned;
+                    }
+                }
+            }
+        }
+        $slugInputs = array_unique($slugInputs);
+
+        foreach ($slugInputs as $slug) {
+            if (in_array($slug, ['sales-admin', 'sales-master', 'salesadmin', 'salesmaster'], true)) {
+                $allowedRoleSlugs[] = 'sales-master';
+                $allowedRoleSlugs[] = 'sales-admin';
+                $allowedDepartmentSlugs[] = 'sales-admin';
+            } elseif (in_array($slug, ['sales-user', 'salesman', 'salesuser'], true)) {
+                $allowedRoleSlugs[] = 'salesman';
+                $allowedRoleSlugs[] = 'sales-user';
+                $allowedDepartmentSlugs[] = 'sales-user';
+            } elseif ($slug === 'sales') {
+                $allowedRoleSlugs[] = 'sales-master';
+                $allowedRoleSlugs[] = 'sales-admin';
+                $allowedRoleSlugs[] = 'salesman';
+                $allowedRoleSlugs[] = 'sales-user';
+                $allowedDepartmentSlugs[] = 'sales-admin';
+                $allowedDepartmentSlugs[] = 'sales-user';
+            } else {
+                $allowedRoleSlugs[] = $slug;
+                $allowedDepartmentSlugs[] = $slug;
+            }
+        }
+
+        $allowedRoleSlugs = array_values(array_unique($allowedRoleSlugs));
+        $allowedDepartmentSlugs = array_values(array_unique($allowedDepartmentSlugs));
+
+        return $user->getChildTreeByOrganisation(
+            $organisationIds,
+            $leadFilters,
+            $zoneIds,
+            $excludedRoleSlugs,
+            $allowedRoleSlugs,
+            $allowedDepartmentSlugs,
+            $excludedDepartmentSlugs,
+            $allowedRoleIds,
+            $allowedDepartmentIds
+        );
     }
 
 

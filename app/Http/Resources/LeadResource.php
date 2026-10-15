@@ -45,6 +45,7 @@ class LeadResource extends JsonResource
             //'lead_type_id' => $this->lead_type_id,
             'status' => $this->status,
             'comment' => $this->comment,
+            'pre_lead' => !empty($this->pre_lead_id) ? 1 : 0,
 
             // Foreign Key IDs
             //'brand_id' => $this->brand_id,
@@ -197,8 +198,8 @@ class LeadResource extends JsonResource
             // }),
 
             // // Timestamps
-            'created_at' => $this->created_at->format('Y-m-d H:i:s A'),
-            'updated_at' => $this->updated_at->format('Y-m-d H:i:s A'),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s A'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s A'),
         ];
     }
 }

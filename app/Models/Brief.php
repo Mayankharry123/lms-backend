@@ -25,10 +25,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Traits\HandlesFileUploads;
 
 class Brief extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HandlesFileUploads;
 
     protected const DEFAULT_RELATIONSHIPS = [
         'contactPerson.organisation',
@@ -653,6 +654,26 @@ class Brief extends Model
     public function notifications(): MorphMany
     {
         return $this->morphMany(Notification::class, 'notifiable');
+    }
+
+    /**
+     * Get the proforma invoices associated with this brief.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function proformaInvoices()
+    {
+        return $this->hasMany(ProformaInvoice::class, 'brief_id');
+    }
+
+    /**
+     * Get the sales purchase orders associated with this brief.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function salesPurchaseOrders()
+    {
+        return $this->hasMany(SalesPurchaseOrder::class, 'brief_id');
     }
 
     /**

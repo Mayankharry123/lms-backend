@@ -657,6 +657,17 @@ $router->group(['prefix' => 'v1', 'middleware' => 'jwt.auth'], function () use (
         $router->get('{id:[0-9]+}/download', 'ProformaInvoiceController@download');
     });
 
+    // Sales Purchase Orders
+    $router->group(['prefix' => 'sales-purchase-orders'], function () use ($router) {
+        $router->get('/', 'SalesPurchaseOrderController@index');
+        $router->post('/', 'SalesPurchaseOrderController@store');
+        $router->get('{id:[0-9]+}', 'SalesPurchaseOrderController@show');
+        $router->put('{id:[0-9]+}', 'SalesPurchaseOrderController@update');
+        $router->post('{id:[0-9]+}', 'SalesPurchaseOrderController@update');
+        $router->delete('{id:[0-9]+}', 'SalesPurchaseOrderController@destroy');
+        $router->post('{id:[0-9]+}/upload-file', 'SalesPurchaseOrderController@uploadFile');
+    });
+
     // Finance Statuses routes
     $router->group(['prefix' => 'finance-statuses'], function () use ($router) {
         $router->get('/', 'FinanceStatusController@index');

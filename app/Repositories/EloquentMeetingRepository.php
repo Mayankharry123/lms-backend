@@ -115,6 +115,22 @@ class EloquentMeetingRepository implements MeetingRepositoryInterface
                            ->get();
     }
 
+    /**
+     * Fetch all active meetings whose end time has passed.
+     */
+    public function getExpiredActiveMeetings(): Collection
+    {
+        return $this->model->expiredActive()->get();
+    }
+
+    /**
+     * Mark a meeting as completed (status = 15).
+     */
+    public function markMeetingCompleted(int $id): bool
+    {
+        return $this->model->markMeetingCompleted($id);
+    }
+
     // ============================================================================
     // WRITE OPERATIONS
     // ============================================================================

@@ -141,6 +141,8 @@ class ProformaInvoiceService
                 'pi_number' => $piNumber,
                 'invoice_date' => $invoiceDate,
                 'brand_id' => $brand->id,
+                'brief_id' => isset($payload['brief_id']) && $payload['brief_id'] !== '' ? (int) $payload['brief_id'] : null,
+                'planner_id' => isset($payload['planner_id']) && $payload['planner_id'] !== '' ? (int) $payload['planner_id'] : null,
                 'brand_name' => $brandName,
                 'client_name' => $clientName,
                 'gst_no' => $gstNo,
@@ -177,7 +179,7 @@ class ProformaInvoiceService
                 $piPath = $this->generatePdf($invoice);
             }
 
-            return $invoice->fresh(['brand', 'creator', 'assignedTo', 'items']);
+            return $invoice->fresh(['brand', 'creator', 'assignedTo', 'brief', 'planner.creator', 'items']);
         } catch (Throwable $e) {
             Log::error('Error creating proforma invoice', ['payload' => $payload, 'exception' => $e]);
             throw $e;
@@ -258,6 +260,14 @@ class ProformaInvoiceService
                 $updateData['assign_to'] = $assignToVal !== null && $assignToVal !== '' ? (int) $assignToVal : null;
             }
 
+            if (array_key_exists('brief_id', $payload)) {
+                $updateData['brief_id'] = $payload['brief_id'] !== null && $payload['brief_id'] !== '' ? (int) $payload['brief_id'] : null;
+            }
+
+            if (array_key_exists('planner_id', $payload)) {
+                $updateData['planner_id'] = $payload['planner_id'] !== null && $payload['planner_id'] !== '' ? (int) $payload['planner_id'] : null;
+            }
+
             if (isset($payload['pi_number'])) {
                 $updateData['pi_number'] = trim((string) $payload['pi_number']);
             }
@@ -328,7 +338,7 @@ class ProformaInvoiceService
                 $this->generatePdf($updated);
             }
 
-            return $updated->fresh(['brand', 'creator', 'assignedTo', 'items']);
+            return $updated->fresh(['brand', 'creator', 'assignedTo', 'brief', 'planner.creator', 'items']);
         } catch (Throwable $e) {
             Log::error('Error updating proforma invoice', ['id' => $id, 'payload' => $payload, 'exception' => $e]);
             throw $e;

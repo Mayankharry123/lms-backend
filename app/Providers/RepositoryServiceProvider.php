@@ -141,6 +141,9 @@ use App\Repositories\PurchaseOrderRepository;
 use App\Contracts\Repositories\ProformaInvoiceRepositoryInterface;
 use App\Repositories\ProformaInvoiceRepository;
 
+use App\Contracts\Repositories\SalesPurchaseOrderRepositoryInterface;
+use App\Repositories\SalesPurchaseOrderRepository;
+
 use App\Contracts\Repositories\VoucherTypeRepositoryInterface;
 use App\Repositories\VoucherTypeRepository;
 
@@ -385,6 +388,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             ProformaInvoiceRepositoryInterface::class,
             ProformaInvoiceRepository::class
+        );
+
+        $this->app->bind(
+            SalesPurchaseOrderRepositoryInterface::class,
+            SalesPurchaseOrderRepository::class
         );
 
         $this->app->bind(

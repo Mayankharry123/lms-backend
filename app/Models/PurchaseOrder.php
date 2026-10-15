@@ -51,6 +51,8 @@ class PurchaseOrder extends BaseModel
         'total_amount',
         'amount_in_words',
         'pdf_path',
+        'created_by',
+        'assign_to',
         'status',
     ];
 
@@ -70,6 +72,8 @@ class PurchaseOrder extends BaseModel
         'igst_amount' => 'float',
         'tax_amount' => 'float',
         'total_amount' => 'float',
+        'created_by' => 'integer',
+        'assign_to' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -86,6 +90,8 @@ class PurchaseOrder extends BaseModel
         'financeRecord.financeStatus',
         'financeRecord.assignedBy',
         'financeRecord.assignedTo',
+        'creator:id,name,email',
+        'assignedTo:id,name,email',
     ];
 
     /**
@@ -94,6 +100,22 @@ class PurchaseOrder extends BaseModel
     public function financeRecord()
     {
         return $this->belongsTo(FinanceRecord::class, 'finance_record_id');
+    }
+
+    /**
+     * User who created this purchase order.
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * User to whom this purchase order is assigned.
+     */
+    public function assignedTo()
+    {
+        return $this->belongsTo(User::class, 'assign_to');
     }
 
     /**
@@ -124,7 +146,23 @@ class PurchaseOrder extends BaseModel
      */
     private function accessiblePurchaseOrdersQuery(array $filters, ?User $user): Builder
     {
-        return $this->newQuery()
+        $query = $this->newQuery();
+
+        if (!empty($filters['created_by'])) {
+            $query->where('purchase_orders.created_by', (int) $filters['created_by']);
+        }
+
+        if (!empty($filters['assign_to'])) {
+            $assignToId = (int) $filters['assign_to'];
+            $query->where(function (Builder $q) use ($assignToId) {
+                $q->where('purchase_orders.assign_to', $assignToId)
+                  ->orWhereHas('financeRecord', function (Builder $fq) use ($assignToId) {
+                      $fq->where('finance_records.assign_to', $assignToId);
+                  });
+            });
+        }
+
+        return $query
             ->whereHas('financeRecord', function (Builder $financeQuery) use ($filters, $user) {
                 $financeRecord = new FinanceRecord();
 
@@ -148,13 +186,11 @@ class PurchaseOrder extends BaseModel
                     });
                 }
 
-                foreach (['assign_to', 'assign_by'] as $assignmentColumn) {
-                    if (!empty($filters[$assignmentColumn])) {
-                        $financeQuery->where(
-                            "finance_records.{$assignmentColumn}",
-                            (int) $filters[$assignmentColumn]
-                        );
-                    }
+                if (!empty($filters['assign_by'])) {
+                    $financeQuery->where(
+                        'finance_records.assign_by',
+                        (int) $filters['assign_by']
+                    );
                 }
             });
     }
