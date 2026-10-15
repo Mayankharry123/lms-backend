@@ -603,14 +603,15 @@ class UserController extends Controller
                 }
             }
 
-            $departmentIds = $this->extractDepartmentIds($request);
-            $departmentSlugs = $this->extractDepartmentSlugs($request);
+            $briefFilters = [
+                'brief_status_id' => $request->input('brief_status_id') ?? $request->input('brief_status'),
+                'priority_id' => $request->input('priority_id') ?? $request->input('priority'),
+                'status' => $request->input('status'),
+                'name' => trim((string) ($request->input('name') ?? $request->input('search', ''))),
+                'search' => trim((string) ($request->input('search') ?? $request->input('name', ''))),
+            ];
 
-            if (empty($departmentSlugs) && empty($departmentIds)) {
-                $departmentSlugs = ['planing'];
-            }
-
-            $childTree = $user->getChildTreeByDepartments($departmentIds, $departmentSlugs, $organisationId, true);
+            $childTree = $this->getPlannerChildTree($user, $organisationId !== null ? [$organisationId] : [], $request, $briefFilters);
             
             return $this->responseService->success(
                 $childTree,
@@ -828,10 +829,19 @@ class UserController extends Controller
                 'lead_status' => $request->input('lead_status'),
                 'priority' => $request->input('priority') ?? $request->input('priority_id'),
                 'name' => trim((string) $request->input('name', '')),
+                'search' => trim((string) ($request->input('search') ?? $request->input('name', ''))),
+                'brief_status_id' => $request->input('brief_status_id') ?? $request->input('brief_status'),
             ];
 
-            // Get all descendants in nested tree format filtered by organisation.
-            $childTree = $this->getSalesChildTree($user, $organisationIds, $request, $leadFilters, $zoneIds);
+            $type = strtolower(trim((string) ($request->input('type') ?? $request->input('user_type', ''))));
+            $roleParam = strtolower(trim((string) ($request->input('role') ?? $request->input('role_slug', ''))));
+            $deptParam = strtolower(trim((string) ($request->input('department') ?? $request->input('departments_slug', ''))));
+
+            if ($type === 'planner' || $type === 'planning' || str_contains($roleParam, 'planner') || str_contains($deptParam, 'planner') || str_contains($deptParam, 'planning')) {
+                $childTree = $this->getPlannerChildTree($user, $organisationIds, $request, $leadFilters, $zoneIds);
+            } else {
+                $childTree = $this->getSalesChildTree($user, $organisationIds, $request, $leadFilters, $zoneIds);
+            }
 
             $perPage = max(1, (int) $request->input('per_page', 5));
             $currentPage = max(1, (int) $request->input('page', 1));
@@ -852,6 +862,110 @@ class UserController extends Controller
             );
         } catch (\Exception $e) {
             return $this->responseService->serverError('Failed to retrieve child users: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get child planners list filtered by organisation (Planner Admin and Planner User hierarchy).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getChildPlannersByOrganisation(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user ?? auth()->user();
+            
+            if (!$user) {
+                return $this->responseService->unauthorized('User not authenticated');
+            }
+
+            $organisationIds = $request->input('organisation_id')
+                ?? $request->input('organization_id')
+                ?? $request->input('organisation_user')
+                ?? $request->input('organization_user');
+            $zoneIds = $request->input('zone_ids') ?? $request->input('zone_id');
+
+            // Preserve duplicate query parameters such as organisation_id=1&organisation_id=2 or organization_id=1.
+            $rawOrganisationIds = [];
+            foreach (explode('&', (string) $request->getQueryString()) as $parameter) {
+                [$key, $value] = array_pad(explode('=', $parameter, 2), 2, null);
+                $key = urldecode((string) $key);
+                if (in_array(rtrim($key, '[]'), ['organisation_id', 'organization_id', 'organisation_user', 'organization_user'], true)) {
+                    $rawOrganisationIds[] = urldecode((string) $value);
+                }
+            }
+
+            if (is_string($organisationIds)) {
+                $organisationIds = explode(',', $organisationIds);
+            }
+            if (!is_array($organisationIds)) {
+                $organisationIds = [$organisationIds];
+            }
+            $organisationIds = array_merge($organisationIds, $rawOrganisationIds);
+            $organisationIds = array_values(array_filter(
+                array_unique(array_map('intval', $organisationIds)),
+                fn ($id) => $id > 0
+            ));
+
+            if (is_string($zoneIds)) {
+                $zoneIds = explode(',', $zoneIds);
+            }
+            if (!is_array($zoneIds)) {
+                $zoneIds = [$zoneIds];
+            }
+
+            // Preserve duplicate query parameters such as zone_id=1&zone_id=2.
+            $rawZoneIds = [];
+            foreach (explode('&', (string) $request->getQueryString()) as $parameter) {
+                [$key, $value] = array_pad(explode('=', $parameter, 2), 2, null);
+                $key = urldecode((string) $key);
+                if (in_array(rtrim($key, '[]'), ['zone_id', 'zone_ids'], true)) {
+                    $rawZoneIds[] = urldecode((string) $value);
+                }
+            }
+
+            $zoneIds = array_values(array_filter(
+                array_unique(array_map('intval', array_merge($zoneIds, $rawZoneIds))),
+                fn ($id) => $id > 0
+            ));
+
+            if (empty($organisationIds) && empty($zoneIds)) {
+                return $this->responseService->validationError([
+                    'organisation_id' => ['Organisation ID or zone ID is required'],
+                ]);
+            }
+
+            $briefFilters = [
+                'brief_status_id' => $request->input('brief_status_id') ?? $request->input('brief_status'),
+                'priority_id' => $request->input('priority_id') ?? $request->input('priority'),
+                'status' => $request->input('status'),
+                'name' => trim((string) ($request->input('name') ?? $request->input('search', ''))),
+                'search' => trim((string) ($request->input('search') ?? $request->input('name', ''))),
+            ];
+
+            // Get all descendants in nested tree format filtered by organisation for planners.
+            $childTree = $this->getPlannerChildTree($user, $organisationIds, $request, $briefFilters, $zoneIds);
+
+            $perPage = max(1, (int) $request->input('per_page', 5));
+            $currentPage = max(1, (int) $request->input('page', 1));
+            $childTree = new \Illuminate\Pagination\LengthAwarePaginator(
+                array_slice($childTree, ($currentPage - 1) * $perPage, $perPage),
+                count($childTree),
+                $perPage,
+                $currentPage,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
+
+            return $this->responseService->paginated(
+                $childTree,
+                'Child planners hierarchy filtered by organisation retrieved successfully'
+            );
+        } catch (\Exception $e) {
+            return $this->responseService->serverError('Failed to retrieve child planners: ' . $e->getMessage());
         }
     }
 
@@ -1103,6 +1217,104 @@ class UserController extends Controller
         );
     }
 
+    /**
+     * Build planner child user tree with default non-planner exclusion and optional role/department filters.
+     *
+     * @param \App\Models\User $user
+     * @param int|array<int> $organisationIds
+     * @param Request $request
+     * @param array<string, mixed> $briefFilters
+     * @param array<int> $zoneIds
+     * @return array
+     */
+    private function getPlannerChildTree($user, $organisationIds, Request $request, array $briefFilters = [], array $zoneIds = []): array
+    {
+        // Exclude non-planner roles and departments so only planner hierarchy (Planner Admin, Planner User) is returned.
+        $excludedRoleSlugs = ['super-admin', 'sales-master', 'salesman', 'sales-admin', 'sales-user', 'ops-admin', 'ops-user', 'finance-admin', 'finance-user'];
+        $excludedDepartmentSlugs = ['sales-admin', 'sales-user', 'sales', 'ops-admin', 'ops-user', 'operations', 'finance-admin', 'finance-user', 'finance'];
+
+        $allowedRoleSlugs = [];
+        $allowedDepartmentSlugs = [];
+        $allowedRoleIds = [];
+        $allowedDepartmentIds = [];
+
+        // Parse ID filters
+        $roleIdInputs = $request->input('role_id') ?? $request->input('role_ids');
+        if (!empty($roleIdInputs)) {
+            $ids = is_array($roleIdInputs) ? $roleIdInputs : explode(',', (string) $roleIdInputs);
+            $allowedRoleIds = array_values(array_filter(array_map('intval', $ids), fn($id) => $id > 0));
+        }
+
+        $deptIdInputs = $request->input('department_id')
+            ?? $request->input('department_ids')
+            ?? $request->input('departments_id')
+            ?? $request->input('departments_ids');
+        if (!empty($deptIdInputs)) {
+            $ids = is_array($deptIdInputs) ? $deptIdInputs : explode(',', (string) $deptIdInputs);
+            $allowedDepartmentIds = array_values(array_filter(array_map('intval', $ids), fn($id) => $id > 0));
+        }
+
+        // Parse slug/role/department filters (e.g. planner-admin, planner-user, planner)
+        $slugInputs = [];
+        foreach (['role', 'roles', 'role_slug', 'role_slugs', 'department', 'departments', 'department_slug', 'department_slugs', 'departments_slug', 'departments_slugs', 'user_type', 'type', 'planner_role'] as $param) {
+            $val = $request->input($param);
+            if (!empty($val)) {
+                $items = is_array($val) ? $val : explode(',', (string) $val);
+                foreach ($items as $item) {
+                    $cleaned = str_replace('_', '-', strtolower(trim((string) $item)));
+                    if ($cleaned !== '') {
+                        $slugInputs[] = $cleaned;
+                    }
+                }
+            }
+        }
+        $slugInputs = array_unique($slugInputs);
+
+        foreach ($slugInputs as $slug) {
+            if (in_array($slug, ['planner-admin', 'planneradmin', 'planning-admin'], true)) {
+                $allowedRoleSlugs[] = 'planner-admin';
+                $allowedDepartmentSlugs[] = 'planner-admin';
+            } elseif (in_array($slug, ['planner-user', 'planner', 'planneruser', 'planning-user'], true)) {
+                $allowedRoleSlugs[] = 'planner';
+                $allowedRoleSlugs[] = 'planner-user';
+                $allowedDepartmentSlugs[] = 'planner-user';
+                $allowedDepartmentSlugs[] = 'planner';
+                $allowedDepartmentSlugs[] = 'media-planning';
+            } elseif (in_array($slug, ['planners', 'planing', 'planning', 'all'], true)) {
+                $allowedRoleSlugs[] = 'planner-admin';
+                $allowedRoleSlugs[] = 'planner';
+                $allowedRoleSlugs[] = 'planner-user';
+                $allowedDepartmentSlugs[] = 'planner-admin';
+                $allowedDepartmentSlugs[] = 'planner-user';
+                $allowedDepartmentSlugs[] = 'planner';
+                $allowedDepartmentSlugs[] = 'media-planning';
+            } else {
+                $allowedRoleSlugs[] = $slug;
+                $allowedDepartmentSlugs[] = $slug;
+            }
+        }
+
+        // If no specific role/dept filter given, default to both Planner Admin and Planner User
+        if (empty($allowedRoleSlugs) && empty($allowedDepartmentSlugs) && empty($allowedRoleIds) && empty($allowedDepartmentIds)) {
+            $allowedRoleSlugs = ['planner-admin', 'planner', 'planner-user'];
+            $allowedDepartmentSlugs = ['planner-admin', 'planner-user', 'planner', 'media-planning'];
+        }
+
+        $allowedRoleSlugs = array_values(array_unique($allowedRoleSlugs));
+        $allowedDepartmentSlugs = array_values(array_unique($allowedDepartmentSlugs));
+
+        return $user->getChildTreeByOrganisation(
+            $organisationIds,
+            $briefFilters,
+            $zoneIds,
+            $excludedRoleSlugs,
+            $allowedRoleSlugs,
+            $allowedDepartmentSlugs,
+            $excludedDepartmentSlugs,
+            $allowedRoleIds,
+            $allowedDepartmentIds
+        );
+    }
 
     /**
      * Get child planners filtered by brief's lead's organisation and planner department slug
@@ -1133,8 +1345,8 @@ class UserController extends Controller
             
             $organisationId = $lead->organisation_id;
 
-            // Get all descendants of the AUTH user in nested tree format filtered by the lead's organisation and the planner department slug
-            $childTree = $user->getChildTreeByOrganisationAndDepartmentSlug($organisationId, 'planner');
+            // Get all descendants of the AUTH user in nested tree format filtered by the lead's organisation for planners
+            $childTree = $this->getPlannerChildTree($user, $organisationId, $request);
             
             return $this->responseService->success(
                 $childTree,

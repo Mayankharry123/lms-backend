@@ -232,27 +232,46 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
                     });
                 }
             })
-            ->when(!empty($leadFilters['name']), function ($query) use ($leadFilters) {
-                $query->where('users.name', 'LIKE', '%' . $leadFilters['name'] . '%');
+            ->when(!empty($leadFilters['name']) || !empty($leadFilters['search']), function ($query) use ($leadFilters) {
+                $search = !empty($leadFilters['name']) ? $leadFilters['name'] : $leadFilters['search'];
+                $query->where('users.name', 'LIKE', '%' . $search . '%');
             })
             ->with(['roles:id,name,slug', 'departments:id,name,slug'])
             ->select('users.id', 'users.name', 'users.email')
-            ->withCount(['assignedLeads as assigned_leads_count' => function ($query) use ($leadFilters) {
-                foreach (['call_status', 'lead_status', 'priority'] as $column) {
-                    if (!array_key_exists($column, $leadFilters) || $leadFilters[$column] === null || $leadFilters[$column] === '') {
-                        continue;
+            ->withCount([
+                'assignedLeads as assigned_leads_count' => function ($query) use ($leadFilters) {
+                    foreach (['call_status', 'lead_status', 'priority'] as $column) {
+                        if (!array_key_exists($column, $leadFilters) || $leadFilters[$column] === null || $leadFilters[$column] === '') {
+                            continue;
+                        }
+
+                        $values = is_array($leadFilters[$column])
+                            ? $leadFilters[$column]
+                            : explode(',', (string) $leadFilters[$column]);
+                        $values = array_values(array_filter(array_map('intval', $values), fn ($value) => $value > 0));
+
+                        if ($values !== []) {
+                            $query->whereIn($column === 'priority' ? 'priority_id' : $column, $values);
+                        }
                     }
+                },
+                'assignedBriefs as assigned_briefs_count' => function ($query) use ($leadFilters) {
+                    foreach (['brief_status_id', 'priority_id', 'status'] as $column) {
+                        if (!array_key_exists($column, $leadFilters) || $leadFilters[$column] === null || $leadFilters[$column] === '') {
+                            continue;
+                        }
 
-                    $values = is_array($leadFilters[$column])
-                        ? $leadFilters[$column]
-                        : explode(',', (string) $leadFilters[$column]);
-                    $values = array_values(array_filter(array_map('intval', $values), fn ($value) => $value > 0));
+                        $values = is_array($leadFilters[$column])
+                            ? $leadFilters[$column]
+                            : explode(',', (string) $leadFilters[$column]);
+                        $values = array_values(array_filter(array_map('intval', $values), fn ($value) => $value > 0));
 
-                    if ($values !== []) {
-                        $query->whereIn($column === 'priority' ? 'priority_id' : $column, $values);
+                        if ($values !== []) {
+                            $query->whereIn($column, $values);
+                        }
                     }
                 }
-            }])
+            ])
             ->orderBy('users.name', 'asc')
             ->get();
         
@@ -290,7 +309,9 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
                     'id' => $child->id,
                     'name' => $child->name,
                     'email' => $child->email,
-                    'assigned_leads_count' => $child->assigned_leads_count,
+                    'assigned_leads_count' => $child->assigned_leads_count ?? 0,
+                    'assigned_briefs_count' => $child->assigned_briefs_count ?? 0,
+                    'assigned_brief_count' => $child->assigned_briefs_count ?? 0,
                     'children' => $nestedChildren
                 ];
             } elseif (!empty($nestedChildren)) {
